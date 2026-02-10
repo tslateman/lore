@@ -591,6 +591,9 @@ main() {
         stats)
             cmd_stats
             ;;
+        compact)
+            compact_decisions
+            ;;
         export)
             cmd_export "$@"
             ;;

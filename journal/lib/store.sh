@@ -227,6 +227,28 @@ export_session() {
     ' "$DECISIONS_FILE"
 }
 
+# Compact the JSONL file (keep only latest version of each decision)
+compact_decisions() {
+    init_store
+
+    local temp_file
+    temp_file=$(mktemp)
+
+    # Keep only the last occurrence of each decision ID
+    jq -s 'group_by(.id) | map(.[-1]) | sort_by(.timestamp) | .[]' -c "$DECISIONS_FILE" > "$temp_file"
+
+    local before after
+    before=$(wc -l < "$DECISIONS_FILE" | tr -d ' ')
+    after=$(wc -l < "$temp_file" | tr -d ' ')
+
+    mv "$temp_file" "$DECISIONS_FILE"
+
+    echo "Compacted: $before -> $after records (removed $((before - after)) duplicates)"
+
+    # Rebuild indexes after compaction
+    rebuild_indexes
+}
+
 # Rebuild all indexes from scratch
 rebuild_indexes() {
     rm -rf "$INDEX_DIR"
