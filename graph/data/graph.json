@@ -161,6 +161,28 @@
       },
       "created_at": "2026-02-10T06:05:00Z",
       "updated_at": "2026-02-10T06:05:00Z"
+    },
+    "concept-0b9bd235": {
+      "type": "concept",
+      "name": "Fix awk multiline bug in Lineage patterns capture",
+      "data": {
+        "oracle_id": "goal-1770705037-7cc707db",
+        "priority": "high",
+        "kind": "goal"
+      },
+      "created_at": "2026-02-10T06:30:37Z",
+      "updated_at": "2026-02-10T06:30:37Z"
+    },
+    "concept-dd14b617": {
+      "type": "concept",
+      "name": "Container Output Capture",
+      "data": {
+        "kind": "initiative",
+        "source": "council",
+        "description": "Initiative from initiatives/container-capture.md"
+      },
+      "created_at": "2026-02-10T07:30:38Z",
+      "updated_at": "2026-02-10T07:30:38Z"
     }
   },
   "edges": [
