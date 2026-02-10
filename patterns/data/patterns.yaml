@@ -101,6 +101,50 @@ patterns:
       examples:
         - good: "trap 'rm -f \"$temp_file\"' EXIT"
 
+    - id: "pat-000009-monarch"
+      name: "Contract interfaces"
+      context: "Markdown-based interface contracts between components (flow, bach, ralph)"
+      problem: "Unclear interfaces lead to integration failures and tight coupling"
+      solution: "Use dedicated CONTRACT.md files at project boundaries defining input/output formats"
+      category: "architecture"
+      origin: "monarch-pattern-sharing"
+      confidence: 0.8
+      validations: 3
+      created_at: "2026-02-10T06:00:00Z"
+
+    - id: "pat-000010-monarch"
+      name: "Narrow interfaces"
+      context: "Multi-component systems where components should only know adjacent neighbors"
+      problem: "Components reaching past their neighbors creates hidden coupling"
+      solution: "Components communicate only through adjacent interfaces, never bypassing the pipeline"
+      category: "architecture"
+      origin: "monarch-pattern-sharing"
+      confidence: 0.8
+      validations: 1
+      created_at: "2026-02-10T06:00:00Z"
+
+    - id: "pat-000011-monarch"
+      name: "CLAUDE.md as agent entry point"
+      context: "Projects that need to be navigable by AI agents"
+      problem: "Agents waste time orienting without a standard entry point"
+      solution: "Every project gets a CLAUDE.md with quick reference, structure, conventions, and integration notes"
+      category: "architecture"
+      origin: "monarch-pattern-sharing"
+      confidence: 0.95
+      validations: 7
+      created_at: "2026-02-10T06:00:00Z"
+
+    - id: "pat-000012-monarch"
+      name: "Unified memory via Lineage"
+      context: "Multiple projects generating decisions, patterns, and handoffs"
+      problem: "Decisions scatter across ad-hoc markdown files in each project"
+      solution: "Projects write memory to Lineage using fail-silent client libraries; operational state stays local"
+      category: "architecture"
+      origin: "monarch-pattern-sharing"
+      confidence: 0.7
+      validations: 1
+      created_at: "2026-02-10T06:00:00Z"
+
 anti_patterns:
     - id: "anti-000001-seed"
       name: "Baked-in credentials"

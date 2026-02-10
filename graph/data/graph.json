@@ -70,6 +70,97 @@
       },
       "created_at": "2026-02-10T03:51:29Z",
       "updated_at": "2026-02-10T03:51:29Z"
+    },
+    "project-a189c633": {
+      "type": "project",
+      "name": "oracle",
+      "data": {
+        "type": "orchestrator",
+        "language": "shell",
+        "description": "Goal management and mission decomposition"
+      },
+      "created_at": "2026-02-10T06:04:55Z",
+      "updated_at": "2026-02-10T06:04:55Z"
+    },
+    "project-cb59608f": {
+      "type": "project",
+      "name": "neo",
+      "data": {
+        "type": "orchestrator",
+        "language": "shell",
+        "description": "Team spawning and agent lifecycle"
+      },
+      "created_at": "2026-02-10T06:04:55Z",
+      "updated_at": "2026-02-10T06:04:55Z"
+    },
+    "project-453a9b3b": {
+      "type": "project",
+      "name": "monarch",
+      "data": {
+        "type": "orchestrator",
+        "language": "shell",
+        "description": "Project registry and topology"
+      },
+      "created_at": "2026-02-10T06:04:55Z",
+      "updated_at": "2026-02-10T06:04:55Z"
+    },
+    "project-52a1c95f": {
+      "type": "project",
+      "name": "council",
+      "data": {
+        "type": "orchestrator",
+        "language": "markdown",
+        "description": "Governance knowledge repository"
+      },
+      "created_at": "2026-02-10T06:04:55Z",
+      "updated_at": "2026-02-10T06:04:55Z"
+    },
+    "project-d7c0c73e": {
+      "type": "project",
+      "name": "lineage",
+      "data": {
+        "type": "library",
+        "language": "shell",
+        "description": "Unified memory - decisions, patterns, graph, transfer"
+      },
+      "created_at": "2026-02-10T06:04:55Z",
+      "updated_at": "2026-02-10T06:04:55Z"
+    },
+    "project-0ab19c17": {
+      "type": "project",
+      "name": "ralph",
+      "data": {
+        "type": "library",
+        "language": "rust",
+        "cluster": "council",
+        "role": "loop"
+      },
+      "created_at": "2026-02-10T06:05:00Z",
+      "updated_at": "2026-02-10T06:05:00Z"
+    },
+    "project-cff54971": {
+      "type": "project",
+      "name": "flow",
+      "data": {
+        "type": "library",
+        "language": "rust",
+        "cluster": "council",
+        "role": "state"
+      },
+      "created_at": "2026-02-10T06:05:00Z",
+      "updated_at": "2026-02-10T06:05:00Z"
+    },
+    "project-8dc01b0d": {
+      "type": "project",
+      "name": "bach",
+      "data": {
+        "type": "library",
+        "language": "rust",
+        "cluster": "council",
+        "role": "workers"
+      },
+      "created_at": "2026-02-10T06:05:00Z",
+      "updated_at": "2026-02-10T06:05:00Z"
     }
   },
   "edges": [
@@ -104,6 +195,102 @@
       "weight": 1.0,
       "bidirectional": false,
       "created_at": "2026-02-10T03:46:24Z"
+    },
+    {
+      "from": "project-0ab19c17",
+      "to": "project-cff54971",
+      "relation": "depends_on",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:07Z"
+    },
+    {
+      "from": "project-8dc01b0d",
+      "to": "project-cff54971",
+      "relation": "depends_on",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:07Z"
+    },
+    {
+      "from": "project-a189c633",
+      "to": "project-453a9b3b",
+      "relation": "depends_on",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:07Z"
+    },
+    {
+      "from": "project-a189c633",
+      "to": "project-cb59608f",
+      "relation": "depends_on",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:07Z"
+    },
+    {
+      "from": "project-a189c633",
+      "to": "project-d7c0c73e",
+      "relation": "depends_on",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:07Z"
+    },
+    {
+      "from": "project-cb59608f",
+      "to": "project-d7c0c73e",
+      "relation": "depends_on",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:07Z"
+    },
+    {
+      "from": "project-453a9b3b",
+      "to": "project-d7c0c73e",
+      "relation": "depends_on",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:07Z"
+    },
+    {
+      "from": "project-52a1c95f",
+      "to": "project-d7c0c73e",
+      "relation": "depends_on",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:07Z"
+    },
+    {
+      "from": "project-d7c0c73e",
+      "to": "project-a189c633",
+      "relation": "produces",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:13Z"
+    },
+    {
+      "from": "project-d7c0c73e",
+      "to": "project-cb59608f",
+      "relation": "produces",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:13Z"
+    },
+    {
+      "from": "project-d7c0c73e",
+      "to": "project-453a9b3b",
+      "relation": "produces",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:13Z"
+    },
+    {
+      "from": "project-d7c0c73e",
+      "to": "project-52a1c95f",
+      "relation": "produces",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T06:05:13Z"
     }
   ]
 }
