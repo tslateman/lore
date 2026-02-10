@@ -11,7 +11,7 @@ GRAPH_FILE="${GRAPH_DIR}/data/graph.json"
 source "$(dirname "${BASH_SOURCE[0]}")/nodes.sh"
 
 # Valid edge types
-VALID_EDGE_TYPES=("relates_to" "learned_from" "affects" "supersedes" "contradicts" "contains" "references" "implements" "depends_on")
+VALID_EDGE_TYPES=("relates_to" "learned_from" "affects" "supersedes" "contradicts" "contains" "references" "implements" "depends_on" "produces" "consumes")
 
 validate_edge_type() {
     local type="$1"

@@ -56,6 +56,7 @@ ${BOLD}LIST OPTIONS:${NC}
     --type TYPE               Filter by decision type
     --outcome STATUS          Filter by outcome (pending, successful, revised, abandoned)
     --tag TAG                 Filter by tag
+    --project NAME            Filter by project tag
     --session                 Show decisions from current session
 
 ${BOLD}EXPORT OPTIONS:${NC}
@@ -186,7 +187,21 @@ cmd_record() {
 }
 
 cmd_query() {
-    local query="$1"
+    local query=""
+    local project=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --project|-p)
+                project="$2"
+                shift 2
+                ;;
+            *)
+                query="${query:+$query }$1"
+                shift
+                ;;
+        esac
+    done
 
     if [[ -z "$query" ]]; then
         echo -e "${RED}Error: Search query required${NC}" >&2
@@ -195,6 +210,12 @@ cmd_query() {
 
     local results
     results=$(search_decisions "$query")
+
+    # Filter by project tag if specified
+    if [[ -n "$project" ]]; then
+        results=$(echo "$results" | jq --arg p "$project" \
+            '[.[] | select(.tags | any(. == $p or startswith($p + ":") or startswith($p + ",")))]')
+    fi
 
     local count
     count=$(echo "$results" | jq 'length')
@@ -332,6 +353,7 @@ cmd_list() {
     local filter_type=""
     local filter_outcome=""
     local filter_tag=""
+    local filter_project=""
     local session_only=false
 
     while [[ $# -gt 0 ]]; do
@@ -352,6 +374,10 @@ cmd_list() {
                 filter_tag="$2"
                 shift 2
                 ;;
+            --project|-p)
+                filter_project="$2"
+                shift 2
+                ;;
             --session)
                 session_only=true
                 shift
@@ -369,6 +395,8 @@ cmd_list() {
         local session_id
         session_id=$(get_session_id)
         results=$(export_session "$session_id")
+    elif [[ -n "$filter_project" ]]; then
+        results=$(get_by_project "$filter_project")
     elif [[ -n "$filter_type" ]]; then
         results=$(get_by_type "$filter_type")
     elif [[ -n "$filter_outcome" ]]; then

@@ -57,6 +57,7 @@ NODE TYPES:
     lesson      Learned insights
     decision    Architectural or design decisions
     session     Work sessions or sprints
+    project     Software projects in the ecosystem
 
 EDGE TYPES:
     relates_to      General relationship
@@ -68,6 +69,8 @@ EDGE TYPES:
     references      Points to
     implements      Realizes or fulfills
     depends_on      Requires
+    produces        Generates output consumed by another
+    consumes        Takes input produced by another
 
 EXAMPLES:
     # Add a concept
@@ -291,6 +294,7 @@ cmd_visualize() {
          elif .value.type == "lesson" then "#f8bbd0"
          elif .value.type == "decision" then "#d1c4e9"
          elif .value.type == "session" then "#ffccbc"
+         elif .value.type == "project" then "#b2dfdb"
          else "#e0e0e0" end) +
         "\"];"
     ' "$GRAPH_FILE"

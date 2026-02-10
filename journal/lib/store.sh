@@ -180,6 +180,17 @@ get_by_tag() {
     ' "$DECISIONS_FILE"
 }
 
+# Get decisions by project (matches tag prefix "project:")
+get_by_project() {
+    local project="$1"
+
+    jq -s --arg p "$project" '
+        [.[] | select(.tags | any(. == $p or startswith($p + ":") or startswith($p + ",")))]
+        | group_by(.id) | map(.[-1])
+        | sort_by(.timestamp) | reverse
+    ' "$DECISIONS_FILE"
+}
+
 # Get decisions by outcome
 get_by_outcome() {
     local outcome="$1"

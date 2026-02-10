@@ -35,6 +35,7 @@ show_help() {
     echo "  lineage resume [session]    Resume from previous session"
     echo "  lineage search <query>      Search across all components"
     echo "  lineage status              Show current session state"
+    echo "  lineage ingest <proj> <type> <file>  Bulk import from external formats"
     echo ""
     echo "Philosophy:"
     echo "  - Decisions have rationale, not just outcomes"
@@ -93,6 +94,9 @@ main() {
         search)     shift; cmd_search "$@" ;;
         status)     shift; cmd_status "$@" ;;
         
+        # Ingest command
+        ingest)     shift; source "$LINEAGE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
+
         # Component dispatch
         journal)    shift; "$LINEAGE_DIR/journal/journal.sh" "$@" ;;
         graph)      shift; "$LINEAGE_DIR/graph/graph.sh" "$@" ;;
