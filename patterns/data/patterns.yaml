@@ -1,0 +1,157 @@
+# Pattern Learner Database
+# Captures lessons learned, anti-patterns, and reusable solutions
+
+patterns:
+    - id: "pat-000001-seed"
+      name: "Safe bash arithmetic"
+      context: "Incrementing variables in bash with set -e"
+      problem: "((x++)) returns exit code 1 when x is 0, causing script to exit"
+      solution: "Use x=$((x + 1)) instead of ((x++))"
+      category: "bash"
+      origin: "session-2026-02-09"
+      confidence: 0.9
+      validations: 5
+      created_at: "2026-02-09T12:00:00Z"
+      examples:
+        - bad: "((count++))"
+        - good: "count=$((count + 1))"
+
+    - id: "pat-000002-seed"
+      name: "Quote variables in bash"
+      context: "Using variables in bash commands, especially with paths"
+      problem: "Unquoted variables with spaces or special characters cause word splitting"
+      solution: "Always quote variables: \"$var\" instead of $var"
+      category: "bash"
+      origin: "session-2026-02-09"
+      confidence: 0.85
+      validations: 3
+      created_at: "2026-02-09T12:00:00Z"
+      examples:
+        - bad: "rm -rf $path"
+        - good: "rm -rf \"$path\""
+
+    - id: "pat-000003-seed"
+      name: "Use set -euo pipefail"
+      context: "Writing robust bash scripts"
+      problem: "Scripts continue after errors, leading to cascading failures"
+      solution: "Start scripts with set -euo pipefail for strict error handling"
+      category: "bash"
+      origin: "session-2026-02-09"
+      confidence: 0.95
+      validations: 10
+      created_at: "2026-02-09T12:00:00Z"
+      examples:
+        - bad: "#!/bin/bash"
+        - good: "#!/usr/bin/env bash\nset -euo pipefail"
+
+    - id: "pat-000004-seed"
+      name: "YAML templates as contracts"
+      context: "Defining interfaces between components in multi-agent systems"
+      problem: "Unclear interfaces lead to integration failures"
+      solution: "Use YAML templates as de facto API contracts between components"
+      category: "architecture"
+      origin: "session-2026-02-09"
+      confidence: 0.8
+      validations: 2
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "pat-000005-seed"
+      name: "Hierarchical agent orchestration"
+      context: "Designing multi-agent systems with clear responsibilities"
+      problem: "Overlapping responsibilities cause conflicts and confusion"
+      solution: "Separate static registry (monarch) vs dynamic execution (neo) vs intent/goals (oracle)"
+      category: "architecture"
+      origin: "session-2026-02-09"
+      confidence: 0.75
+      validations: 1
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "pat-000006-seed"
+      name: "Optimal agent batch size"
+      context: "Parallelizing work across multiple agents"
+      problem: "Too many agents cause fragmentation, too few underutilize resources"
+      solution: "Optimal batch is approximately 3 agents per cycle for parallelism without fragmentation"
+      category: "architecture"
+      origin: "session-2026-02-09"
+      confidence: 0.7
+      validations: 1
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "pat-000007-seed"
+      name: "Establish file format conventions early"
+      context: "Starting a new project with multiple components"
+      problem: "Small structural decisions propagate and become hard to change later"
+      solution: "Establish file format and naming conventions in Cycle 1 of the project"
+      category: "architecture"
+      origin: "session-2026-02-09"
+      confidence: 0.8
+      validations: 2
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "pat-000008-seed"
+      name: "Trap for cleanup"
+      context: "Bash scripts that create temporary files or acquire resources"
+      problem: "Resources are not cleaned up when script exits unexpectedly"
+      solution: "Use trap 'cleanup_function' EXIT to ensure cleanup runs on exit"
+      category: "bash"
+      origin: "session-2026-02-09"
+      confidence: 0.9
+      validations: 4
+      created_at: "2026-02-09T12:00:00Z"
+      examples:
+        - good: "trap 'rm -f \"$temp_file\"' EXIT"
+
+anti_patterns:
+    - id: "anti-000001-seed"
+      name: "Baked-in credentials"
+      symptom: "Credentials stored in container image or code"
+      risk: "Credential exfiltration by compromised agent or leaked repository"
+      fix: "Use credential broker with scoped tokens, or environment variables from secure vault"
+      category: "security"
+      severity: "critical"
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "anti-000002-seed"
+      name: "Unquoted variable expansion"
+      symptom: "Using $var instead of \"$var\" in bash"
+      risk: "Word splitting, glob expansion, command injection vulnerabilities"
+      fix: "Always quote variable expansions: \"$var\""
+      category: "bash"
+      severity: "high"
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "anti-000003-seed"
+      name: "rm -rf with unvalidated path"
+      symptom: "Using rm -rf on a path from variable without validation"
+      risk: "Accidental deletion of critical system files or entire directories"
+      fix: "Validate path exists and is expected before deletion; use safeguards like checking path length"
+      category: "bash"
+      severity: "critical"
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "anti-000004-seed"
+      name: "Silent failure mode"
+      symptom: "Scripts that continue executing after errors without logging"
+      risk: "Cascading failures, difficult debugging, inconsistent state"
+      fix: "Use set -e, proper error handling, and comprehensive logging"
+      category: "bash"
+      severity: "high"
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "anti-000005-seed"
+      name: "Monolithic agent design"
+      symptom: "Single agent responsible for too many concerns"
+      risk: "Difficult to scale, test, or modify; single point of failure"
+      fix: "Decompose into specialized agents with clear responsibilities"
+      category: "architecture"
+      severity: "medium"
+      created_at: "2026-02-09T12:00:00Z"
+
+    - id: "anti-000006-seed"
+      name: "Missing idempotency"
+      symptom: "Operations that produce different results when run multiple times"
+      risk: "Inconsistent state, failed retries, difficult recovery"
+      fix: "Design operations to be idempotent; check state before modifying"
+      category: "architecture"
+      severity: "high"
+      created_at: "2026-02-09T12:00:00Z"

@@ -1,0 +1,76 @@
+{
+  "id": "session-example",
+  "started_at": "2024-01-15T14:30:22Z",
+  "ended_at": "2024-01-15T18:45:00Z",
+  "summary": "Implemented Context Transfer component for Lineage",
+  "goals_addressed": [
+    "Create transfer.sh main CLI",
+    "Implement session snapshot capture",
+    "Build resume functionality",
+    "Add handoff note creation",
+    "Implement smart compression"
+  ],
+  "decisions_made": [
+    "Use JSON for session storage - portable and easy to parse",
+    "Patterns are never compressed - they represent hard-won lessons",
+    "Git state captures branch, recent commits, and uncommitted files",
+    "Handoff includes prioritized next steps, blockers, and questions"
+  ],
+  "patterns_learned": [
+    "Session IDs should include timestamp for easy sorting",
+    "Always capture git state - it provides crucial context",
+    "Compression should preserve rationale, not just outcomes",
+    "Interactive handoff wizard helps capture structured data"
+  ],
+  "open_threads": [
+    "Add integration with journal component",
+    "Implement session search by content",
+    "Add export to markdown format"
+  ],
+  "handoff": {
+    "message": "Core transfer system complete, ready for integration",
+    "next_steps": [
+      "Test with real multi-session workflow",
+      "Add session search functionality",
+      "Integrate with journal entries",
+      "Add markdown export for human review"
+    ],
+    "blockers": [],
+    "questions": [
+      "Should sessions auto-compress after N days?",
+      "How to handle very large uncommitted file lists?"
+    ],
+    "created_at": "2024-01-15T18:44:00Z"
+  },
+  "git_state": {
+    "branch": "feature/context-transfer",
+    "commits": [
+      "abc1234 feat: add transfer.sh main CLI",
+      "def5678 feat: implement snapshot capture",
+      "ghi9012 feat: add resume functionality",
+      "jkl3456 feat: create handoff system",
+      "mno7890 feat: implement smart compression"
+    ],
+    "uncommitted": []
+  },
+  "context": {
+    "active_files": [
+      "transfer/transfer.sh",
+      "transfer/lib/snapshot.sh",
+      "transfer/lib/resume.sh",
+      "transfer/lib/handoff.sh",
+      "transfer/lib/compress.sh",
+      "transfer/README.md"
+    ],
+    "environment": {
+      "pwd": "/workspace/lineage/transfer"
+    }
+  },
+  "related": {
+    "journal_entries": [],
+    "patterns": [],
+    "goals": []
+  },
+  "compressed": true,
+  "compressed_at": "2026-02-10T03:46:00Z"
+}

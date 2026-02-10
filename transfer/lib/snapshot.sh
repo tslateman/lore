@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+#
+# Session Snapshot - Capture current session state
+#
+# Captures: current goals, open threads, recent decisions, active files
+# Includes: git state (branch, uncommitted changes, recent commits)
+# Links: relevant journal entries and patterns
+#
+
+#######################################
+# Capture git state for the current directory
+# Returns JSON object with git information
+#######################################
+capture_git_state() {
+    local git_dir="${1:-.}"
+
+    # Check if we're in a git repo
+    if ! git -C "${git_dir}" rev-parse --git-dir &>/dev/null; then
+        echo '{"branch": "", "commits": [], "uncommitted": [], "stash_count": 0}'
+        return 0
+    fi
+
+    local branch commits uncommitted stash_count
+
+    # Get current branch
+    branch=$(git -C "${git_dir}" branch --show-current 2>/dev/null || echo "")
+    if [[ -z "${branch}" ]]; then
+        branch=$(git -C "${git_dir}" rev-parse --short HEAD 2>/dev/null || echo "detached")
+    fi
+
+    # Get recent commits (last 10)
+    commits=$(git -C "${git_dir}" log --oneline -10 2>/dev/null | jq -R -s 'split("\n") | map(select(length > 0))' || echo '[]')
+
+    # Get uncommitted files
+    uncommitted=$(git -C "${git_dir}" status --porcelain 2>/dev/null | awk '{print $2}' | jq -R -s 'split("\n") | map(select(length > 0))' || echo '[]')
+
+    # Get stash count
+    stash_count=$(git -C "${git_dir}" stash list 2>/dev/null | wc -l | tr -d ' ')
+
+    cat << EOF
+{
+  "branch": "${branch}",
+  "commits": ${commits},
+  "uncommitted": ${uncommitted},
+  "stash_count": ${stash_count}
+}
+EOF
+}
+
+#######################################
+# Capture active files (recently modified)
+#######################################
+capture_active_files() {
+    local search_dir="${1:-.}"
+    local max_files="${2:-20}"
+
+    # Find files modified in the last 24 hours, excluding common noise
+    find "${search_dir}" -type f -mtime -1 \
+        ! -path '*/.git/*' \
+        ! -path '*/node_modules/*' \
+        ! -path '*/target/*' \
+        ! -path '*/__pycache__/*' \
+        ! -path '*/.venv/*' \
+        ! -name '*.pyc' \
+        ! -name '*.log' \
+        2>/dev/null | \
+        head -n "${max_files}" | \
+        jq -R -s 'split("\n") | map(select(length > 0))'
+}
+
+#######################################
+# Capture environment context
+#######################################
+capture_environment() {
+    local pwd_value="${PWD}"
+    local user_value="${USER:-unknown}"
+    local hostname_value="${HOSTNAME:-$(hostname 2>/dev/null || echo 'unknown')}"
+
+    cat << EOF
+{
+  "pwd": "${pwd_value}",
+  "user": "${user_value}",
+  "hostname": "${hostname_value}",
+  "shell": "${SHELL:-unknown}",
+  "term": "${TERM:-unknown}"
+}
+EOF
+}
+
+#######################################
+# Link to related lineage components
+#######################################
+find_related_entries() {
+    local lineage_root="${LINEAGE_ROOT:-$(dirname "${TRANSFER_ROOT}")}"
+
+    local journal_entries='[]'
+    local pattern_entries='[]'
+    local goal_entries='[]'
+
+    # Find recent journal entries (last 7 days)
+    if [[ -d "${lineage_root}/journal/data/entries" ]]; then
+        journal_entries=$(find "${lineage_root}/journal/data/entries" -name "*.json" -mtime -7 2>/dev/null | \
+            while read -r f; do jq -r '.id // empty' "$f" 2>/dev/null; done | \
+            jq -R -s 'split("\n") | map(select(length > 0))')
+    fi
+
+    # Find active patterns
+    if [[ -d "${lineage_root}/patterns/data" ]]; then
+        pattern_entries=$(find "${lineage_root}/patterns/data" -name "*.json" -mtime -30 2>/dev/null | \
+            while read -r f; do jq -r '.id // empty' "$f" 2>/dev/null; done | \
+            jq -R -s 'split("\n") | map(select(length > 0))')
+    fi
+
+    # Find active goals
+    if [[ -d "${lineage_root}/goals/data" ]]; then
+        goal_entries=$(find "${lineage_root}/goals/data" -name "*.json" 2>/dev/null | \
+            while read -r f; do
+                local status
+                status=$(jq -r '.status // "unknown"' "$f" 2>/dev/null)
+                if [[ "${status}" == "active" ]] || [[ "${status}" == "in_progress" ]]; then
+                    jq -r '.id // empty' "$f" 2>/dev/null
+                fi
+            done | \
+            jq -R -s 'split("\n") | map(select(length > 0))')
+    fi
+
+    cat << EOF
+{
+  "journal_entries": ${journal_entries},
+  "patterns": ${pattern_entries},
+  "goals": ${goal_entries}
+}
+EOF
+}
+
+#######################################
+# Main snapshot function
+# Creates a point-in-time capture of the current session
+#######################################
+snapshot_session() {
+    local summary="${1:-}"
+
+    if [[ ! -f "${CURRENT_SESSION_FILE}" ]]; then
+        echo "No active session. Run 'transfer.sh init' first."
+        return 1
+    fi
+
+    local session_id
+    session_id=$(cat "${CURRENT_SESSION_FILE}")
+    local session_file="${SESSIONS_DIR}/${session_id}.json"
+
+    if [[ ! -f "${session_file}" ]]; then
+        echo "Session file not found: ${session_file}"
+        return 1
+    fi
+
+    echo "Capturing snapshot for session: ${session_id}"
+
+    # Capture current state
+    local git_state active_files environment related
+    git_state=$(capture_git_state)
+    active_files=$(capture_active_files)
+    environment=$(capture_environment)
+    related=$(find_related_entries)
+
+    # Update session file with captured state
+    local tmp_file
+    tmp_file=$(mktemp)
+
+    jq --argjson git "${git_state}" \
+       --argjson files "${active_files}" \
+       --argjson env "${environment}" \
+       --argjson related "${related}" \
+       --arg summary "${summary}" \
+       --arg snapshot_time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+       '
+       .git_state = $git |
+       .context.active_files = $files |
+       .context.environment = $env |
+       .related = $related |
+       .last_snapshot = $snapshot_time |
+       if $summary != "" then .summary = $summary else . end
+       ' "${session_file}" > "${tmp_file}"
+
+    mv "${tmp_file}" "${session_file}"
+
+    echo "Snapshot captured at $(date)"
+    echo "  Git branch: $(echo "${git_state}" | jq -r '.branch')"
+    echo "  Active files: $(echo "${active_files}" | jq 'length')"
+    echo "  Related entries: $(echo "${related}" | jq '[.journal_entries, .patterns, .goals] | map(length) | add')"
+}
+
+#######################################
+# Add a goal to the current session
+#######################################
+add_goal() {
+    local goal="$1"
+
+    if [[ ! -f "${CURRENT_SESSION_FILE}" ]]; then
+        echo "No active session."
+        return 1
+    fi
+
+    local session_id
+    session_id=$(cat "${CURRENT_SESSION_FILE}")
+    local session_file="${SESSIONS_DIR}/${session_id}.json"
+
+    local tmp_file
+    tmp_file=$(mktemp)
+
+    jq --arg goal "${goal}" '.goals_addressed += [$goal]' "${session_file}" > "${tmp_file}"
+    mv "${tmp_file}" "${session_file}"
+
+    echo "Added goal: ${goal}"
+}
+
+#######################################
+# Add a decision to the current session
+#######################################
+add_decision() {
+    local decision="$1"
+
+    if [[ ! -f "${CURRENT_SESSION_FILE}" ]]; then
+        echo "No active session."
+        return 1
+    fi
+
+    local session_id
+    session_id=$(cat "${CURRENT_SESSION_FILE}")
+    local session_file="${SESSIONS_DIR}/${session_id}.json"
+
+    local tmp_file
+    tmp_file=$(mktemp)
+
+    jq --arg decision "${decision}" '.decisions_made += [$decision]' "${session_file}" > "${tmp_file}"
+    mv "${tmp_file}" "${session_file}"
+
+    echo "Added decision: ${decision}"
+}
+
+#######################################
+# Add an open thread to the current session
+#######################################
+add_thread() {
+    local thread="$1"
+
+    if [[ ! -f "${CURRENT_SESSION_FILE}" ]]; then
+        echo "No active session."
+        return 1
+    fi
+
+    local session_id
+    session_id=$(cat "${CURRENT_SESSION_FILE}")
+    local session_file="${SESSIONS_DIR}/${session_id}.json"
+
+    local tmp_file
+    tmp_file=$(mktemp)
+
+    jq --arg thread "${thread}" '.open_threads += [$thread]' "${session_file}" > "${tmp_file}"
+    mv "${tmp_file}" "${session_file}"
+
+    echo "Added open thread: ${thread}"
+}
+
+#######################################
+# Add a pattern learned to the current session
+#######################################
+add_pattern() {
+    local pattern="$1"
+
+    if [[ ! -f "${CURRENT_SESSION_FILE}" ]]; then
+        echo "No active session."
+        return 1
+    fi
+
+    local session_id
+    session_id=$(cat "${CURRENT_SESSION_FILE}")
+    local session_file="${SESSIONS_DIR}/${session_id}.json"
+
+    local tmp_file
+    tmp_file=$(mktemp)
+
+    jq --arg pattern "${pattern}" '.patterns_learned += [$pattern]' "${session_file}" > "${tmp_file}"
+    mv "${tmp_file}" "${session_file}"
+
+    echo "Added pattern: ${pattern}"
+}

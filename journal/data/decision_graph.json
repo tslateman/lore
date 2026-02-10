@@ -1,0 +1,15 @@
+{
+  "nodes": {},
+  "edges": [
+    {
+      "from": "dec-5741815d",
+      "to": "dec-56153ab9",
+      "type": "related"
+    }
+  ],
+  "file_links": {
+    "/workspace/lineage/journal/lib/store.sh": [
+      "dec-56153ab9"
+    ]
+  }
+}

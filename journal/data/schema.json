@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Decision",
+  "description": "A recorded decision with rationale, alternatives, and outcome tracking",
+  "type": "object",
+  "required": ["id", "timestamp", "decision"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dec-[a-f0-9]{8}$",
+      "description": "Unique decision identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp when decision was recorded"
+    },
+    "session_id": {
+      "type": ["string", "null"],
+      "pattern": "^session-[a-f0-9]{8}$",
+      "description": "Session identifier for grouping related decisions"
+    },
+    "decision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What was decided"
+    },
+    "rationale": {
+      "type": ["string", "null"],
+      "description": "Why this approach was chosen"
+    },
+    "alternatives": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Other options that were considered"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["pending", "successful", "revised", "abandoned"],
+      "default": "pending",
+      "description": "Current status of the decision"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["architecture", "implementation", "naming", "tooling", "process", "bugfix", "refactor", "other"],
+      "description": "Auto-detected or specified decision category"
+    },
+    "entities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Files, functions, or concepts affected by this decision"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "User-defined tags for categorization"
+    },
+    "lesson_learned": {
+      "type": ["string", "null"],
+      "description": "Insight gained after seeing the outcome"
+    },
+    "related_decisions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs of related decisions"
+    },
+    "git_commit": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{40}$",
+      "description": "Associated git commit SHA"
+    }
+  }
+}

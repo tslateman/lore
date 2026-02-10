@@ -1,0 +1,44 @@
+# Pattern Template
+# Use this template when manually adding patterns to patterns.yaml
+
+# For a pattern (something to do):
+pattern:
+  id: "pat-XXXXXX-XXXX"           # Generated automatically by CLI
+  name: "Pattern name"            # Short, descriptive name
+  context: "When this applies"    # Situation where pattern is relevant
+  problem: "What goes wrong"      # The problem this pattern solves
+  solution: "How to fix it"       # The recommended approach
+  category: "bash"                # One of: bash, git, testing, architecture, naming, security, docker, api, performance, general
+  origin: "session-YYYY-MM-DD"    # Where this was learned
+  confidence: 0.5                 # 0.0 to 1.0, increases with validation
+  validations: 0                  # Number of times validated
+  created_at: "YYYY-MM-DDTHH:MM:SSZ"
+  examples:                       # Optional examples
+    - bad: "code that's problematic"
+    - good: "code that's better"
+
+# For an anti-pattern (something to avoid):
+anti_pattern:
+  id: "anti-XXXXXX-XXXX"          # Generated automatically by CLI
+  name: "Anti-pattern name"       # Short, descriptive name
+  symptom: "What you observe"     # How to recognize this anti-pattern
+  risk: "Why it's bad"            # Consequences of this anti-pattern
+  fix: "How to fix it"            # The recommended solution
+  category: "security"            # Same categories as patterns
+  severity: "medium"              # One of: low, medium, high, critical
+  created_at: "YYYY-MM-DDTHH:MM:SSZ"
+
+# Example pattern entry:
+# - id: "pat-123456-abcd"
+#   name: "Safe bash arithmetic"
+#   context: "Incrementing variables in bash with set -e"
+#   problem: "((x++)) returns exit code 1 when x is 0"
+#   solution: "Use x=$((x + 1)) instead"
+#   category: "bash"
+#   origin: "session-2026-02-09"
+#   confidence: 0.9
+#   validations: 5
+#   created_at: "2026-02-09T12:00:00Z"
+#   examples:
+#     - bad: "((count++))"
+#     - good: "count=$((count + 1))"
