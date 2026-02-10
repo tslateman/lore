@@ -98,7 +98,7 @@ list_recent() {
     init_store
 
     # Get unique decisions (latest version of each)
-    tac "$DECISIONS_FILE" 2>/dev/null | \
+    tail -r "$DECISIONS_FILE" 2>/dev/null | \
         jq -s 'group_by(.id) | map(.[-1])' | \
         jq ".[0:$count]"
 }

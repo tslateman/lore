@@ -63,6 +63,10 @@ ${BOLD}EXPORT OPTIONS:${NC}
     --format FORMAT           Output format: json, markdown, dot, mermaid
     --session SESSION_ID      Export specific session
 
+${BOLD}QUERY OPTIONS:${NC}
+    --project, -p NAME        Filter by project tag
+    --tag TAG                 Filter by tag
+
 ${BOLD}EXAMPLES:${NC}
     # Record a decision with rationale
     journal.sh record "Use JSONL for storage" -r "Simpler than SQLite, append-only is sufficient"
@@ -75,6 +79,9 @@ ${BOLD}EXAMPLES:${NC}
 
     # Search decisions
     journal.sh query "storage format"
+
+    # Search with tag filter
+    journal.sh query "storage" --tag oracle
 
     # Get context for a file
     journal.sh context src/store.sh
@@ -189,11 +196,16 @@ cmd_record() {
 cmd_query() {
     local query=""
     local project=""
+    local tag=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --project|-p)
                 project="$2"
+                shift 2
+                ;;
+            --tag)
+                tag="$2"
                 shift 2
                 ;;
             *)
@@ -215,6 +227,12 @@ cmd_query() {
     if [[ -n "$project" ]]; then
         results=$(echo "$results" | jq --arg p "$project" \
             '[.[] | select(.tags | any(. == $p or startswith($p + ":") or startswith($p + ",")))]')
+    fi
+
+    # Filter by tag if specified
+    if [[ -n "$tag" ]]; then
+        results=$(echo "$results" | jq --arg t "$tag" \
+            '[.[] | select(.tags | any(. == $t))]')
     fi
 
     local count

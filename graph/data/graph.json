@@ -192,6 +192,28 @@
       },
       "created_at": "2026-02-10T09:33:01Z",
       "updated_at": "2026-02-10T09:33:01Z"
+    },
+    "concept-72f1b95e": {
+      "type": "concept",
+      "name": "Update promo packet with 2026 evidence",
+      "data": {
+        "oracle_id": "goal-1770716197-5776e9f2",
+        "priority": "high",
+        "kind": "goal"
+      },
+      "created_at": "2026-02-10T09:36:37Z",
+      "updated_at": "2026-02-10T09:36:37Z"
+    },
+    "concept-0c57d83a": {
+      "type": "concept",
+      "name": "Test yq fix",
+      "data": {
+        "oracle_id": "goal-1770731226-98767789",
+        "priority": "medium",
+        "kind": "goal"
+      },
+      "created_at": "2026-02-10T13:47:06Z",
+      "updated_at": "2026-02-10T13:47:06Z"
     }
   },
   "edges": [

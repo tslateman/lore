@@ -34,6 +34,8 @@ show_help() {
     echo "  lineage handoff <message>   Create handoff for next session"
     echo "  lineage resume [session]    Resume from previous session"
     echo "  lineage search <query>      Search across all components"
+    echo "  lineage context <project>   Gather full context for a project"
+    echo "  lineage suggest <context>   Suggest relevant patterns"
     echo "  lineage status              Show current session state"
     echo "  lineage ingest <proj> <type> <file>  Bulk import from external formats"
     echo ""
@@ -82,6 +84,42 @@ cmd_status() {
     "$LINEAGE_DIR/transfer/transfer.sh" status
 }
 
+cmd_suggest() {
+    "$LINEAGE_DIR/patterns/patterns.sh" suggest "$@"
+}
+
+cmd_context() {
+    local project="${1:-}"
+
+    if [[ -z "$project" ]]; then
+        echo -e "${RED}Error: Project name required${NC}" >&2
+        echo "Usage: lineage context <project>" >&2
+        return 1
+    fi
+
+    echo -e "${BOLD}Context for project: ${CYAN}${project}${NC}"
+    echo ""
+
+    echo -e "${BOLD}Decisions:${NC}"
+    "$LINEAGE_DIR/journal/journal.sh" query "$project" --project "$project" 2>/dev/null || echo "  (no decisions)"
+    echo ""
+
+    echo -e "${BOLD}Patterns:${NC}"
+    "$LINEAGE_DIR/patterns/patterns.sh" suggest "$project" 2>/dev/null || echo "  (no patterns)"
+    echo ""
+
+    echo -e "${BOLD}Graph:${NC}"
+    local node_id
+    node_id=$("$LINEAGE_DIR/graph/graph.sh" list project 2>/dev/null \
+        | awk -v p="$project" '{gsub(/\033\[[0-9;]*m/,"")} tolower($3) == tolower(p) { print $1 }')
+
+    if [[ -n "$node_id" ]]; then
+        "$LINEAGE_DIR/graph/graph.sh" related "$node_id" --hops 2 2>/dev/null || echo "  (no neighbors)"
+    else
+        echo "  (project not in graph)"
+    fi
+}
+
 main() {
     [[ $# -eq 0 ]] && { show_help; exit 0; }
 
@@ -92,6 +130,8 @@ main() {
         handoff)    shift; cmd_handoff "$@" ;;
         resume)     shift; cmd_resume "$@" ;;
         search)     shift; cmd_search "$@" ;;
+        suggest)    shift; cmd_suggest "$@" ;;
+        context)    shift; cmd_context "$@" ;;
         status)     shift; cmd_status "$@" ;;
         
         # Ingest command
