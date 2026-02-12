@@ -64,7 +64,7 @@ See `LINEAGE_CONTRACT.md` for how other projects (Neo, Oracle, Council) write to
 - Use `trap` for cleanup
 - Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`
 
-## Part of Monarch
+## Part of Lore
 
-Tracked in ~/dev/monarch. Provides shared memory to: Neo, Oracle, Council, Monarch.
+Tracked in ~/dev/lore. Provides shared memory to: Neo, Oracle, Council, Lore.
 Contract: `LINEAGE_CONTRACT.md`

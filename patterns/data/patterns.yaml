@@ -59,7 +59,7 @@ patterns:
       name: "Hierarchical agent orchestration"
       context: "Designing multi-agent systems with clear responsibilities"
       problem: "Overlapping responsibilities cause conflicts and confusion"
-      solution: "Separate static registry (monarch) vs dynamic execution (neo) vs intent/goals (oracle)"
+      solution: "Separate static registry (lore) vs dynamic execution (neo) vs intent/goals (oracle)"
       category: "architecture"
       origin: "session-2026-02-09"
       confidence: 0.75
@@ -107,7 +107,7 @@ patterns:
       problem: "Unclear interfaces lead to integration failures and tight coupling"
       solution: "Use dedicated CONTRACT.md files at project boundaries defining input/output formats"
       category: "architecture"
-      origin: "monarch-pattern-sharing"
+      origin: "lore-pattern-sharing"
       confidence: 0.8
       validations: 3
       created_at: "2026-02-10T06:00:00Z"
@@ -118,7 +118,7 @@ patterns:
       problem: "Components reaching past their neighbors creates hidden coupling"
       solution: "Components communicate only through adjacent interfaces, never bypassing the pipeline"
       category: "architecture"
-      origin: "monarch-pattern-sharing"
+      origin: "lore-pattern-sharing"
       confidence: 0.8
       validations: 1
       created_at: "2026-02-10T06:00:00Z"
@@ -129,7 +129,7 @@ patterns:
       problem: "Agents waste time orienting without a standard entry point"
       solution: "Every project gets a CLAUDE.md with quick reference, structure, conventions, and integration notes"
       category: "architecture"
-      origin: "monarch-pattern-sharing"
+      origin: "lore-pattern-sharing"
       confidence: 0.95
       validations: 7
       created_at: "2026-02-10T06:00:00Z"
@@ -140,7 +140,7 @@ patterns:
       problem: "Decisions scatter across ad-hoc markdown files in each project"
       solution: "Projects write memory to Lineage using fail-silent client libraries; operational state stays local"
       category: "architecture"
-      origin: "monarch-pattern-sharing"
+      origin: "lore-pattern-sharing"
       confidence: 0.7
       validations: 1
       created_at: "2026-02-10T06:00:00Z"

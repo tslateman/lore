@@ -61,16 +61,6 @@
       "created_at": "2026-02-10T03:46:20Z",
       "updated_at": "2026-02-10T03:46:20Z"
     },
-    "concept-d7c0c73e": {
-      "type": "concept",
-      "name": "lineage",
-      "data": {
-        "domain": "memory",
-        "purpose": "persistence"
-      },
-      "created_at": "2026-02-10T03:51:29Z",
-      "updated_at": "2026-02-10T03:51:29Z"
-    },
     "project-a189c633": {
       "type": "project",
       "name": "oracle",
@@ -95,7 +85,7 @@
     },
     "project-453a9b3b": {
       "type": "project",
-      "name": "monarch",
+      "name": "lore",
       "data": {
         "type": "orchestrator",
         "language": "shell",
@@ -161,109 +151,6 @@
       },
       "created_at": "2026-02-10T06:05:00Z",
       "updated_at": "2026-02-10T06:05:00Z"
-    },
-    "concept-0b9bd235": {
-      "type": "concept",
-      "name": "Fix awk multiline bug in Lineage patterns capture",
-      "data": {
-        "oracle_id": "goal-1770705037-7cc707db",
-        "priority": "high",
-        "kind": "goal"
-      },
-      "created_at": "2026-02-10T06:30:37Z",
-      "updated_at": "2026-02-10T06:30:37Z"
-    },
-    "concept-dd14b617": {
-      "type": "concept",
-      "name": "Container Output Capture",
-      "data": {
-        "kind": "initiative",
-        "source": "council",
-        "description": "Initiative from initiatives/container-capture.md"
-      },
-      "created_at": "2026-02-10T07:30:38Z",
-      "updated_at": "2026-02-10T07:30:38Z"
-    },
-    "concept-098f6bcd": {
-      "type": "concept",
-      "name": "test",
-      "data": {
-        "type": "test"
-      },
-      "created_at": "2026-02-10T09:33:01Z",
-      "updated_at": "2026-02-10T09:33:01Z"
-    },
-    "concept-72f1b95e": {
-      "type": "concept",
-      "name": "Update promo packet with 2026 evidence",
-      "data": {
-        "oracle_id": "goal-1770716197-5776e9f2",
-        "priority": "high",
-        "kind": "goal"
-      },
-      "created_at": "2026-02-10T09:36:37Z",
-      "updated_at": "2026-02-10T09:36:37Z"
-    },
-    "concept-0c57d83a": {
-      "type": "concept",
-      "name": "Test yq fix",
-      "data": {
-        "oracle_id": "goal-1770731226-98767789",
-        "priority": "medium",
-        "kind": "goal"
-      },
-      "created_at": "2026-02-10T13:47:06Z",
-      "updated_at": "2026-02-10T13:47:06Z"
-    },
-    "project-2af72f10": {
-      "type": "project",
-      "name": "version",
-      "data": {
-        "source": "monarch",
-        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
-      },
-      "created_at": "2026-02-12T14:03:59Z",
-      "updated_at": "2026-02-12T14:18:46Z"
-    },
-    "project-0e591676": {
-      "type": "project",
-      "name": "dependencies",
-      "data": {
-        "source": "monarch",
-        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
-      },
-      "created_at": "2026-02-12T14:03:59Z",
-      "updated_at": "2026-02-12T14:18:46Z"
-    },
-    "project-9e81e7b9": {
-      "type": "project",
-      "name": "shared",
-      "data": {
-        "source": "monarch",
-        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
-      },
-      "created_at": "2026-02-12T14:03:59Z",
-      "updated_at": "2026-02-12T14:18:46Z"
-    },
-    "project-41532013": {
-      "type": "project",
-      "name": "integrations",
-      "data": {
-        "source": "monarch",
-        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
-      },
-      "created_at": "2026-02-12T14:03:59Z",
-      "updated_at": "2026-02-12T14:18:47Z"
-    },
-    "project-e0b38d54": {
-      "type": "project",
-      "name": "pattern_sharing",
-      "data": {
-        "source": "monarch",
-        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
-      },
-      "created_at": "2026-02-12T14:03:59Z",
-      "updated_at": "2026-02-12T14:18:47Z"
     }
   },
   "edges": [
