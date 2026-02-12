@@ -369,7 +369,7 @@ cmd_orphans() {
     fi
 
     echo -e "${YELLOW}Orphaned Nodes (no connections):${NC}"
-    echo "$orphans" | jq -r '"  \(.id) [\(.type)] \(.name)"'
+    echo "$orphans" | jq -r '.[] | "  \(.id) [\(.type)] \(.name)"'
 }
 
 # Find hub nodes
@@ -424,7 +424,7 @@ cmd_stats() {
     jq -r '.edges | group_by(.relation) | map({relation: .[0].relation, count: length}) | .[] | "    \(.relation): \(.count)"' "$GRAPH_FILE"
 
     local orphan_count
-    orphan_count=$(find_orphans | jq -s 'length')
+    orphan_count=$(find_orphans | jq 'length')
     echo ""
     echo "  Orphaned nodes: $orphan_count"
 }
