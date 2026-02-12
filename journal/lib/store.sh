@@ -8,6 +8,17 @@ DATA_DIR="${SCRIPT_DIR}/../data"
 DECISIONS_FILE="${DATA_DIR}/decisions.jsonl"
 INDEX_DIR="${DATA_DIR}/index"
 
+# Portable line-reversal: tries tac, then tail -r, then awk fallback
+reverse_lines() {
+    if command -v tac >/dev/null 2>&1; then
+        tac "$@"
+    elif tail -r /dev/null 2>/dev/null; then
+        tail -r "$@"
+    else
+        awk '{a[NR]=$0} END {for(i=NR;i>=1;i--) print a[i]}' "$@"
+    fi
+}
+
 # Ensure data directories exist
 init_store() {
     mkdir -p "$DATA_DIR" "$INDEX_DIR"
@@ -98,7 +109,7 @@ list_recent() {
     init_store
 
     # Get unique decisions (latest version of each)
-    tail -r "$DECISIONS_FILE" 2>/dev/null | \
+    reverse_lines "$DECISIONS_FILE" | \
         jq -s 'group_by(.id) | map(.[-1])' | \
         jq ".[0:$count]"
 }

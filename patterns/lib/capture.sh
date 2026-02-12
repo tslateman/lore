@@ -419,9 +419,176 @@ list_patterns_json() {
     local type="$1"
     local category="$2"
 
-    # Simple YAML to JSON conversion
-    # Requires yq or similar for production use
-    echo "{"
-    echo "  \"note\": \"JSON output requires yq. Install with: brew install yq or apt install yq\""
-    echo "}"
+    # Pure awk YAML-to-JSON conversion — no yq dependency
+    awk -v filter_type="$type" -v filter_cat="$category" '
+    BEGIN {
+        in_patterns = 0; in_anti = 0; in_entry = 0; in_examples = 0
+        pat_count = 0; anti_count = 0
+        # Field names for patterns vs anti-patterns
+    }
+
+    # Track which top-level section we are in
+    /^patterns:/ { in_patterns = 1; in_anti = 0; in_entry = 0; in_examples = 0; next }
+    /^anti_patterns:/ { in_anti = 1; in_patterns = 0; in_entry = 0; in_examples = 0; next }
+
+    # Detect start of a new entry (list item with id)
+    (in_patterns || in_anti) && /^[[:space:]]*- id:[[:space:]]/ {
+        # Flush previous entry if any
+        if (in_entry) { flush_entry() }
+        in_entry = 1; in_examples = 0
+        field_count = 0; example_count = 0
+        delete fields; delete field_order
+        delete example_types; delete example_vals
+        # Parse the id from this line
+        val = $0
+        sub(/.*id:[[:space:]]*"/, "", val)
+        sub(/"[[:space:]]*$/, "", val)
+        field_count++
+        fields["id"] = val
+        field_order[field_count] = "id"
+        next
+    }
+
+    # Detect examples sub-array
+    in_entry && /^[[:space:]]*examples:[[:space:]]*$/ {
+        in_examples = 1
+        next
+    }
+
+    # Example items: "- bad: ..." or "- good: ..."
+    in_entry && in_examples && /^[[:space:]]*- (bad|good):[[:space:]]/ {
+        line = $0
+        # Determine example type without gawk capture groups
+        etype = "bad"
+        if (line ~ /- good:/) { etype = "good" }
+        val = line
+        sub(/.*- (bad|good):[[:space:]]*"/, "", val)
+        sub(/"[[:space:]]*$/, "", val)
+        example_count++
+        example_types[example_count] = etype
+        example_vals[example_count] = val
+        next
+    }
+
+    # Regular field line: "      key: value" or "      key: \"value\""
+    in_entry && /^[[:space:]]+[a-z_]+:[[:space:]]/ {
+        # If we hit a non-example field after examples started, examples section ended
+        if (in_examples && !/^[[:space:]]*- /) { in_examples = 0 }
+
+        line = $0
+        # Extract field name
+        fname = line
+        sub(/^[[:space:]]+/, "", fname)
+        sub(/:.*/, "", fname)
+
+        # Extract value
+        val = line
+        sub(/^[[:space:]]*[a-z_]+:[[:space:]]*/, "", val)
+
+        # Strip surrounding quotes if present
+        if (val ~ /^".*"$/) {
+            sub(/^"/, "", val)
+            sub(/"$/, "", val)
+        }
+
+        field_count++
+        fields[fname] = val
+        field_order[field_count] = fname
+        next
+    }
+
+    function json_escape(s) {
+        gsub(/\\/, "\\\\", s)
+        gsub(/"/, "\\\"", s)
+        gsub(/\t/, "\\t", s)
+        return s
+    }
+
+    function is_numeric(v) {
+        return v ~ /^[0-9]+(\.[0-9]+)?$/
+    }
+
+    function flush_entry() {
+        if (!in_entry) return
+        entry_cat = ("category" in fields) ? fields["category"] : ""
+
+        # Apply category filter
+        if (filter_cat != "" && entry_cat != filter_cat) {
+            in_entry = 0
+            return
+        }
+
+        # Determine which section this entry belongs to
+        if (in_patterns) {
+            pat_count++
+            pat_entries[pat_count] = build_json()
+        } else if (in_anti) {
+            anti_count++
+            anti_entries[anti_count] = build_json()
+        }
+        in_entry = 0
+    }
+
+    function build_json(    i, fname, val, result, first) {
+        result = "{"
+        first = 1
+        for (i = 1; i <= field_count; i++) {
+            fname = field_order[i]
+            val = fields[fname]
+            if (!first) result = result ","
+            first = 0
+            if (is_numeric(val)) {
+                result = result "\n      \"" fname "\": " val
+            } else {
+                result = result "\n      \"" fname "\": \"" json_escape(val) "\""
+            }
+        }
+        # Append examples if any
+        if (example_count > 0) {
+            result = result ",\n      \"examples\": ["
+            for (i = 1; i <= example_count; i++) {
+                if (i > 1) result = result ","
+                result = result "\n        {\"" example_types[i] "\": \"" json_escape(example_vals[i]) "\"}"
+            }
+            result = result "\n      ]"
+        }
+        result = result "\n    }"
+        return result
+    }
+
+    END {
+        # Flush the last entry
+        if (in_entry) { flush_entry() }
+
+        show_pat = (filter_type == "all" || filter_type == "patterns")
+        show_anti = (filter_type == "all" || filter_type == "anti-patterns")
+
+        printf "{\n"
+        first_section = 1
+
+        if (show_pat) {
+            first_section = 0
+            printf "  \"patterns\": ["
+            for (i = 1; i <= pat_count; i++) {
+                if (i > 1) printf ","
+                printf "\n    %s", pat_entries[i]
+            }
+            if (pat_count > 0) printf "\n  "
+            printf "]"
+        }
+
+        if (show_anti) {
+            if (!first_section) printf ","
+            printf "\n  \"anti_patterns\": ["
+            for (i = 1; i <= anti_count; i++) {
+                if (i > 1) printf ","
+                printf "\n    %s", anti_entries[i]
+            }
+            if (anti_count > 0) printf "\n  "
+            printf "]"
+        }
+
+        printf "\n}\n"
+    }
+    ' "$PATTERNS_FILE"
 }

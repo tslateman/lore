@@ -214,6 +214,56 @@
       },
       "created_at": "2026-02-10T13:47:06Z",
       "updated_at": "2026-02-10T13:47:06Z"
+    },
+    "project-2af72f10": {
+      "type": "project",
+      "name": "version",
+      "data": {
+        "source": "monarch",
+        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
+      },
+      "created_at": "2026-02-12T14:03:59Z",
+      "updated_at": "2026-02-12T14:03:59Z"
+    },
+    "project-0e591676": {
+      "type": "project",
+      "name": "dependencies",
+      "data": {
+        "source": "monarch",
+        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
+      },
+      "created_at": "2026-02-12T14:03:59Z",
+      "updated_at": "2026-02-12T14:03:59Z"
+    },
+    "project-9e81e7b9": {
+      "type": "project",
+      "name": "shared",
+      "data": {
+        "source": "monarch",
+        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
+      },
+      "created_at": "2026-02-12T14:03:59Z",
+      "updated_at": "2026-02-12T14:03:59Z"
+    },
+    "project-41532013": {
+      "type": "project",
+      "name": "integrations",
+      "data": {
+        "source": "monarch",
+        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
+      },
+      "created_at": "2026-02-12T14:03:59Z",
+      "updated_at": "2026-02-12T14:03:59Z"
+    },
+    "project-e0b38d54": {
+      "type": "project",
+      "name": "pattern_sharing",
+      "data": {
+        "source": "monarch",
+        "ingested_from": "/Users/tslater/dev/monarch/registry/relationships.yaml"
+      },
+      "created_at": "2026-02-12T14:03:59Z",
+      "updated_at": "2026-02-12T14:03:59Z"
     }
   },
   "edges": [

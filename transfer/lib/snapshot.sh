@@ -97,32 +97,31 @@ find_related_entries() {
     local pattern_entries='[]'
     local goal_entries='[]'
 
-    # Find recent journal entries (last 7 days)
-    if [[ -d "${lineage_root}/journal/data/entries" ]]; then
-        journal_entries=$(find "${lineage_root}/journal/data/entries" -name "*.json" -mtime -7 2>/dev/null | \
-            while read -r f; do jq -r '.id // empty' "$f" 2>/dev/null; done | \
-            jq -R -s 'split("\n") | map(select(length > 0))')
+    # Find recent journal entries (last 7 days) from JSONL store
+    local decisions_file="${lineage_root}/journal/data/decisions.jsonl"
+    if [[ -f "${decisions_file}" ]]; then
+        local cutoff_date
+        # macOS BSD date uses -v flag; GNU date uses -d flag
+        cutoff_date=$(date -v-7d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || \
+            cutoff_date=$(date -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || \
+            cutoff_date="1970-01-01T00:00:00Z"
+
+        journal_entries=$(jq -r --arg cutoff "${cutoff_date}" \
+            'select(.timestamp >= $cutoff) | .id // empty' \
+            "${decisions_file}" 2>/dev/null | \
+            jq -R -s 'split("\n") | map(select(length > 0))') || journal_entries='[]'
     fi
 
-    # Find active patterns
-    if [[ -d "${lineage_root}/patterns/data" ]]; then
-        pattern_entries=$(find "${lineage_root}/patterns/data" -name "*.json" -mtime -30 2>/dev/null | \
-            while read -r f; do jq -r '.id // empty' "$f" 2>/dev/null; done | \
-            jq -R -s 'split("\n") | map(select(length > 0))')
+    # Find active patterns from YAML store
+    local patterns_file="${lineage_root}/patterns/data/patterns.yaml"
+    if [[ -f "${patterns_file}" ]]; then
+        pattern_entries=$(grep -E '^\s+- id:\s*"' "${patterns_file}" 2>/dev/null | \
+            sed 's/.*id:[[:space:]]*"\([^"]*\)".*/\1/' | \
+            jq -R -s 'split("\n") | map(select(length > 0))') || pattern_entries='[]'
     fi
 
-    # Find active goals
-    if [[ -d "${lineage_root}/goals/data" ]]; then
-        goal_entries=$(find "${lineage_root}/goals/data" -name "*.json" 2>/dev/null | \
-            while read -r f; do
-                local status
-                status=$(jq -r '.status // "unknown"' "$f" 2>/dev/null)
-                if [[ "${status}" == "active" ]] || [[ "${status}" == "in_progress" ]]; then
-                    jq -r '.id // empty' "$f" 2>/dev/null
-                fi
-            done | \
-            jq -R -s 'split("\n") | map(select(length > 0))')
-    fi
+    # Goals live in Oracle, not Lineage -- always empty
+    goal_entries='[]'
 
     cat << EOF
 {
