@@ -48,7 +48,7 @@ COMMANDS:
     stats                               Show graph statistics
 
     import <file>                       Import nodes/edges from JSON
-    export                              Export entire graph as JSON
+    export [format]                     Export graph (json, dot, mermaid)
 
 NODE TYPES:
     concept     Abstract ideas or topics
@@ -461,8 +461,30 @@ cmd_import() {
 
 # Export graph as JSON
 cmd_export() {
+    local format="${1:-json}"
     init_graph
-    jq . "$GRAPH_FILE"
+
+    case "$format" in
+        json)
+            jq . "$GRAPH_FILE"
+            ;;
+        dot)
+            echo "digraph knowledge {"
+            echo "  rankdir=LR;"
+            jq -r '.nodes | to_entries[] | "  \"\(.key)\" [label=\"\(.value.name)\"];"' "$GRAPH_FILE"
+            jq -r '.edges[] | "  \"\(.from)\" -> \"\(.to)\" [label=\"\(.relation)\"];"' "$GRAPH_FILE"
+            echo "}"
+            ;;
+        mermaid)
+            echo "graph LR"
+            jq -r '.nodes | to_entries[] | "  \(.key)[\"\(.value.name)\"]"' "$GRAPH_FILE"
+            jq -r '.edges[] | "  \(.from) -->|\(.relation)| \(.to)"' "$GRAPH_FILE"
+            ;;
+        *)
+            echo "Unknown format: $format (use json, dot, or mermaid)" >&2
+            return 1
+            ;;
+    esac
 }
 
 # Main command dispatcher
