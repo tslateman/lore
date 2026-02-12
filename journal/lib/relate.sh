@@ -482,11 +482,13 @@ export_graph() {
             dot)
                 echo "digraph decisions {"
                 echo "  rankdir=LR;"
+                jq -r '.nodes | to_entries[] | "  \"\(.key)\" [label=\"\(.value.name)\"];"' "$GRAPH_FILE"
                 jq -r '.edges[] | "  \"\(.from)\" -> \"\(.to)\" [label=\"\(.relation)\"];"' "$GRAPH_FILE"
                 echo "}"
                 ;;
             mermaid)
                 echo "graph LR"
+                jq -r '.nodes | to_entries[] | "  \(.key)[\"\(.value.name)\"]"' "$GRAPH_FILE"
                 jq -r '.edges[] | "  \(.from) -->|\(.relation)| \(.to)"' "$GRAPH_FILE"
                 ;;
             *)
@@ -507,11 +509,13 @@ export_graph() {
         dot)
             echo "digraph decisions {"
             echo "  rankdir=LR;"
+            jq -r '.nodes | to_entries[] | "  \"\(.key)\" [label=\"\(.value.name)\"];"' "$LEGACY_GRAPH_FILE"
             jq -r '.edges[] | "  \"\(.from)\" -> \"\(.to)\" [label=\"\(.type)\"];"' "$LEGACY_GRAPH_FILE"
             echo "}"
             ;;
         mermaid)
             echo "graph LR"
+            jq -r '.nodes | to_entries[] | "  \(.key)[\"\(.value.name)\"]"' "$LEGACY_GRAPH_FILE"
             jq -r '.edges[] | "  \(.from) -->|\(.type)| \(.to)"' "$LEGACY_GRAPH_FILE"
             ;;
         *)
