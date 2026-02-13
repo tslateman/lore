@@ -1,0 +1,6 @@
+# Ephemeral pointers (per-machine state)
+journal/data/.current_session
+transfer/data/.current_session
+
+# Derived indexes (rebuildable from decisions.jsonl)
+journal/data/index/
