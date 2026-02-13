@@ -160,7 +160,7 @@
         "ingested_from": "/Users/tslater/dev/lore/registry/relationships.yaml"
       },
       "created_at": "2026-02-12T15:07:42Z",
-      "updated_at": "2026-02-12T15:07:42Z"
+      "updated_at": "2026-02-13T14:37:44Z"
     },
     "project-0e591676": {
       "type": "project",
@@ -170,7 +170,7 @@
         "ingested_from": "/Users/tslater/dev/lore/registry/relationships.yaml"
       },
       "created_at": "2026-02-12T15:07:42Z",
-      "updated_at": "2026-02-12T15:07:42Z"
+      "updated_at": "2026-02-13T14:37:44Z"
     },
     "project-9e81e7b9": {
       "type": "project",
@@ -180,7 +180,7 @@
         "ingested_from": "/Users/tslater/dev/lore/registry/relationships.yaml"
       },
       "created_at": "2026-02-12T15:07:42Z",
-      "updated_at": "2026-02-12T15:07:42Z"
+      "updated_at": "2026-02-13T14:37:44Z"
     },
     "project-41532013": {
       "type": "project",
@@ -190,7 +190,7 @@
         "ingested_from": "/Users/tslater/dev/lore/registry/relationships.yaml"
       },
       "created_at": "2026-02-12T15:07:42Z",
-      "updated_at": "2026-02-12T15:07:42Z"
+      "updated_at": "2026-02-13T14:37:44Z"
     },
     "project-e0b38d54": {
       "type": "project",
@@ -200,7 +200,51 @@
         "ingested_from": "/Users/tslater/dev/lore/registry/relationships.yaml"
       },
       "created_at": "2026-02-12T15:07:42Z",
-      "updated_at": "2026-02-12T15:07:42Z"
+      "updated_at": "2026-02-13T14:37:44Z"
+    },
+    "concept-d1227e39": {
+      "type": "concept",
+      "name": "Ecosystem Architecture",
+      "data": {
+        "kind": "initiative",
+        "source": "council",
+        "description": "Initiative from initiatives/ecosystem-architecture.md"
+      },
+      "created_at": "2026-02-12T15:38:59Z",
+      "updated_at": "2026-02-13T13:33:06Z"
+    },
+    "concept-6914ff64": {
+      "type": "concept",
+      "name": "Agent Optimization",
+      "data": {
+        "kind": "initiative",
+        "source": "council",
+        "description": "Initiative from initiatives/agent-optimization.md"
+      },
+      "created_at": "2026-02-13T05:50:00Z",
+      "updated_at": "2026-02-13T13:33:06Z"
+    },
+    "concept-bad30920": {
+      "type": "concept",
+      "name": "Orchestration Integration",
+      "data": {
+        "kind": "initiative",
+        "source": "council",
+        "description": "Initiative from initiatives/orchestration.md"
+      },
+      "created_at": "2026-02-13T05:50:00Z",
+      "updated_at": "2026-02-13T13:33:06Z"
+    },
+    "concept-43a0806e": {
+      "type": "concept",
+      "name": "Feedback Loop",
+      "data": {
+        "kind": "initiative",
+        "source": "council",
+        "description": "Initiative from initiatives/feedback-loop.md"
+      },
+      "created_at": "2026-02-13T15:13:38Z",
+      "updated_at": "2026-02-13T15:13:38Z"
     }
   },
   "edges": [

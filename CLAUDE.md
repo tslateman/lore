@@ -62,7 +62,7 @@ See `LINEAGE_CONTRACT.md` for how other projects (Neo, Oracle, Council) write to
 - Shell scripts use `set -euo pipefail`
 - Quote all variable expansions
 - Use `trap` for cleanup
-- Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`
+- Conventional commits with Strunk's-style body (see ~/.claude/CLAUDE.md)
 
 ## Part of Lore
 
