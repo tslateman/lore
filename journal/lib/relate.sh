@@ -1,34 +1,18 @@
 #!/usr/bin/env bash
 # Relationship building for decisions - links decisions to files and each other
 # Writes to the main knowledge graph (graph/data/graph.json) via the graph library.
-# Falls back to a local decision_graph.json if the graph library is unavailable.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/store.sh"
 
-DATA_DIR="${SCRIPT_DIR}/../data"
-LEGACY_GRAPH_FILE="${DATA_DIR}/decision_graph.json"
-
-# Attempt to source the main graph library
-_GRAPH_LIB_AVAILABLE=false
+# Source the main graph library
 _LINEAGE_ROOT="${SCRIPT_DIR}/../.."
-if [[ -f "${_LINEAGE_ROOT}/graph/lib/edges.sh" ]]; then
-    # Set GRAPH_DIR so nodes.sh and edges.sh point at the main graph
-    export GRAPH_DIR="${_LINEAGE_ROOT}/graph"
-    export GRAPH_FILE="${GRAPH_DIR}/data/graph.json"
-    # edges.sh sources nodes.sh internally
-    source "${_LINEAGE_ROOT}/graph/lib/edges.sh"
-    _GRAPH_LIB_AVAILABLE=true
-fi
-
-# Initialize the legacy graph file (fallback only)
-init_legacy_graph() {
-    if [[ ! -f "$LEGACY_GRAPH_FILE" ]]; then
-        echo '{"nodes": {}, "edges": [], "file_links": {}}' > "$LEGACY_GRAPH_FILE"
-    fi
-}
+export GRAPH_DIR="${_LINEAGE_ROOT}/graph"
+export GRAPH_FILE="${GRAPH_DIR}/data/graph.json"
+# edges.sh sources nodes.sh internally
+source "${_LINEAGE_ROOT}/graph/lib/edges.sh"
 
 # Map journal relationship names to valid graph edge types
 _map_edge_type() {
@@ -47,10 +31,6 @@ _map_edge_type() {
 # Returns the graph node ID on stdout.
 _ensure_decision_node() {
     local decision_id="$1"
-
-    if [[ "$_GRAPH_LIB_AVAILABLE" != "true" ]]; then
-        return 1
-    fi
 
     local decision_text=""
     local dec_record
@@ -74,10 +54,6 @@ _ensure_decision_node() {
 _ensure_file_node() {
     local filepath="$1"
 
-    if [[ "$_GRAPH_LIB_AVAILABLE" != "true" ]]; then
-        return 1
-    fi
-
     local basename
     basename=$(basename "$filepath")
     local ext="${basename##*.}"
@@ -96,51 +72,29 @@ link_to_files() {
     shift
     local files=("$@")
 
-    if [[ "$_GRAPH_LIB_AVAILABLE" == "true" ]]; then
-        local dec_node_id
-        dec_node_id=$(_ensure_decision_node "$decision_id") || true
+    local dec_node_id
+    dec_node_id=$(_ensure_decision_node "$decision_id") || true
 
-        if [[ -n "${dec_node_id:-}" ]]; then
-            for file in "${files[@]}"; do
-                local normalized
-                normalized=$(realpath -m "$file" 2>/dev/null || echo "$file")
-
-                local file_node_id
-                file_node_id=$(_ensure_file_node "$normalized") || true
-
-                if [[ -n "${file_node_id:-}" ]]; then
-                    add_edge "$dec_node_id" "$file_node_id" "references" 2>/dev/null || true
-                fi
-
-                # Keep decision entities in sync
-                update_decision "$decision_id" "entities" \
-                    "$(get_decision "$decision_id" | jq --arg file "$normalized" '.entities + [$file] | unique')" \
-                    2>/dev/null || true
-            done
-            return 0
-        fi
+    if [[ -z "${dec_node_id:-}" ]]; then
+        return 1
     fi
-
-    # Fallback: write to legacy decision_graph.json
-    init_legacy_graph
-
-    local graph
-    graph=$(cat "$LEGACY_GRAPH_FILE")
 
     for file in "${files[@]}"; do
         local normalized
         normalized=$(realpath -m "$file" 2>/dev/null || echo "$file")
 
-        graph=$(echo "$graph" | jq --arg id "$decision_id" --arg file "$normalized" '
-            .file_links[$file] = ((.file_links[$file] // []) + [$id] | unique)
-        ')
+        local file_node_id
+        file_node_id=$(_ensure_file_node "$normalized") || true
 
+        if [[ -n "${file_node_id:-}" ]]; then
+            add_edge "$dec_node_id" "$file_node_id" "references" 2>/dev/null || true
+        fi
+
+        # Keep decision entities in sync
         update_decision "$decision_id" "entities" \
             "$(get_decision "$decision_id" | jq --arg file "$normalized" '.entities + [$file] | unique')" \
             2>/dev/null || true
     done
-
-    echo "$graph" > "$LEGACY_GRAPH_FILE"
 }
 
 # Link two decisions as related
@@ -149,29 +103,17 @@ link_decisions() {
     local decision_id2="$2"
     local relationship="${3:-related}"
 
-    if [[ "$_GRAPH_LIB_AVAILABLE" == "true" ]]; then
-        local node_id1 node_id2
-        node_id1=$(_ensure_decision_node "$decision_id1") || true
-        node_id2=$(_ensure_decision_node "$decision_id2") || true
+    local node_id1 node_id2
+    node_id1=$(_ensure_decision_node "$decision_id1") || true
+    node_id2=$(_ensure_decision_node "$decision_id2") || true
 
-        if [[ -n "${node_id1:-}" && -n "${node_id2:-}" ]]; then
-            local edge_type
-            edge_type=$(_map_edge_type "$relationship")
-            add_edge "$node_id1" "$node_id2" "$edge_type" "1.0" "true" 2>/dev/null || true
-        fi
-    else
-        # Fallback: write to legacy decision_graph.json
-        init_legacy_graph
-
-        local graph
-        graph=$(cat "$LEGACY_GRAPH_FILE")
-        graph=$(echo "$graph" | jq --arg id1 "$decision_id1" --arg id2 "$decision_id2" --arg rel "$relationship" '
-            .edges += [{from: $id1, to: $id2, type: $rel}] | .edges |= unique
-        ')
-        echo "$graph" > "$LEGACY_GRAPH_FILE"
+    if [[ -n "${node_id1:-}" && -n "${node_id2:-}" ]]; then
+        local edge_type
+        edge_type=$(_map_edge_type "$relationship")
+        add_edge "$node_id1" "$node_id2" "$edge_type" "1.0" "true" 2>/dev/null || true
     fi
 
-    # Update related_decisions in both journal records regardless of graph backend
+    # Update related_decisions in both journal records
     local current1 current2
     current1=$(get_decision "$decision_id1" 2>/dev/null || true)
     current2=$(get_decision "$decision_id2" 2>/dev/null || true)
@@ -195,65 +137,47 @@ get_decisions_for_file() {
     local normalized
     normalized=$(realpath -m "$file" 2>/dev/null || echo "$file")
 
-    if [[ "$_GRAPH_LIB_AVAILABLE" == "true" ]]; then
-        # Look up the file node in the main graph
-        local file_node_id
-        file_node_id=$(generate_node_id "$normalized" "file")
+    # Look up the file node in the main graph
+    local file_node_id
+    file_node_id=$(generate_node_id "$normalized" "file")
 
-        local neighbor_ids
-        neighbor_ids=$(get_neighbors "$file_node_id" 2>/dev/null || true)
+    local neighbor_ids
+    neighbor_ids=$(get_neighbors "$file_node_id" 2>/dev/null || true)
 
-        if [[ -n "$neighbor_ids" ]]; then
-            # Resolve neighbor decision nodes back to journal IDs
-            local decision_ids=()
-            while read -r nid; do
-                [[ -z "$nid" ]] && continue
-                local node_data
-                node_data=$(get_node "$nid" 2>/dev/null || true)
-                if [[ -n "$node_data" ]]; then
-                    local ntype
-                    ntype=$(echo "$node_data" | jq -r '.type // ""')
-                    if [[ "$ntype" == "decision" ]]; then
-                        local journal_id
-                        journal_id=$(echo "$node_data" | jq -r '.data.journal_id // .name')
-                        [[ -n "$journal_id" ]] && decision_ids+=("$journal_id")
-                    fi
+    if [[ -n "$neighbor_ids" ]]; then
+        # Resolve neighbor decision nodes back to journal IDs
+        local decision_ids=()
+        while read -r nid; do
+            [[ -z "$nid" ]] && continue
+            local node_data
+            node_data=$(get_node "$nid" 2>/dev/null || true)
+            if [[ -n "$node_data" ]]; then
+                local ntype
+                ntype=$(echo "$node_data" | jq -r '.type // ""')
+                if [[ "$ntype" == "decision" ]]; then
+                    local journal_id
+                    journal_id=$(echo "$node_data" | jq -r '.data.journal_id // .name')
+                    [[ -n "$journal_id" ]] && decision_ids+=("$journal_id")
                 fi
-            done <<< "$neighbor_ids"
+            fi
+        done <<< "$neighbor_ids"
 
-            if [[ ${#decision_ids[@]} -gt 0 ]]; then
-                local results=()
-                for did in "${decision_ids[@]}"; do
-                    local dec
-                    dec=$(get_decision "$did" 2>/dev/null || true)
-                    [[ -n "$dec" ]] && results+=("$dec")
-                done
-                if [[ ${#results[@]} -gt 0 ]]; then
-                    printf '%s\n' "${results[@]}" | jq -s 'unique_by(.id)'
-                    return 0
-                fi
+        if [[ ${#decision_ids[@]} -gt 0 ]]; then
+            local results=()
+            for did in "${decision_ids[@]}"; do
+                local dec
+                dec=$(get_decision "$did" 2>/dev/null || true)
+                [[ -n "$dec" ]] && results+=("$dec")
+            done
+            if [[ ${#results[@]} -gt 0 ]]; then
+                printf '%s\n' "${results[@]}" | jq -s 'unique_by(.id)'
+                return 0
             fi
         fi
     fi
 
-    # Fallback: search by entity in the journal store
-    local entity_results
-    entity_results=$(get_by_entity "$normalized")
-
-    # Also check legacy graph if it exists
-    if [[ -f "$LEGACY_GRAPH_FILE" ]]; then
-        local ids
-        ids=$(jq -r --arg file "$normalized" '.file_links[$file] // [] | .[]' "$LEGACY_GRAPH_FILE" 2>/dev/null || true)
-
-        if [[ -n "$ids" ]]; then
-            echo "$ids" | while read -r id; do
-                get_decision "$id"
-            done | jq -s 'unique_by(.id)'
-            return 0
-        fi
-    fi
-
-    echo "$entity_results"
+    # Fall back to searching by entity in the journal store
+    get_by_entity "$normalized"
 }
 
 # Find related decisions (graph traversal)
@@ -269,43 +193,41 @@ get_related_decisions() {
         return
     fi
 
-    if [[ "$_GRAPH_LIB_AVAILABLE" == "true" ]]; then
-        # Look up decision node in the main graph and traverse
-        local dec_node_id
-        dec_node_id=$(generate_node_id "$decision_id" "decision")
+    # Look up decision node in the main graph and traverse
+    local dec_node_id
+    dec_node_id=$(generate_node_id "$decision_id" "decision")
 
-        local neighbor_ids
-        neighbor_ids=$(get_neighbors "$dec_node_id" 2>/dev/null || true)
+    local neighbor_ids
+    neighbor_ids=$(get_neighbors "$dec_node_id" 2>/dev/null || true)
 
-        if [[ -n "$neighbor_ids" ]]; then
-            local results=()
-            while read -r nid; do
-                [[ -z "$nid" ]] && continue
-                local node_data
-                node_data=$(get_node "$nid" 2>/dev/null || true)
-                if [[ -n "$node_data" ]]; then
-                    local ntype
-                    ntype=$(echo "$node_data" | jq -r '.type // ""')
-                    if [[ "$ntype" == "decision" ]]; then
-                        local journal_id
-                        journal_id=$(echo "$node_data" | jq -r '.data.journal_id // .name')
-                        if [[ -n "$journal_id" && "$journal_id" != "$decision_id" ]]; then
-                            local dec
-                            dec=$(get_decision "$journal_id" 2>/dev/null || true)
-                            [[ -n "$dec" ]] && results+=("$dec")
-                        fi
+    if [[ -n "$neighbor_ids" ]]; then
+        local results=()
+        while read -r nid; do
+            [[ -z "$nid" ]] && continue
+            local node_data
+            node_data=$(get_node "$nid" 2>/dev/null || true)
+            if [[ -n "$node_data" ]]; then
+                local ntype
+                ntype=$(echo "$node_data" | jq -r '.type // ""')
+                if [[ "$ntype" == "decision" ]]; then
+                    local journal_id
+                    journal_id=$(echo "$node_data" | jq -r '.data.journal_id // .name')
+                    if [[ -n "$journal_id" && "$journal_id" != "$decision_id" ]]; then
+                        local dec
+                        dec=$(get_decision "$journal_id" 2>/dev/null || true)
+                        [[ -n "$dec" ]] && results+=("$dec")
                     fi
                 fi
-            done <<< "$neighbor_ids"
-
-            if [[ ${#results[@]} -gt 0 ]]; then
-                printf '%s\n' "${results[@]}" | jq -s '.'
-                return 0
             fi
+        done <<< "$neighbor_ids"
+
+        if [[ ${#results[@]} -gt 0 ]]; then
+            printf '%s\n' "${results[@]}" | jq -s '.'
+            return 0
         fi
     fi
 
-    # Fallback: use related_decisions field from journal records
+    # Fall back to related_decisions field from journal records
     local related_ids
     related_ids=$(echo "$decision" | jq -r '.related_decisions[]?')
 
@@ -413,44 +335,18 @@ get_graph_summary() {
     local decisions_data
     decisions_data=$(jq -s 'group_by(.id) | map(.[0])' "$DECISIONS_FILE")
 
-    if [[ "$_GRAPH_LIB_AVAILABLE" == "true" ]]; then
-        # Read from the main graph, filtering to decision-relevant edges
-        jq -n --slurpfile graph "$GRAPH_FILE" --argjson decisions "$decisions_data" '
-            ($graph[0]) as $g |
-            {
-                total_decisions: ($decisions | length),
-                total_edges: ($g.edges | length),
-                files_tracked: ([$g.nodes | to_entries[] | select(.value.type == "file")] | length),
-                relationship_types: (
-                    $g.edges |
-                    group_by(.relation) |
-                    map({key: .[0].relation, count: length}) |
-                    from_entries
-                ),
-                most_connected: (
-                    $decisions |
-                    sort_by(.related_decisions | length) |
-                    reverse |
-                    .[0:5] |
-                    map({id: .id, decision: .decision[0:50], connections: (.related_decisions | length)})
-                )
-            }
-        '
-        return 0
-    fi
-
-    # Fallback: read from legacy graph
-    init_legacy_graph
-
-    local graph
-    graph=$(cat "$LEGACY_GRAPH_FILE")
-
-    jq -n --argjson graph "$graph" --argjson decisions "$decisions_data" '
+    jq -n --slurpfile graph "$GRAPH_FILE" --argjson decisions "$decisions_data" '
+        ($graph[0]) as $g |
         {
             total_decisions: ($decisions | length),
-            total_edges: ($graph.edges | length),
-            files_tracked: ($graph.file_links | keys | length),
-            relationship_types: ($graph.edges | group_by(.type) | map({key: .[0].type, count: length}) | from_entries),
+            total_edges: ($g.edges | length),
+            files_tracked: ([$g.nodes | to_entries[] | select(.value.type == "file")] | length),
+            relationship_types: (
+                $g.edges |
+                group_by(.relation) |
+                map({key: .[0].relation, count: length}) |
+                from_entries
+            ),
             most_connected: (
                 $decisions |
                 sort_by(.related_decisions | length) |
@@ -466,57 +362,29 @@ get_graph_summary() {
 export_graph() {
     local format="${1:-json}"
 
-    if [[ "$_GRAPH_LIB_AVAILABLE" == "true" ]]; then
-        case "$format" in
-            json)
-                # Filter main graph to decision-related nodes and edges
-                jq '{
-                    nodes: (.nodes | to_entries | map(select(.value.type == "decision" or .value.type == "file")) | from_entries),
-                    edges: [.edges[] | select(
-                        . as $e |
-                        any(keys[]; . == "from") and
-                        any(keys[]; . == "to")
-                    )]
-                }' "$GRAPH_FILE"
-                ;;
-            dot)
-                echo "digraph decisions {"
-                echo "  rankdir=LR;"
-                jq -r '.nodes | to_entries[] | "  \"\(.key)\" [label=\"\(.value.name)\"];"' "$GRAPH_FILE"
-                jq -r '.edges[] | "  \"\(.from)\" -> \"\(.to)\" [label=\"\(.relation)\"];"' "$GRAPH_FILE"
-                echo "}"
-                ;;
-            mermaid)
-                echo "graph LR"
-                jq -r '.nodes | to_entries[] | "  \(.key)[\"\(.value.name)\"]"' "$GRAPH_FILE"
-                jq -r '.edges[] | "  \(.from) -->|\(.relation)| \(.to)"' "$GRAPH_FILE"
-                ;;
-            *)
-                echo "Unknown format: $format" >&2
-                return 1
-                ;;
-        esac
-        return 0
-    fi
-
-    # Fallback: read from legacy graph
-    init_legacy_graph
-
     case "$format" in
         json)
-            cat "$LEGACY_GRAPH_FILE"
+            # Filter main graph to decision-related nodes and edges
+            jq '{
+                nodes: (.nodes | to_entries | map(select(.value.type == "decision" or .value.type == "file")) | from_entries),
+                edges: [.edges[] | select(
+                    . as $e |
+                    any(keys[]; . == "from") and
+                    any(keys[]; . == "to")
+                )]
+            }' "$GRAPH_FILE"
             ;;
         dot)
             echo "digraph decisions {"
             echo "  rankdir=LR;"
-            jq -r '.nodes | to_entries[] | "  \"\(.key)\" [label=\"\(.value.name)\"];"' "$LEGACY_GRAPH_FILE"
-            jq -r '.edges[] | "  \"\(.from)\" -> \"\(.to)\" [label=\"\(.type)\"];"' "$LEGACY_GRAPH_FILE"
+            jq -r '.nodes | to_entries[] | "  \"\(.key)\" [label=\"\(.value.name)\"];"' "$GRAPH_FILE"
+            jq -r '.edges[] | "  \"\(.from)\" -> \"\(.to)\" [label=\"\(.relation)\"];"' "$GRAPH_FILE"
             echo "}"
             ;;
         mermaid)
             echo "graph LR"
-            jq -r '.nodes | to_entries[] | "  \(.key)[\"\(.value.name)\"]"' "$LEGACY_GRAPH_FILE"
-            jq -r '.edges[] | "  \(.from) -->|\(.type)| \(.to)"' "$LEGACY_GRAPH_FILE"
+            jq -r '.nodes | to_entries[] | "  \(.key)[\"\(.value.name)\"]"' "$GRAPH_FILE"
+            jq -r '.edges[] | "  \(.from) -->|\(.relation)| \(.to)"' "$GRAPH_FILE"
             ;;
         *)
             echo "Unknown format: $format" >&2

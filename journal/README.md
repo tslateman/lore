@@ -63,6 +63,7 @@ journal.sh record "Refactor auth module" --files "src/auth.rs,src/session.rs"
 ```
 
 **Options:**
+
 - `--rationale, -r` - Why this approach was chosen
 - `--alternatives, -a` - Comma-separated list of other options considered
 - `--tags, -t` - Comma-separated tags for categorization
@@ -206,9 +207,10 @@ fi
 ## Data Storage
 
 Decisions are stored in:
+
 - `data/decisions.jsonl` - Append-only decision log
 - `data/index/` - Search indexes by date, type, entity, and tag
-- `data/decision_graph.json` - Relationship graph between decisions
+- Decision relationships stored in `graph/data/graph.json` via the graph library
 
 ## Decision Schema
 
