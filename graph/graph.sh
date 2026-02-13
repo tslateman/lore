@@ -13,6 +13,7 @@ source "${SCRIPT_DIR}/lib/nodes.sh"
 source "${SCRIPT_DIR}/lib/edges.sh"
 source "${SCRIPT_DIR}/lib/search.sh"
 source "${SCRIPT_DIR}/lib/traverse.sh"
+source "${SCRIPT_DIR}/lib/lookup.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -40,6 +41,7 @@ COMMANDS:
 
     list [type]                         List all nodes (optionally by type)
     get <node-id>                       Get details of a specific node
+    lookup <node-id>                    Reverse-lookup: find source entry for a graph node
     delete <node-id>                    Delete a node and its edges
 
     orphans                             Find nodes with no connections
@@ -84,6 +86,9 @@ EXAMPLES:
 
     # Find what's related to a decision
     graph.sh related decision-xyz --hops 3
+
+    # Reverse-lookup a decision node to its journal entry
+    graph.sh lookup decision-d7f00cf3
 
     # Visualize the graph
     graph.sh visualize | dot -Tpng -o graph.png
@@ -347,6 +352,42 @@ cmd_get() {
     echo "$node" | jq .
 }
 
+# Reverse-lookup a graph node to its source entry
+cmd_lookup() {
+    local node_id=""
+    local json_flag=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json)
+                json_flag="--json"
+                shift
+                ;;
+            *)
+                node_id="$1"
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$node_id" ]]; then
+        echo -e "${RED}Error: Node ID required${NC}" >&2
+        echo "Usage: graph.sh lookup <node-id> [--json]"
+        return 1
+    fi
+
+    local result
+    result=$(lookup_node "$node_id" "$json_flag")
+
+    if [[ -z "$result" ]]; then
+        echo -e "${RED}No source entry found for: $node_id${NC}" >&2
+        return 1
+    fi
+
+    echo -e "${CYAN}Lookup: $node_id${NC}"
+    echo "$result" | jq .
+}
+
 # Delete a node
 cmd_delete() {
     if [[ $# -lt 1 ]]; then
@@ -521,6 +562,9 @@ main() {
             ;;
         get)
             cmd_get "$@"
+            ;;
+        lookup)
+            cmd_lookup "$@"
             ;;
         delete|rm)
             cmd_delete "$@"
