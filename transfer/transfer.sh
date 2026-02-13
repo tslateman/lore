@@ -370,10 +370,10 @@ main() {
             ;;
         resume)
             if [[ $# -lt 1 ]]; then
-                echo "Usage: transfer.sh resume <session-id>"
-                exit 1
+                resume_latest
+            else
+                resume_session "$1" "${json_output}"
             fi
-            resume_session "$1" "${json_output}"
             ;;
         handoff)
             if [[ $# -lt 1 ]]; then

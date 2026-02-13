@@ -11,8 +11,8 @@ Memory that compounds. Persistent, queryable knowledge across agent sessions.
 # Capture a pattern
 ./lineage.sh learn "Safe bash arithmetic" --context "set -e scripts" --solution "Use x=\$((x+1))"
 
-# Create handoff
-./lineage.sh handoff "Auth 80% complete, need OAuth"
+# End a session (capture context for next time)
+./lineage.sh handoff "Finished X, next steps: Y, blocked on Z"
 
 # Resume previous session
 ./lineage.sh resume

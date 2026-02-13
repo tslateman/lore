@@ -8,6 +8,31 @@
 # Surfaces relevant patterns learned
 #
 
+# Resolve LINEAGE_DIR for cross-component calls
+LINEAGE_DIR="${LINEAGE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
+#######################################
+# Suggest relevant patterns for a context string
+# Outputs nothing if no patterns match (fail-silent)
+#######################################
+suggest_patterns_for_context() {
+    local context="$1"
+    local limit="${2:-5}"
+
+    [[ -z "${context}" ]] && return 0
+
+    local output
+    output=$("${LINEAGE_DIR}/patterns/patterns.sh" suggest "${context}" --limit "${limit}" 2>/dev/null) || return 0
+
+    # Only display if the suggest command found actual matches
+    # Strip ANSI color codes before checking for numbered pattern entries
+    if echo "${output}" | sed 's/\x1b\[[0-9;]*m//g' | grep -qE '^\s*[0-9]+\.' ; then
+        echo "--- Relevant Patterns ---"
+        echo "${output}"
+        echo ""
+    fi
+}
+
 #######################################
 # Load a previous session and display context
 #######################################
@@ -176,6 +201,22 @@ resume_session() {
         echo ""
     fi
 
+    # Suggest relevant patterns based on session context
+    local project
+    project=$(jq -r '.context.project // ""' "${session_file}" 2>/dev/null)
+    if [[ -n "${project}" ]]; then
+        suggest_patterns_for_context "${project}"
+    fi
+
+    # Also suggest based on open thread keywords (top 3)
+    local threads
+    threads=$(jq -r '.open_threads[]' "${session_file}" 2>/dev/null | head -3)
+    if [[ -n "${threads}" ]]; then
+        echo "${threads}" | while read -r thread; do
+            suggest_patterns_for_context "${thread}" 2
+        done
+    fi
+
     # Set as current session for continuation
     echo "${session_id}" > "${CURRENT_SESSION_FILE}"
 
@@ -242,11 +283,16 @@ find_latest_session() {
 #######################################
 resume_latest() {
     local latest
-    latest=$(find_latest_session)
+    latest=$(find_latest_session) || true
 
     if [[ -z "${latest}" ]]; then
-        echo "No sessions found."
-        return 1
+        echo "No previous sessions found."
+        echo ""
+        # Still useful: suggest patterns for the current project
+        local project_name
+        project_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+        suggest_patterns_for_context "${project_name}"
+        return 0
     fi
 
     echo "Resuming most recent session: ${latest}"
