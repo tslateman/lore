@@ -27,6 +27,7 @@ show_help() {
     echo "  graph     Searchable knowledge graph of concepts and relationships"
     echo "  patterns  Learned patterns and anti-patterns"
     echo "  transfer  Session context and succession"
+    echo "  inbox     Raw observation staging area"
     echo ""
     echo "Quick Commands:"
     echo "  lineage remember <text>     Quick capture to journal"
@@ -37,6 +38,8 @@ show_help() {
     echo "  lineage context <project>   Gather full context for a project"
     echo "  lineage suggest <context>   Suggest relevant patterns"
     echo "  lineage status              Show current session state"
+    echo "  lineage observe <text>     Capture a raw observation to inbox"
+    echo "  lineage inbox [--status S] List inbox observations"
     echo "  lineage ingest <proj> <type> <file>  Bulk import from external formats"
     echo ""
     echo "Philosophy:"
@@ -120,6 +123,93 @@ cmd_context() {
     fi
 }
 
+cmd_observe() {
+    source "$LINEAGE_DIR/inbox/lib/inbox.sh"
+
+    local content=""
+    local source="manual"
+    local tags=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --source|-s)
+                source="$2"
+                shift 2
+                ;;
+            --tags|-t)
+                tags="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                if [[ -z "$content" ]]; then
+                    content="$1"
+                else
+                    content="$content $1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$content" ]]; then
+        echo -e "${RED}Error: Observation text required${NC}" >&2
+        echo "Usage: lineage observe <text> [--source <source>] [--tags <tags>]" >&2
+        return 1
+    fi
+
+    local id
+    id=$(inbox_append "$content" "$source" "$tags")
+
+    echo -e "${GREEN}Observed:${NC} ${BOLD}$id${NC}"
+    echo -e "  ${CYAN}Content:${NC} $content"
+    if [[ "$source" != "manual" ]]; then
+        echo -e "  ${CYAN}Source:${NC} $source"
+    fi
+}
+
+cmd_inbox() {
+    source "$LINEAGE_DIR/inbox/lib/inbox.sh"
+
+    local filter_status=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --status)
+                filter_status="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                echo -e "${RED}Unknown argument: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    local results
+    results=$(inbox_list "$filter_status")
+
+    local count
+    count=$(echo "$results" | jq 'length')
+
+    if [[ "$count" -eq 0 ]]; then
+        echo -e "${YELLOW}No observations found${NC}"
+        return 0
+    fi
+
+    echo -e "${GREEN}Observations ($count):${NC}"
+    echo
+
+    echo "$results" | jq -r '.[] | "  \(.id) [\(.status)] \(.timestamp[0:16])\n    \(.content[0:70])\(.content | if length > 70 then "..." else "" end)\n"'
+}
+
 main() {
     [[ $# -eq 0 ]] && { show_help; exit 0; }
 
@@ -133,7 +223,9 @@ main() {
         suggest)    shift; cmd_suggest "$@" ;;
         context)    shift; cmd_context "$@" ;;
         status)     shift; cmd_status "$@" ;;
-        
+        observe)    shift; cmd_observe "$@" ;;
+        inbox)      shift; cmd_inbox "$@" ;;
+
         # Ingest command
         ingest)     shift; source "$LINEAGE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
 

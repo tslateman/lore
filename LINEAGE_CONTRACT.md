@@ -6,12 +6,13 @@ Lineage is the shared memory backbone for the orchestration stack. It accepts st
 
 ## Components
 
-| Component | Accepts                   | Returns                             | Storage                        |
-| --------- | ------------------------- | ----------------------------------- | ------------------------------ |
-| journal   | decisions with rationale  | decision records, related decisions | `journal/data/decisions.jsonl` |
-| graph     | nodes and edges           | subgraphs, traversals               | `graph/data/graph.json`        |
-| patterns  | lessons and anti-patterns | matched patterns, suggestions       | `patterns/data/patterns.yaml`  |
-| transfer  | session snapshots         | session state, handoff notes        | `transfer/data/sessions/`      |
+| Component | Accepts                   | Returns                             | Storage                         |
+| --------- | ------------------------- | ----------------------------------- | ------------------------------- |
+| journal   | decisions with rationale  | decision records, related decisions | `journal/data/decisions.jsonl`  |
+| graph     | nodes and edges           | subgraphs, traversals               | `graph/data/graph.json`         |
+| patterns  | lessons and anti-patterns | matched patterns, suggestions       | `patterns/data/patterns.yaml`   |
+| transfer  | session snapshots         | session state, handoff notes        | `transfer/data/sessions/`       |
+| inbox     | raw observations          | observation records                 | `inbox/data/observations.jsonl` |
 
 ## Write Interface
 
@@ -94,6 +95,29 @@ lineage graph add-edge "<from-id>" "<to-id>" \
 **Node types**: concept, file, decision, lesson, session
 **Edge relations**: relates_to, implements, learned_from, affects, depends_on
 
+### Capture an Observation (inbox)
+
+```bash
+lineage observe "<raw observation>" \
+  --source "<filename, agent-id, or 'manual'>" \
+  --tags "<tag1>,<tag2>"
+```
+
+Observations land as raw entries in the inbox staging area. They require no classification or rationale -- use `observe` when you notice something but don't yet know what it means. Promote observations to formal entries via `lineage remember` or `lineage learn` after triage.
+
+**Observation schema** (JSON):
+
+```json
+{
+  "id": "obs-<8 hex chars>",
+  "timestamp": "ISO8601",
+  "source": "string (filename, agent-id, or 'manual')",
+  "content": "string (raw text)",
+  "status": "raw|promoted|discarded",
+  "tags": ["optional", "tags"]
+}
+```
+
 ### Create Session Handoff (transfer)
 
 ```bash
@@ -125,6 +149,14 @@ lineage search "<term>"
 ```bash
 lineage graph query "<concept>"
 lineage graph neighbors "<node-id>"
+```
+
+### List Observations (inbox)
+
+```bash
+lineage inbox                    # all observations (default: raw)
+lineage inbox --status raw       # filter by status
+lineage inbox --status promoted  # show promoted observations
 ```
 
 ### Resume Session
@@ -207,6 +239,7 @@ journal/data/decisions.jsonl   # Append-only decision log
 graph/data/graph.json          # Knowledge graph (nodes + edges)
 patterns/data/patterns.yaml    # Pattern and anti-pattern library
 transfer/data/sessions/        # Session snapshots (one JSON per session)
+inbox/data/observations.jsonl  # Raw observation staging area
 ```
 
 ## Non-Goals
