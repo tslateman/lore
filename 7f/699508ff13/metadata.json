@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "7f699508ff13",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "LINEAGE_CONTRACT.md",
+    "LORE_CONTRACT.md",
+    "lineage.sh",
+    "mani.yaml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7f/699508ff13/0/metadata.json",
+      "transcript": "/7f/699508ff13/0/full.jsonl",
+      "context": "/7f/699508ff13/0/context.md",
+      "content_hash": "/7f/699508ff13/0/content_hash.txt",
+      "prompt": "/7f/699508ff13/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1940,
+    "cache_creation_tokens": 483496,
+    "cache_read_tokens": 17683534,
+    "output_tokens": 12032,
+    "api_call_count": 164
+  }
+}

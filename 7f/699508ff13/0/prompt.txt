@@ -1,0 +1,805 @@
+Implement the following plan:
+
+# Plan: Replace DEV_PATH with location-derived workspace root
+
+## Context
+
+`DEV_PATH` is an unnecessary indirection. Every lore script already computes
+`SCRIPT_DIR` from `${BASH_SOURCE[0]}`. Since lore always lives one level below
+the workspace root (`~/dev/lore/`), the workspace root is just
+`dirname(dirname(SCRIPT_DIR))`. No environment variable needed.
+
+## Approach
+
+Introduce `LORE_ROOT` (explicit) and derive `WORKSPACE_ROOT` from it. Remove
+`DEV_PATH` from all scripts and docs. Keep `MANI_FILE` and `LINEAGE_DIR`
+overrides for edge cases.
+
+## Changes
+
+### 1. `scripts/lore-cli.sh` (lines 28-37)
+
+Replace:
+```bash
+DEV_PATH="${DEV_PATH:-$HOME/dev}"
+MANI_FILE="${MANI_FILE:-$DEV_PATH/mani.yaml}"
+```
+
+With:
+```bash
+LORE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
+MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
+```
+
+Update line 606 (`$DEV_PATH/${path}` -> `$WORKSPACE_ROOT/${path}`) and
+line 769 (`$DEV_PATH/lineage` -> `$WORKSPACE_ROOT/lineage`).
+
+### 2. `scripts/validate-registry.sh` (lines 24-32)
+
+Same pattern. Replace DEV_PATH setup with:
+```bash
+LORE_ROOT="$(dirname "$SCRIPT_DIR")"
+WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
+MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
+```
+
+Update lines 189, 439 (`$DEV_PATH/` -> `$WORKSPACE_ROOT/`) and
+line 524 (`$DEV_PATH/lineage` -> `$WORKSPACE_ROOT/lineage`).
+
+### 3. `lib/lineage-client.sh` (lines 7-8)
+
+This is a sourced library. `BASH_SOURCE[0]` still works. Replace:
+```bash
+DEV_PATH="${DEV_PATH:-$HOME/dev}"
+LINEAGE_DIR="${LINEAGE_DIR:-$DEV_PATH/lineage}"
+```
+
+With:
+```bash
+_LINEAGE_CLIENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(dirname "$(dirname "$_LINEAGE_CLIENT_DIR")")}"
+LINEAGE_DIR="${LINEAGE_DIR:-$WORKSPACE_ROOT/lineage}"
+```
+
+Uses `WORKSPACE_ROOT` if already set by the sourcing script; derives it
+independently otherwise.
+
+### 4. `scripts/migrate-to-mani.sh` (line 17)
+
+Already hardcodes `$HOME/dev/mani.yaml`. One-time migration script, historical
+reference only. Leave as-is.
+
+### 5. Documentation updates
+
+**CLAUDE.md**: Replace `$DEV_PATH` references with `~/dev` (the actual path).
+The variable was documentation noise -- readers want to know the real location.
+
+**README.md**: Same replacement. Remove the `DEV_PATH` row from the environment
+variables table. Keep the `MANI_FILE` row.
+
+**plans/plan-wire-lineage-functions.md**: Update the sourcing example.
+
+## Files touched
+
+| File | Change |
+|------|--------|
+| `scripts/lore-cli.sh` | Replace DEV_PATH with WORKSPACE_ROOT (4 lines) |
+| `scripts/validate-registry.sh` | Replace DEV_PATH with WORKSPACE_ROOT (5 lines) |
+| `lib/lineage-client.sh` | Replace DEV_PATH with derived WORKSPACE_ROOT (3 lines) |
+| `CLAUDE.md` | Replace `$DEV_PATH` with `~/dev` in prose |
+| `README.md` | Replace `$DEV_PATH` with `~/dev`, drop env var row |
+| `plans/plan-wire-lineage-functions.md` | Update path reference |
+
+## Not touched
+
+- `scripts/migrate-to-mani.sh` -- historical, already hardcoded
+- `hooks/pre-commit` -- already uses relative resolution, no DEV_PATH
+
+## Verification
+
+```bash
+# 1. Run lore commands
+./scripts/lore-cli.sh show oracle
+./scripts/lore-cli.sh context flow
+./scripts/lore-cli.sh validate
+./scripts/lore-cli.sh sync
+
+# 2. Run validator directly
+./scripts/validate-registry.sh
+
+# 3. Verify MANI_FILE override still works
+MANI_FILE=~/dev/mani.yaml ./scripts/lore-cli.sh show oracle
+```
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/tslater/.REDACTED.jsonl
+
+If this plan can be broken down into multiple independent tasks, consider using the TeamCreate tool to create a team and parallelize the work.
+
+---
+
+Reflect on the work just completed in this conversation.
+
+## What I Learned
+
+Identify 2-4 concrete technical insights from this session:
+
+- Patterns discovered or reinforced
+- Gotchas or surprises encountered
+- Techniques that worked well (or didn't)
+- Connections to other parts of the codebase
+
+Focus on _insights_, not a summary of actions taken.
+
+## What to Think About Next
+
+Surface 2-4 open threads worth considering:
+
+- Unfinished work or TODOs
+- Edge cases or risks not yet addressed
+- Potential improvements or refactors
+- Questions that came up but weren't resolved
+
+Be specific—name files, functions, or concepts rather than speaking abstractly.
+
+---
+
+After generating the retro, ask the user if any insights are worth persisting to auto memory. Use AskUserQuestion with options like "Yes, update MEMORY.md" and "No, just this session".
+
+If yes, read the current MEMORY.md from the project's auto memory directory and intelligently merge the new insights—don't duplicate existing points, add new ones under the appropriate sections.
+
+---
+
+## Context
+
+- Current git status: On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   CLAUDE.md
+	modified:   README.md
+	modified:   lib/lineage-client.sh
+	modified:   plans/plan-wire-lineage-functions.md
+	modified:   scripts/lore-cli.sh
+	modified:   scripts/validate-registry.sh
+
+no changes added to commit (use "git add" and/or "git commit -a")
+- Current git diff (staged and unstaged changes): diff --git a/CLAUDE.md b/CLAUDE.md
+index 2d9e65c..2dc005c 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -1,33 +1,34 @@
+ # Lore - System Hub
+ 
+-You are entering the meta-layer that coordinates all projects in `$DEV_PATH` (default: `~/dev`).
++You are entering the meta-layer that coordinates all projects in `~/dev`.
+ 
+ ## Quick Navigation
+ 
+-| Need                        | Location                      |
+-| --------------------------- | ----------------------------- |
+-| Find a project              | `$DEV_PATH/mani.yaml`         |
+-| Project metadata            | `registry/metadata.yaml`      |
+-| Understand clusters         | `registry/clusters.yaml`      |
+-| Cross-project relationships | `registry/relationships.yaml` |
+-| Full architecture           | `SYSTEM.md`                   |
+-| Reusable patterns           | `patterns/`                   |
+-| Operational checklist       | `context/CHECKLIST.md`        |
+-| Current handoff state       | `context/HANDOFF.md`          |
++| Need                        | Location                              |
++| --------------------------- | ------------------------------------- |
++| Find a project              | `~/dev/mani.yaml`                     |
++| Project metadata            | `registry/metadata.yaml`              |
++| Understand clusters         | `registry/clusters.yaml`              |
++| Cross-project relationships | `registry/relationships.yaml`         |
++| Full architecture           | `SYSTEM.md`                           |
++| Ecosystem architecture      | `~/dev/council/mainstay/ecosystem.md` |
++| Reusable patterns           | `patterns/`                           |
++| Operational checklist       | `context/CHECKLIST.md`                |
++| Current handoff state       | `context/HANDOFF.md`                  |
+ 
+ ## Architecture: mani + lore
+ 
+ **mani** knows _what exists_. **Lore** knows _why it matters_.
+ 
+-- **mani** (`$DEV_PATH/mani.yaml`): project names, paths, tags. Use mani to list, filter, and run commands across repos.
++- **mani** (`~/dev/mani.yaml`): project names, paths, tags. Use mani to list, filter, and run commands across repos.
+ - **lore** (`registry/`): roles, contracts, cluster choreography, dependency rationale, context assembly. Use lore when you need the story behind a project.
+ 
+ ```
+-$DEV_PATH/mani.yaml          (source of truth for project existence)
++~/dev/mani.yaml          (source of truth for project existence)
+     |
+     +-- mani CLI             list, filter, exec, TUI
+     |
+-$DEV_PATH/lore/
++~/dev/lore/
+     +-- registry/
+     |   +-- metadata.yaml    role, contracts, components, links
+     |   +-- clusters.yaml    pipeline choreography, data flow, principles
+@@ -98,9 +99,9 @@ Lore does NOT execute work. It:
+ 
+ ## When to Update What
+ 
+-**Edit `$DEV_PATH/mani.yaml`** (mani's file) when:
++**Edit `~/dev/mani.yaml`** (mani's file) when:
+ 
+-- A new project is created in `$DEV_PATH`
++- A new project is created in `~/dev`
+ - A project's path, description, or tags change
+ 
+ **Edit lore files** (`registry/`) when:
+@@ -113,7 +114,7 @@ Lore does NOT execute work. It:
+ Record significant decisions in Lineage:
+ 
+ ```bash
+-$DEV_PATH/lineage/lineage.sh remember "<decision>" --rationale "<why>" --tags "lore,<topic>"
++~/dev/lineage/lineage.sh remember "<decision>" --rationale "<why>" --tags "lore,<topic>"
+ ```
+ 
+ ## Pending Plans
+diff --git a/README.md b/README.md
+index d7b3445..0661ab0 100644
+--- a/README.md
++++ b/README.md
+@@ -15,14 +15,14 @@ Lore is the hub that knows about all projects in your development directory:
+ 
+ **mani** knows _what exists_. **Lore** knows _why it matters_.
+ 
+-Project existence and basic metadata live in **mani** (`$DEV_PATH/mani.yaml`). Lore adds the enrichment layer: roles, contracts, cluster choreography, relationship tracking, and context assembly.
++Project existence and basic metadata live in **mani** (`~/dev/mani.yaml`). Lore adds the enrichment layer: roles, contracts, cluster choreography, relationship tracking, and context assembly.
+ 
+ ```
+-$DEV_PATH/mani.yaml          Source of truth for project existence
++~/dev/mani.yaml          Source of truth for project existence
+     |
+     +-- mani CLI             list, sync, exec, TUI
+     |
+-$DEV_PATH/lore/
++~/dev/lore/
+     +-- registry/
+     |   +-- metadata.yaml    Role, contracts, components, links
+     |   +-- clusters.yaml    Pipeline choreography, data flow
+@@ -39,12 +39,11 @@ brew install yq jq mani
+ 
+ ## Configuration
+ 
+-| Variable    | Default               | Purpose                     |
+-| ----------- | --------------------- | --------------------------- |
+-| `DEV_PATH`  | `~/dev`               | Root directory for projects |
+-| `MANI_FILE` | `$DEV_PATH/mani.yaml` | Override mani.yaml location |
++| Variable    | Default           | Purpose                     |
++| ----------- | ----------------- | --------------------------- |
++| `MANI_FILE` | `~/dev/mani.yaml` | Override mani.yaml location |
+ 
+-All lore scripts resolve paths through `DEV_PATH`. Set it in your shell profile to use a different root.
++Scripts derive the workspace root from lore's own location. Override `MANI_FILE` to point elsewhere.
+ 
+ - `yq` (Go version, https://github.com/mikefarah/yq) v4.52+
+ - `jq` (https://jqlang.github.io/jq/) v1.7+
+@@ -54,7 +53,7 @@ All lore scripts resolve paths through `DEV_PATH`. Set it in your shell profile
+ 
+ ```bash
+ # List all projects (mani)
+-cd "$DEV_PATH" && mani list projects
++cd "~/dev" && mani list projects
+ 
+ # Filter by type, cluster, or tag
+ mani list projects --tags type:orchestrator
+@@ -71,7 +70,7 @@ mani list projects --tags "lang:rust"
+ Or explore the raw YAML files directly:
+ 
+ ```bash
+-cat "$DEV_PATH/mani.yaml"            # All projects with tags
++cat "~/dev/mani.yaml"            # All projects with tags
+ cat registry/metadata.yaml          # Roles, contracts, components
+ cat registry/clusters.yaml          # Cluster definitions
+ cat registry/relationships.yaml     # Dependencies
+@@ -84,7 +83,7 @@ Read `CLAUDE.md` first -- it's your entry point to the system.
+ ## Structure
+ 
+ ```
+-$DEV_PATH/mani.yaml            # Project existence, paths, tags (outside lore repo)
++~/dev/mani.yaml            # Project existence, paths, tags (outside lore repo)
+ 
+ lore/
+ +-- CLAUDE.md              # Agent entry point
+@@ -110,7 +109,7 @@ lore/
+ 
+ ### Add to mani
+ 
+-Edit `$DEV_PATH/mani.yaml` directly. For projects with a `url` field, `mani sync` clones them locally.
++Edit `~/dev/mani.yaml` directly. For projects with a `url` field, `mani sync` clones them locally.
+ 
+ ```yaml
+ projects:
+diff --git a/lib/lineage-client.sh b/lib/lineage-client.sh
+index b9b4bb0..9130044 100644
+--- a/lib/lineage-client.sh
++++ b/lib/lineage-client.sh
+@@ -4,8 +4,9 @@
+ # Syncs relationships and patterns to Lineage graph, enriches context output.
+ # All functions fail silently if Lineage is unavailable.
+ 
+-DEV_PATH="${DEV_PATH:-$HOME/dev}"
+-LINEAGE_DIR="${LINEAGE_DIR:-$DEV_PATH/lineage}"
++_LINEAGE_CLIENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(dirname "$(dirname "$_LINEAGE_CLIENT_DIR")")}"
++LINEAGE_DIR="${LINEAGE_DIR:-$WORKSPACE_ROOT/lineage}"
+ 
+ # Source the shared base library
+ if [[ -f "$LINEAGE_DIR/lib/lineage-client-base.sh" ]]; then
+diff --git a/plans/plan-wire-lineage-functions.md b/plans/plan-wire-lineage-functions.md
+index 361c999..2625948 100644
+--- a/plans/plan-wire-lineage-functions.md
++++ b/plans/plan-wire-lineage-functions.md
+@@ -23,7 +23,7 @@ likely lives in `scripts/lore-cli.sh` or a registry management script. When a
+ new project entry is added to `registry/metadata.yaml`, call:
+ 
+ ```bash
+-source "$DEV_PATH/lore/lib/lineage-client.sh"
++source "~/dev/lore/lib/lineage-client.sh"
+ lineage_record_project_added "$project_name" "$project_type" "$description"
+ ```
+ 
+diff --git a/scripts/lore-cli.sh b/scripts/lore-cli.sh
+index 859d7e4..341c405 100755
+--- a/scripts/lore-cli.sh
++++ b/scripts/lore-cli.sh
+@@ -27,9 +27,10 @@ set -euo pipefail
+ 
+ # Resolve the script's directory to find the registry
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+-REGISTRY_DIR="${SCRIPT_DIR}/../registry"
+-DEV_PATH="${DEV_PATH:-$HOME/dev}"
+-MANI_FILE="${MANI_FILE:-$DEV_PATH/mani.yaml}"
++LORE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
++WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
++REGISTRY_DIR="${LORE_ROOT}/registry"
++MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
+ METADATA_FILE="${REGISTRY_DIR}/metadata.yaml"
+ CLUSTERS_FILE="${REGISTRY_DIR}/clusters.yaml"
+ RELATIONSHIPS_FILE="${REGISTRY_DIR}/relationships.yaml"
+@@ -603,7 +604,7 @@ context_flow_state() {
+     local path
+     path=$(yqj ".projects.\"${project}\".path" "$MANI_FILE")
+ 
+-    local state_file="$DEV_PATH/${path}/.flow/state.json"
++    local state_file="$WORKSPACE_ROOT/${path}/.flow/state.json"
+     [[ -f "$state_file" ]] || return
+ 
+     local data
+@@ -766,7 +767,7 @@ context_judgments() {
+ context_lineage() {
+     local project="$1"
+ 
+-    LINEAGE_DIR="${LINEAGE_DIR:-$DEV_PATH/lineage}"
++    LINEAGE_DIR="${LINEAGE_DIR:-$WORKSPACE_ROOT/lineage}"
+     if [[ -f "${SCRIPT_DIR}/../lib/lineage-client.sh" ]]; then
+         source "${SCRIPT_DIR}/../lib/lineage-client.sh" 2>/dev/null && \
+             lineage_enrich_context "$project" 2>/dev/null || true
+diff --git a/scripts/validate-registry.sh b/scripts/validate-registry.sh
+index 596e74e..c593d8a 100755
+--- a/scripts/validate-registry.sh
++++ b/scripts/validate-registry.sh
+@@ -24,8 +24,9 @@ set -euo pipefail
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ REGISTRY_DIR="$(dirname "$SCRIPT_DIR")/registry"
+ 
+-DEV_PATH="${DEV_PATH:-$HOME/dev}"
+-MANI_FILE="${MANI_FILE:-$DEV_PATH/mani.yaml}"
++LORE_ROOT="$(dirname "$SCRIPT_DIR")"
++WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
++MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
+ METADATA_FILE="$REGISTRY_DIR/metadata.yaml"
+ CLUSTERS_FILE="$REGISTRY_DIR/clusters.yaml"
+ RELATIONSHIPS_FILE="$REGISTRY_DIR/relationships.yaml"
+@@ -185,11 +186,11 @@ validate_paths() {
+         local path
+         path=$(yqj ".projects.\"${project}\".path" "$MANI_FILE")
+ 
+-        # mani paths are relative to DEV_PATH
+-        local expanded_path="$DEV_PATH/${path}"
++        # mani paths are relative to WORKSPACE_ROOT
++        local expanded_path="$WORKSPACE_ROOT/${path}"
+ 
+         if [[ ! -d "$expanded_path" ]]; then
+-            warn "Path not accessible: $DEV_PATH/${path} (project: $project)"
++            warn "Path not accessible: $WORKSPACE_ROOT/${path} (project: $project)"
+             all_accessible=false
+         fi
+     done < <(get_all_projects)
+@@ -436,9 +437,9 @@ validate_contracts() {
+             continue
+         fi
+ 
+-        local full_path="$DEV_PATH/$location"
++        local full_path="$WORKSPACE_ROOT/$location"
+         if [[ ! -f "$full_path" ]]; then
+-            fail "Contract '$contract' file not found: $DEV_PATH/$location"
++            fail "Contract '$contract' file not found: $WORKSPACE_ROOT/$location"
+             contracts_valid=false
+         fi
+     done <<< "$contract_names"
+@@ -521,7 +522,7 @@ main() {
+ 
+     # Sync relationships to Lineage on successful validation
+     if [[ $FAIL_COUNT -eq 0 ]]; then
+-        LINEAGE_DIR="${LINEAGE_DIR:-$DEV_PATH/lineage}"
++        LINEAGE_DIR="${LINEAGE_DIR:-$WORKSPACE_ROOT/lineage}"
+         if [[ -f "$(dirname "$SCRIPT_DIR")/lib/lineage-client.sh" ]]; then
+             source "$(dirname "$SCRIPT_DIR")/lib/lineage-client.sh" 2>/dev/null && \
+                 lineage_sync_relationships "$RELATIONSHIPS_FILE" 2>/dev/null || true
+- Current branch: main
+- Recent commits: 05dd671 Merge branch 'main' of github.com:tslateman/lore
+0958a39 Fix formatting of container relationship in SYSTEM.md
+329b57f docs: Add plan to wire unused Lineage client functions
+a1233b7 feat: Register Geordi, parameterize paths, add stale-name validator
+c6fed50 docs: Add 2026-02-13 handoff -- patterns, Ralph cleanup, SDK hold Entire-Checkpoint: 9931faa268d3
+256d617 fix: Align right-side pipe chars in SYSTEM.md overview diagram Entire-Checkpoint: 03e4d1dc4ad6
+916bb70 docs: Convert Mermaid diagrams to ASCII in SYSTEM.md
+7b3acff docs: Update SYSTEM.md -- remove stale Ralph ref, reorder known gaps
+410c422 fix: Add narrow-interfaces pattern adopters
+628e7ff docs: Track Pipeline pattern in checklist and pattern library
+
+## Your task
+
+Based on the above changes, create a single git commit.
+
+You have the capability to call multiple tools in a single response. Stage and create the commit using a single message. Do not use any other tools or do anything else. Do not send any other text or messages besides these tool calls.
+
+---
+
+Analyze this project and suggest what to work on next.
+
+1. Review the current structure (README.md, directories, files)
+2. Identify gaps or opportunities in these categories:
+   - **Content** — Missing topics, incomplete guides
+   - **Tooling** — CI/CD, automation, developer experience
+   - **Polish** — Cross-references, consistency, organization
+
+3. Present 2-3 concrete suggestions per category, briefly explained
+
+Keep suggestions actionable and relevant to the project's purpose.
+
+---
+
+use agent teams to handle all
+
+---
+
+Analyze this project and suggest what to work on next.
+
+1. Review the current structure (README.md, directories, files)
+2. Identify gaps or opportunities in these categories:
+   - **Content** — Missing topics, incomplete guides
+   - **Tooling** — CI/CD, automation, developer experience
+   - **Polish** — Cross-references, consistency, organization
+
+3. Present 2-3 concrete suggestions per category, briefly explained
+
+Keep suggestions actionable and relevant to the project's purpose.
+
+---
+
+Reflect on the work just completed in this conversation.
+
+## What I Learned
+
+Identify 2-4 concrete technical insights from this session:
+
+- Patterns discovered or reinforced
+- Gotchas or surprises encountered
+- Techniques that worked well (or didn't)
+- Connections to other parts of the codebase
+
+Focus on _insights_, not a summary of actions taken.
+
+## What to Think About Next
+
+Surface 2-4 open threads worth considering:
+
+- Unfinished work or TODOs
+- Edge cases or risks not yet addressed
+- Potential improvements or refactors
+- Questions that came up but weren't resolved
+
+Be specific—name files, functions, or concepts rather than speaking abstractly.
+
+---
+
+After generating the retro, ask the user if any insights are worth persisting to auto memory. Use AskUserQuestion with options like "Yes, update MEMORY.md" and "No, just this session".
+
+If yes, read the current MEMORY.md from the project's auto memory directory and intelligently merge the new insights—don't duplicate existing points, add new ones under the appropriate sections.
+
+---
+
+consider:
+Here is the synthesized specification for Project Praxis. You can save this directly as PRAXIS_ARCH.md.Project Praxis: The Dynastic Development EnvironmentVersion: 1.0.0Date: 2026-02-14Status: Architecture Definition1. Overview & PhilosophyPraxis is a development environment designed to cure AI Amnesia.Current AI agents suffer from "Context Death"—every session starts cold, repeating past mistakes and hallucinating context. Praxis creates a Dynasty: a persistent, file-system-based memory backbone where intent, context, and wisdom survive the death of individual sessions.Core ConceptsAnamnesis: The act of "remembering" previous wisdom. An agent inherits the dynasty's full context upon initialization.The Golden Rule: "Patterns learned are never lost."The Collapsed Core: The system is simplified into three pillars: Data (Lineage), Control (Neo), and Action (Bach).2. ArchitectureThe system operates on a strict separation of concerns: Memory is the Filesystem, Logic is the Engine, Execution is Stateless.Plaintext       [ User ]
+          |
+          v
++-----------------------+
+|        LINEAGE        |  <-- THE SOUL (Database)
+| (Intent, Registry)    |      "The Single Source of Truth"
++-----------------------+
+     ^    |
+     |    v (reads)
++-----------------------+
+|          NEO          |  <-- THE BRAIN (Engine)
+| (Manager & Proxy)     |      "The Active Sovereign"
++-----------------------+
+          |
+          v (delegates)
++-----------------------+
+|         BACH          |  <-- THE HANDS (Worker)
+| (Aider / MCP / Tools) |      "The Execution Layer"
++-----------------------+
+2.1 Lineage (The Memory)Role: The passive, persistent storage of the Dynasty.Location: ~/dev/lineage/Structure:ComponentPathFormatDescriptionIntentintent/YAMLThe Future. Missions, Goals, and Success Criteria (formerly "Telos").Registryregistry/YAMLThe Present. Project context, capabilities, and entity relationships (formerly "Lore").Journaljournal/JSONLThe Past. Immutable logs of decisions and actions.Patternspatterns/YAMLThe Wisdom. Learned lessons ("If X, do Y").Failuresfailures/YAMLThe Evidence. Structured logs of broken builds and rejected plans.Inboxinbox/JSONLThe Staging. Raw inputs synced from local mirrors (~/.mirror).2.2 Neo (The Sovereign)Role: The active process that manages state, synchronization, and safety.Location: ~/dev/neo/Responsibilities:Plan-and-Solve: Reads Intent $\to$ Generates plan.json $\to$ Pauses for Approval $\to$ Executes.User Proxy: Intercepts all shell commands. Safe-lists innocuous tools (ls, grep); blocks dangerous ones (rm, git push) until approved.Sync: Harvests local notes $\to$ sanitizes $\to$ pushes to lineage/inbox.Promote: Converts raw inbox items into formal intent (Missions) or patterns.2.3 Bach (The Hands)Role: Stateless execution.Location: ~/dev/bach/ (or wrapped external tools like Aider).Strategy:Don't Rebuild: Use state-of-the-art tools (Aider, Claude Code, Cursor) as the underlying engine.Wrapper: Neo drives these tools via CLI or MCP to ensure they adhere to Lineage's constraints.3. Key Data SchemasMission (Intent)Location: lineage/intent/mission-001.yamlYAMLid: "mission-001"
+status: "active"
+intent: "Refactor Auth Module"
+telos: # The "Final Cause" / Definition of Done
+  - "Eliminate race conditions in token refresh"
+  - "Response time < 50ms"
+workflow:
+  - step: "plan"
+    sensitive: true # Requires human approval
+  - step: "execute"
+constraints:
+  - "Must use existing Redis instance"
+Failure Log (The "Wisdom Generator")Location: lineage/failures/2026-02-14-auth.yamlYAMLid: "fail-20260214-001"
+timestamp: "2026-02-14T14:30:00Z"
+mission: "mission-001"
+step: 2
+tool: "edit_file"
+error_type: "UserBlock"
+error_message: "User denied 'rm -rf src/'"
+context: "Agent attempted to clean directory."
+correction: "Skipped step"
+4. Workflows4.1 The "Sync" Loop (Mirror to Lineage)Capture: Developer writes rough notes to ~/.mirror/notes.md.Harvest: neo sync parses these files.Store: Content is appended to ~/dev/lineage/inbox/observations.jsonl.Archive: Local files are moved to ~/.mirror/archive/.4.2 The "Promote" Loop (R&D to Production)Analyze: neo promote scans lineage/inbox for clusters (e.g., 3 failures on "Vector Search").Formalize: User converts the cluster into a Mission Candidate.Commit: The Mission is validated against the Registry and saved to intent/.4.3 The "Execution" Loop (Intent to Action)Initialize: neo start mission-001.Hydrate: Neo reads lineage/intent/mission-001.yaml and relevant registry/ files.Plan: Neo generates a plan.json. [PAUSE FOR APPROVAL]Execute: Neo dispatches tasks to Bach (Aider/Tools).Record: Results are written to lineage/journal/decisions.jsonl. Failures go to lineage/failures/.5. Implementation Roadmap (The "Build Now" Spec)We focus on the "Wall Hitters"—features that solve immediate pain points.Phase 1: The Core (Lineage)Goal: Establish the single source of truth.Tasks:Create directory structure (intent, registry, journal, patterns, failures).Define strict JSON/YAML schemas for the entities above.Create lineage.py (CRUD library) to read/write these files safely.Phase 2: The Brain (Neo)Goal: Safe, planned execution.Tasks:Planner: neo plan <mission> outputting plan.json.Proxy: neo execute <plan> with a hard whitelist for shell commands.Failure Logger: Catch exceptions/denials and write to lineage/failures/.Phase 3: The Hands (Bach Integration)Goal: Leverage existing SOTA tools.Tasks:Integrate Aider or Claude Code as the worker node.Neo constructs the prompt: SYSTEM_PROMPT = Lineage Context + Mission Constraints.Future: Expose Lineage as an MCP Server so Cursor/Aider can query it natively.6. Strategic AnalysisBuild vs. Buy:Build: Lineage & Neo. This is the unique value proposition (Memory & Management).Buy: Bach. Use Aider/Cursor. Do not build a custom code editor from scratch.Stolen Patterns (The "Good Parts"):Reflexion: Implemented via reflexion: true flag in missions (forces a critique step).User Proxy: Implemented via Neo's shell interceptor.Plan-and-Solve: Implemented via the neo plan -> neo execute split.Common Traps to Avoid:"Framework Envy": Do not build hierarchical team definitions (CrewAI style) until you have a proven need."Write-Only Memory": Ensure Neo reads the failures/ log before starting a new task to warn the agent of past mistakes.
+
+---
+
+lore becomes both intent and registry
+we need a simplification
+council remains as an optional plugin for praxis, but not a requirement
+similarly the contracts are an optional operation model for neo, but not a required one. similar to how GSD was before
+
+---
+
+another team is working on the following:
+  ---
+  The Grand Simplification
+
+  Current State: 16 active projects
+
+  DATA LAYER                 CONTROL LAYER              ACTION LAYER
+  ──────────                 ─────────────              ────────────
+  Lineage (memory)           Oracle/Telos (goals)       Bach (workers)
+  Lore (registry)            Neo (teams, sync)          Flow (state/phases)
+  Mirror (capture)           Council (governance)       Ralph (loop)
+                             Forge (prototyping)
+
+  APPLICATIONS               TOOLS                      REFERENCE
+  ────────────               ─────                      ─────────
+  Canary (prod app)          Duet (plugin)              Tutor (cheatsheets)
+  Agent-of-Empires (TUI)     l3m (local LLMs)
+  Geordi (API/GUI)
+
+  What Praxis showed
+
+  Praxis proved that the data layer is one thing and the control layer is one thing. The separation into Lineage/Lore/Oracle was artificial — it split
+   a single concern (persistent knowledge) across three repos with overlapping contracts.
+
+  The collapses
+
+  1. Telos (Oracle) → Lineage
+
+  Telos holds goals and missions. Praxis put intent/ inside Lineage. Goals are just a type of structured knowledge — same as decisions, patterns, and
+  observations. Lineage already has the storage primitives (JSONL for logs, JSON/YAML for documents, inbox for staging). Add intent/ as a sixth
+  component.
+
+  Lineage absorbs:
+    oracle/goals/     →  lineage/intent/
+    oracle/missions/  →  lineage/intent/  (missions are decomposed goals)
+
+  2. Lore → Lineage
+
+  Lore holds the project registry — metadata about what exists, capabilities, relationships. Praxis put registry/ inside Lineage. The graph component
+  already tracks project nodes and edges. Lore's registry is the graph's source data.
+
+  Lineage absorbs:
+    lore/registry/    →  lineage/registry/
+    lore/metadata/    →  lineage/registry/
+
+  3. Flow → Neo
+
+  Flow tracks milestones, phases, and task state. Neo already does team management and now sync/promote/start. Both are orchestration. Praxis replaced
+   Flow with Neo's workflow commands. The .flow/state.json pattern moves into Neo's domain.
+
+  Neo absorbs:
+    flow/state.json   →  neo/state/
+    flow/commands/     →  neo/scripts/  (plan, execute, status)
+
+  4. Mirror → convention, not project
+
+  Mirror is a capture location (~/.mirror/*.md). Neo's sync.sh already harvests from it. Mirror doesn't need to be a project — it's a directory
+  convention. Document it in Neo's README and retire the repo.
+
+  ~/.mirror/          stays as a directory convention
+  mirror/ repo        archived
+
+  What stays separate
+  ┌─────────┬──────────────────────────────────────────────────────────────────┐
+  │ Project │                         Why it survives                          │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Lineage │ The data layer. Absorbs Telos, Lore. Single source of truth.     │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Neo     │ The control layer. Absorbs Flow. Orchestrates, delegates, syncs. │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Bach    │ The execution layer. Stateless workers. Clean contract boundary. │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Ralph   │ The loop driver. Thin, stateless, drives iteration.              │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Council │ Governance. Advisory, not operational. Different concern.        │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Duet    │ Developer tooling plugin. Orthogonal to the stack.               │
+  └─────────┴──────────────────────────────────────────────────────────────────┘
+  What gets archived
+  ┌──────────────┬─────────────┬───────────────────────────────────────────────┐
+  │   Project    │ Absorbed by │                   Migration                   │
+  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
+  │ Telos/Oracle │ Lineage     │ Move intent/ directory, update contracts      │
+  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
+  │ Lore         │ Lineage     │ Move registry/, retire bridge contract        │
+  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
+  │ Flow         │ Neo         │ Move state management, retire signal contract │
+  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
+  │ Mirror       │ Convention  │ Document in Neo, archive repo                 │
+  └──────────────┴─────────────┴───────────────────────────────────────────────┘
+  What's unaffected
+  ┌──────────────────┬──────────────────────────────────────────────────┐
+  │     Project      │                      Reason                      │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Canary           │ Production app, independent                      │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Agent-of-Empires │ Rust TUI, independent                            │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Geordi           │ API layer, reads from whatever the data layer is │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ l3m              │ Local LLM tooling, independent                   │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Forge            │ Prototyping pipeline, independent                │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Tutor            │ Reference material, independent                  │
+  └──────────────────┴──────────────────────────────────────────────────┘
+  After: 6 core projects
+
+  Lineage  ──→  Neo  ──→  Bach
+  (data)       (control)   (action)
+     ↑            ↑
+     │            │
+  Council      Ralph
+  (governance)  (loop)
+
+  Duet (tooling, orthogonal)
+
+  The contracts simplify too
+  ┌────────────────────────────────┬───────────────────────────────┐
+  │             Before             │             After             │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ SIGNAL_CONTRACT (Ralph ↔       │ SIGNAL_CONTRACT (Ralph ↔      │
+  │ Flow)                          │ Neo)                          │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ TASK_CONTRACT (Flow → Bach)    │ TASK_CONTRACT (Neo → Bach)    │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ LINEAGE_CONTRACT               │ LINEAGE_CONTRACT (expanded)   │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ ENTIRE_BRIDGE_CONTRACT (Lore)  │ Retired                       │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ CONTAINER_CONTRACT (Neo)       │ Stays                         │
+  └────────────────────────────────┴───────────────────────────────┘
+  Migration order
+
+  Same pattern as the Praxis decomposition — inbox before sync:
+
+  1. Lineage absorbs Telos    (add intent/, update contract)
+  2. Lineage absorbs Lore     (add registry/, retire bridge contract)
+  3. Neo absorbs Flow          (move state management, update signal contract)
+  4. Archive Mirror            (document convention in Neo)
+  5. Update Geordi             (point reads at consolidated Lineage)
+
+  Each step is independently valuable. Stop at any point and the system still works.
+
+✻ Baked for 1m 28s
+
+❯ in addition lineage will get a rename to lore
+
+⏺ That's cleaner. Lore means "accumulated knowledge" — better name for the unified data layer than Lineage.
+
+  Updated map:
+
+  The collapses with rename
+
+  Current Lore (registry)  ─┐
+                             ├──→  Lore (unified data layer)
+  Current Lineage (memory) ─┤      ├── journal/    (decisions)
+                             │      ├── graph/      (knowledge graph)
+  Telos/Oracle (goals)     ─┘      ├── patterns/   (learned wisdom)
+                                    ├── transfer/   (session handoff)
+                                    ├── inbox/      (staging)
+                                    ├── intent/     (goals, missions)
+                                    └── registry/   (project metadata, relationships)
+
+  After: the stack
+
+  Lore  ──→  Neo  ──→  Bach
+  (data)    (control)  (action)
+    ↑          ↑
+    │          │
+  Council    Ralph
+  (govern)   (loop)
+
+  Duet (tooling, orthogonal)
+
+  Migration order changes
+
+  The rename adds a step and reorders:
+
+  1. Lineage absorbs Telos     (add intent/)
+  2. Lineage absorbs Lore      (add registry/)
+  3. Rename Lineage → Lore     (repo, CLI, contracts, aliases, references)
+  4. Neo absorbs Flow           (state management)
+  5. Archive Mirror             (document convention in Neo)
+
+  Step 3 is the big one. The rename touches:
+
+  - Repo name (~/dev/lineage/ → ~/dev/lore/)
+  - CLI (lineage.sh → lore.sh, lineage observe → lore observe)
+  - Contract (LINEAGE_CONTRACT.md → LORE_CONTRACT.md)
+  - Neo's scripts (all lineage.sh calls become lore.sh)
+  - Ralph's config (if it references lineage)
+  - .zshrc alias
+  - Graph node named "lineage"
+  - Every CLAUDE.md that mentions Lineage
+  - Council docs (lifecycle pattern, architecture overview)
+
+  Steps 1 and 2 are best done before the rename — less moving while renaming.
+
+❯ agreed, we can rename later
+
+⏺ Good. The plan stands as:
+
+  1. Lineage absorbs Telos (add intent/)
+  2. Lineage absorbs Lore (add registry/)
+  3. Rename Lineage → Lore (later)
+  4. Neo absorbs Flow
+  5. Archive Mirror
+
+  Want to start on step 1?
+
+❯ let's not archive mirror - still useful
+
+⏺ Noted. Mirror stays as a standalone capture tool. Updated plan:
+
+  1. Lineage absorbs Telos (add intent/)
+  2. Lineage absorbs Lore (add registry/)
+  3. Rename Lineage → Lore (later)
+  4. Neo absorbs Flow
+
+  Four steps. Want to start on step 1?
+
+❯ use a team of agents to execute all all 4
+
+
+anything to add?
+
+---
+
+check on progress
+
+---
+
+good point, both praxis and mani will need updates to note how lore is replacing lineage
