@@ -88,17 +88,17 @@ EOF
 }
 
 #######################################
-# Link to related lineage components
+# Link to related lore components
 #######################################
 find_related_entries() {
-    local lineage_root="${LINEAGE_ROOT:-$(dirname "${TRANSFER_ROOT}")}"
+    local lore_root="${LORE_ROOT:-$(dirname "${TRANSFER_ROOT}")}"
 
     local journal_entries='[]'
     local pattern_entries='[]'
     local goal_entries='[]'
 
     # Find recent journal entries (last 7 days) from JSONL store
-    local decisions_file="${lineage_root}/journal/data/decisions.jsonl"
+    local decisions_file="${lore_root}/journal/data/decisions.jsonl"
     if [[ -f "${decisions_file}" ]]; then
         local cutoff_date
         # macOS BSD date uses -v flag; GNU date uses -d flag
@@ -113,14 +113,14 @@ find_related_entries() {
     fi
 
     # Find active patterns from YAML store
-    local patterns_file="${lineage_root}/patterns/data/patterns.yaml"
+    local patterns_file="${lore_root}/patterns/data/patterns.yaml"
     if [[ -f "${patterns_file}" ]]; then
         pattern_entries=$(grep -E '^\s+- id:\s*"' "${patterns_file}" 2>/dev/null | \
             sed 's/.*id:[[:space:]]*"\([^"]*\)".*/\1/' | \
             jq -R -s 'split("\n") | map(select(length > 0))') || pattern_entries='[]'
     fi
 
-    # Goals live in Oracle, not Lineage -- always empty
+    # Goals live in Telos, not Lore -- always empty
     goal_entries='[]'
 
     cat << EOF

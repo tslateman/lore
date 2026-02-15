@@ -10,13 +10,13 @@ The Decision Journal automatically captures decisions with their rationale, alte
 
 ```bash
 # Clone or copy to your project
-cp -r journal/ ~/.lineage/journal/
+cp -r journal/ ~/.lore/journal/
 
 # Make executable
-chmod +x ~/.lineage/journal/journal.sh
+chmod +x ~/.lore/journal/journal.sh
 
 # Add to PATH (optional)
-export PATH="$PATH:$HOME/.lineage/journal"
+export PATH="$PATH:$HOME/.lore/journal"
 ```
 
 **Dependencies**: `bash`, `jq`
@@ -185,7 +185,7 @@ Add a session retro section to your CLAUDE.md:
 
 ### Key Decisions
 
-$(journal.sh export --session $LINEAGE_SESSION_ID --format markdown)
+$(journal.sh export --session $LORE_SESSION_ID --format markdown)
 
 ### Lessons Learned
 
@@ -234,8 +234,8 @@ Decisions are stored in:
 
 ## Environment Variables
 
-- `LINEAGE_SESSION_ID` - Override automatic session ID generation
-- `LINEAGE_DATA_DIR` - Override default data directory
+- `LORE_SESSION_ID` - Override automatic session ID generation
+- `LORE_DATA_DIR` - Override default data directory
 
 ## Auto-Detection
 

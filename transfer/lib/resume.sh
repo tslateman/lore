@@ -8,8 +8,8 @@
 # Surfaces relevant patterns learned
 #
 
-# Resolve LINEAGE_DIR for cross-component calls
-LINEAGE_DIR="${LINEAGE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# Resolve LORE_DIR for cross-component calls
+LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 #######################################
 # Suggest relevant patterns for a context string
@@ -22,7 +22,7 @@ suggest_patterns_for_context() {
     [[ -z "${context}" ]] && return 0
 
     local output
-    output=$("${LINEAGE_DIR}/patterns/patterns.sh" suggest "${context}" --limit "${limit}" 2>/dev/null) || return 0
+    output=$("${LORE_DIR}/patterns/patterns.sh" suggest "${context}" --limit "${limit}" 2>/dev/null) || return 0
 
     # Only display if the suggest command found actual matches
     # Strip ANSI color codes before checking for numbered pattern entries
@@ -186,9 +186,9 @@ resume_session() {
     done
     echo ""
 
-    # Related entries from other lineage components
+    # Related entries from other lore components
     if jq -e '.related' "${session_file}" &>/dev/null; then
-        echo "--- Related Lineage Entries ---"
+        echo "--- Related Lore Entries ---"
 
         local journal_count pattern_count goal_count
         journal_count=$(jq '.related.journal_entries | length' "${session_file}" 2>/dev/null || echo 0)

@@ -13,7 +13,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TRANSFER_ROOT="${LINEAGE_TRANSFER_ROOT:-$SCRIPT_DIR}"
+TRANSFER_ROOT="${LORE_TRANSFER_ROOT:-$SCRIPT_DIR}"
 DATA_DIR="${TRANSFER_ROOT}/data"
 SESSIONS_DIR="${DATA_DIR}/sessions"
 CURRENT_SESSION_FILE="${DATA_DIR}/.current_session"

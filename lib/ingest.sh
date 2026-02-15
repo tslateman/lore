@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# ingest.sh - Bulk import from external project formats into Lineage
+# ingest.sh - Bulk import from external project formats into Lore
 #
 # Parses Monarch relationships.yaml, HANDOFF.md, and pattern_sharing
-# entries into Lineage journal decisions, graph nodes, and patterns.
+# entries into Lore journal decisions, graph nodes, and patterns.
 
 set -euo pipefail
 
-LINEAGE_DIR="${LINEAGE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # Ingest Monarch relationships.yaml into graph nodes + edges
 # Usage: ingest_relationships <project_name> <relationships_yaml>
@@ -31,7 +31,7 @@ ingest_relationships() {
 
         for proj in $projects; do
             # Add project node
-            "$LINEAGE_DIR/graph/graph.sh" add project "$proj" \
+            "$LORE_DIR/graph/graph.sh" add project "$proj" \
                 --data "{\"source\": \"$project\", \"ingested_from\": \"$yaml_file\"}" 2>/dev/null || true
 
             # Extract depends_on relationships
@@ -41,15 +41,15 @@ ingest_relationships() {
             for dep in $deps; do
                 local dep_name
                 dep_name=$(echo "$dep" | sed 's/ (.*//')
-                "$LINEAGE_DIR/graph/graph.sh" add project "$dep_name" \
+                "$LORE_DIR/graph/graph.sh" add project "$dep_name" \
                     --data '{"source": "'"$project"'"}' 2>/dev/null || true
 
                 local from_id to_id
-                from_id=$("$LINEAGE_DIR/graph/graph.sh" add project "$proj" 2>/dev/null | tail -1)
-                to_id=$("$LINEAGE_DIR/graph/graph.sh" add project "$dep_name" 2>/dev/null | tail -1)
+                from_id=$("$LORE_DIR/graph/graph.sh" add project "$proj" 2>/dev/null | tail -1)
+                to_id=$("$LORE_DIR/graph/graph.sh" add project "$dep_name" 2>/dev/null | tail -1)
 
                 if [[ -n "$from_id" && -n "$to_id" ]]; then
-                    "$LINEAGE_DIR/graph/graph.sh" link "$from_id" "$to_id" \
+                    "$LORE_DIR/graph/graph.sh" link "$from_id" "$to_id" \
                         --relation depends_on 2>/dev/null || true
                 fi
             done
@@ -63,7 +63,7 @@ ingest_relationships() {
             # Match top-level project keys (no leading whitespace, ends with :)
             if [[ "$line" =~ ^[a-zA-Z_-]+:$ ]]; then
                 current_project="${line%:}"
-                "$LINEAGE_DIR/graph/graph.sh" add project "$current_project" \
+                "$LORE_DIR/graph/graph.sh" add project "$current_project" \
                     --data "{\"source\": \"$project\", \"ingested_from\": \"$yaml_file\"}" 2>/dev/null || true
                 count=$((count + 1))
             fi
@@ -95,7 +95,7 @@ ingest_handoffs() {
         if [[ "$line" =~ ^##[[:space:]]+(.*) ]]; then
             # Store previous entry if we have one
             if [[ -n "$current_heading" && -n "$current_body" ]]; then
-                "$LINEAGE_DIR/journal/journal.sh" record "$current_heading" \
+                "$LORE_DIR/journal/journal.sh" record "$current_heading" \
                     --rationale "$current_body" \
                     --tags "$project,handoff,ingested" \
                     --type "context" 2>/dev/null || true
@@ -110,7 +110,7 @@ ingest_handoffs() {
 
     # Store final entry
     if [[ -n "$current_heading" && -n "$current_body" ]]; then
-        "$LINEAGE_DIR/journal/journal.sh" record "$current_heading" \
+        "$LORE_DIR/journal/journal.sh" record "$current_heading" \
             --rationale "$current_body" \
             --tags "$project,handoff,ingested" \
             --type "context" 2>/dev/null || true
@@ -145,7 +145,7 @@ ingest_patterns() {
             local description
             description=$(yq -r ".pattern_sharing[] | select(.pattern == \"$pattern\") | .description // \"\"" "$yaml_file" 2>/dev/null || true)
 
-            "$LINEAGE_DIR/patterns/patterns.sh" capture "$pattern" \
+            "$LORE_DIR/patterns/patterns.sh" capture "$pattern" \
                 --context "$description" \
                 --category "architecture" 2>/dev/null || true
 
@@ -162,7 +162,7 @@ ingest_patterns() {
             if [[ "$in_patterns" == true ]]; then
                 if [[ "$line" =~ ^[[:space:]]+-[[:space:]]+pattern:[[:space:]]+(.*) ]]; then
                     local pattern="${BASH_REMATCH[1]}"
-                    "$LINEAGE_DIR/patterns/patterns.sh" capture "$pattern" \
+                    "$LORE_DIR/patterns/patterns.sh" capture "$pattern" \
                         --category "architecture" 2>/dev/null || true
                     count=$((count + 1))
                 elif [[ "$line" =~ ^[a-zA-Z] ]]; then
@@ -178,7 +178,7 @@ ingest_patterns() {
 # Main dispatcher for ingest subcommand
 cmd_ingest() {
     if [[ $# -lt 3 ]]; then
-        echo "Usage: lineage ingest <project> <type> <file>"
+        echo "Usage: lore ingest <project> <type> <file>"
         echo ""
         echo "Types:"
         echo "  relationships  Parse relationships.yaml into graph"

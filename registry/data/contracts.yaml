@@ -1,0 +1,31 @@
+# contracts.yaml - Contract location tracking
+# Maps interface contracts to their filesystem locations and current status.
+# Paths are relative to ~/dev/ (same convention as mani.yaml).
+#
+# Fields:
+#   interface  - Which components this contract connects
+#   location   - File path relative to ~/dev/
+#   status     - defined | proposed | draft
+
+version: "1.0"
+contracts:
+  signal:
+    interface: Harness to Flow
+    location: cli/flow/SIGNAL_CONTRACT.md
+    status: defined
+  task:
+    interface: Flow to Bach
+    location: cli/bach/TASK_CONTRACT.md
+    status: defined
+  container:
+    interface: Neo to aoe
+    location: neo/CONTAINER_CONTRACT.md
+    status: defined
+  lineage:
+    interface: All to Lineage
+    location: lineage/LINEAGE_CONTRACT.md
+    status: defined
+  entire_bridge:
+    interface: Entire to Lineage
+    location: lore/contracts/ENTIRE_BRIDGE_CONTRACT.md
+    status: proposed

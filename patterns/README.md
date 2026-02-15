@@ -2,11 +2,12 @@
 
 A memory system for AI agents that captures lessons learned, anti-patterns discovered, and reusable solutions.
 
-Part of the **Lineage** memory system.
+Part of the **Lore** memory system.
 
 ## Overview
 
 Pattern Learner helps AI agents:
+
 - **Remember** lessons from past sessions
 - **Avoid** repeating mistakes (anti-patterns)
 - **Apply** proven solutions to new situations
@@ -157,8 +158,8 @@ patterns:
     solution: "How to do it right"
     category: bash
     origin: "session-2026-02-09"
-    confidence: 0.9          # 0.0 to 1.0
-    validations: 5           # Times validated
+    confidence: 0.9 # 0.0 to 1.0
+    validations: 5 # Times validated
     created_at: "2026-02-09T12:00:00Z"
     examples:
       - bad: "problematic code"
@@ -171,7 +172,7 @@ anti_patterns:
     risk: "Why it's dangerous"
     fix: "How to fix it"
     category: security
-    severity: critical       # low, medium, high, critical
+    severity: critical # low, medium, high, critical
     created_at: "2026-02-09T12:00:00Z"
 ```
 
@@ -194,9 +195,9 @@ The `check` command includes built-in detection for common issues:
 3. **Missing error traps** - `set -e` without cleanup traps
 4. **Dangerous rm commands** - Unvalidated path deletion
 
-## Integration with Lineage
+## Integration with Lore
 
-Pattern Learner is designed to work with other Lineage components:
+Pattern Learner is designed to work with other Lore components:
 
 - **Sessions** - Patterns link back to originating sessions
 - **Decisions** - Patterns can reference decision outcomes

@@ -12,8 +12,8 @@ generate_decision_id() {
 
 # Generate session ID if not set
 get_session_id() {
-    if [[ -n "${LINEAGE_SESSION_ID:-}" ]]; then
-        echo "$LINEAGE_SESSION_ID"
+    if [[ -n "${LORE_SESSION_ID:-}" ]]; then
+        echo "$LORE_SESSION_ID"
     elif [[ -f "${SCRIPT_DIR}/../data/.current_session" ]]; then
         cat "${SCRIPT_DIR}/../data/.current_session"
     else

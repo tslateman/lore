@@ -91,7 +91,7 @@ Verify the shell version handles:
 
 ## What NOT to Do
 
-- Do not add `intent/` to Lineage -- intent/goals stay in Oracle. The inbox
+- Do not add `intent/` to Lineage -- intent/goals stay in Telos. The inbox
   stages observations, not missions.
 - Do not add Python to Lineage -- keep the bash CLI. The Praxis Python store is
   a reference, not a dependency.

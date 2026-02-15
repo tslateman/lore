@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Decision Journal - Capture and query decisions with rationale and outcomes
-# Part of the Lineage memory system for AI agents
+# Part of the Lore memory system for AI agents
 
 set -euo pipefail
 
@@ -81,7 +81,7 @@ ${BOLD}EXAMPLES:${NC}
     journal.sh query "storage format"
 
     # Search with tag filter
-    journal.sh query "storage" --tag oracle
+    journal.sh query "storage" --tag telos
 
     # Get context for a file
     journal.sh context src/store.sh

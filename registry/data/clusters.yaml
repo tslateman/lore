@@ -1,0 +1,252 @@
+# Cluster Definitions
+#
+# Clusters are groups of projects that work together
+# with defined interfaces and data flow patterns.
+
+version: "1.0"
+
+clusters:
+
+  orchestration:
+    root: ~/dev/oracle
+    description: Goal-driven orchestration with shared memory
+    status: active
+
+    components:
+      oracle:
+        path: ~/dev/oracle
+        role: intent
+        order: 1
+        description: Goals and mission decomposition
+
+      neo:
+        path: ~/dev/neo
+        role: teams
+        order: 2
+        description: Team spawning and agent coordination
+
+      council:
+        path: ~/dev/council
+        role: coordination
+        order: 3
+        description: Coordination patterns and governance
+
+      lore:
+        path: ~/dev/lore
+        role: registry
+        order: 4
+        description: Project registry and context assembly
+
+      lineage:
+        path: ~/dev/lineage
+        role: memory
+        order: 5
+        description: Persistent memory -- decisions, patterns, knowledge graph
+
+      mirror:
+        path: ~/dev/mirror
+        role: judgment
+        order: 6
+        description: Judgment capture and refinement
+
+      geordi:
+        path: ~/dev/geordi
+        role: visibility
+        order: 7
+        description: Unified API and GUI for the ecosystem
+
+      entire:
+        path: external (entireio/cli)
+        role: session_capture
+        order: 8
+        description: Per-repo AI session capture and audit trail
+
+    data_flow:
+      - from: oracle
+        to: lineage
+        type: decisions
+        contract: lib/lineage-client-base.sh
+
+      - from: neo
+        to: lineage
+        type: decisions
+        contract: lib/lineage-client-base.sh
+
+      - from: lore
+        to: lineage
+        type: relationships
+        contract: lib/lineage-client-base.sh
+
+      - from: council
+        to: lineage
+        type: decisions
+        contract: lib/lineage-client-base.sh
+
+      - from: lineage
+        to: oracle
+        type: context
+        contract: lib/lineage-client-base.sh
+
+      - from: lineage
+        to: neo
+        type: patterns
+        contract: lib/lineage-client-base.sh
+
+      - from: lineage
+        to: lore
+        type: context
+        contract: lib/lineage-client-base.sh
+
+      - from: lineage
+        to: geordi
+        type: context
+        contract: LINEAGE_CONTRACT.md
+
+      - from: lore
+        to: geordi
+        type: registry
+        description: Project metadata, clusters, relationships
+
+      - from: council
+        to: geordi
+        type: governance
+        description: Seats, ADRs, initiatives, charter
+
+      - from: entire
+        to: lineage
+        type: sessions
+        contract: contracts/ENTIRE_BRIDGE_CONTRACT.md
+
+    principles:
+      - Memory flows to Lineage; context flows from Lineage
+      - Operational state stays in each project
+      - Patterns learned are never lost
+      - Client libraries fail silently if Lineage unavailable
+
+  council:
+    root: ~/dev/council
+    description: Coordination patterns and execution pipeline
+    status: active
+
+    components:
+      flow:
+        path: ~/dev/cli/flow
+        role: state
+        order: 1
+        description: State management hub -- assists Claude Code agent teams
+
+      bach:
+        path: ~/dev/cli/bach
+        role: workers
+        order: 2
+        description: Worker pool execution
+
+    data_flow:
+      - from: flow
+        to: bach
+        type: tasks
+        contract: TASK_CONTRACT.md
+
+      - from: bach
+        to: flow
+        type: results
+        contract: TASK_CONTRACT.md
+
+    principles:
+      - Claude Code agent teams provide the orchestration harness
+      - Flow assists the harness with state; Bach executes work
+      - Narrow contracts enable independent evolution
+      - State flows through Flow, never direct component-to-component
+
+    entry_points:
+      primary: ~/dev/council
+      components:
+        - ~/dev/cli/flow
+        - ~/dev/cli/bach
+
+  cli:
+    root: ~/dev/cli
+    description: Execution tools -- council pipeline and standalone plugins
+    status: active
+
+    components:
+      flow:
+        path: ~/dev/cli/flow
+        role: state
+        order: 1
+        description: State management hub -- assists Claude Code agent teams
+
+      bach:
+        path: ~/dev/cli/bach
+        role: workers
+        order: 2
+        description: Worker pool execution
+
+      duet:
+        path: ~/dev/cli/duet
+        role: quality
+        order: 3
+        description: Reflection, code quality, writing, and design plugin
+
+    data_flow:
+      - from: flow
+        to: bach
+        type: tasks
+        contract: TASK_CONTRACT.md
+
+      - from: bach
+        to: flow
+        type: results
+        contract: TASK_CONTRACT.md
+
+    principles:
+      - Council pipeline (flow/bach) is tightly coupled via contracts
+      - Duet is standalone -- no runtime dependency on the pipeline
+      - bootstrap.sh and Makefile provide unified setup, build, and lint
+
+    entry_points:
+      primary: ~/dev/cli
+      components:
+        - ~/dev/cli/flow
+        - ~/dev/cli/bach
+        - ~/dev/cli/duet
+
+  forge:
+    root: ~/dev/forge
+    description: Spec → prototype → synthesis
+    status: active
+
+    components:
+      spec-trace:
+        path: ~/dev/forge/spec-trace
+        role: requirements
+        order: 1
+        description: Requirements traceability from specs to tests
+
+      get-shit-done:
+        path: ~/dev/forge/get-shit-done
+        role: execution
+        order: 2
+        description: Spec-driven development with structured milestones
+
+      coalesce:
+        path: ~/dev/forge/coalesce
+        role: synthesis
+        order: 3
+        description: Synthesize N prototypes into one solution
+
+    data_flow:
+      - from: spec-trace
+        to: get-shit-done
+        type: specs
+        description: Requirements define what to prototype
+
+      - from: get-shit-done
+        to: coalesce
+        type: prototypes
+        description: Parallel prototypes feed synthesis
+
+    principles:
+      - Specs before code
+      - Parallel exploration beats serial refinement
+      - Synthesis is explicit, not accidental

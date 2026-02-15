@@ -1,0 +1,114 @@
+# mani.yaml - Project registry for ~/dev
+# Source of truth for project existence, paths, and tags.
+# Managed by mani CLI. Enriched by lore (registry/metadata.yaml).
+#
+# Tag encoding:
+#   type:<type>       orchestrator, library, application, service, tool, infrastructure, cluster
+#   lang:<language>   rust, shell, go, typescript, python, markdown
+#   status:<status>   active, wip, archived, deprecated
+#   cluster:<name>    orchestration, council, forge
+#   <free tags>       agents, memory, cli, etc.
+
+projects:
+  agent-of-empires:
+    path: agent-of-empires
+    desc: Terminal session manager for AI coding agents
+    tags: [type:application, lang:rust, status:active, tui, agents, tmux]
+    url: https://github.com/njbrake/agent-of-empires
+  bach:
+    path: cli/bach
+    desc: Worker pool execution system
+    tags: [type:library, lang:markdown, status:active, cluster:council, workers, execution]
+  entire:
+    path: .external/entire
+    desc: Git-integrated AI session capture and audit trail
+    tags: [type:tool, lang:go, status:external, cluster:orchestration, agents, git-hooks, audit]
+    url: https://github.com/entireio/cli
+  canary:
+    path: canary
+    desc: Work project - hospitality platform
+    tags: [type:application, lang:typescript, status:active, work, vue]
+  coalesce:
+    path: forge/coalesce
+    desc: Synthesize N prototypes into one solution
+    tags: [type:tool, lang:markdown, status:active, cluster:forge, synthesis, analysis]
+  cli:
+    path: cli
+    desc: Execution tools — council pipeline and standalone plugins
+    tags: [type:cluster, lang:markdown, status:active, workspace]
+  coda:
+    path: cli/coda
+    desc: Go CLI wrapper for Claude Code with orchestration
+    tags: [type:application, lang:go, status:active, cli, wrapper]
+  council:
+    path: council
+    desc: Coordination patterns and governance for agent orchestration
+    tags: [type:orchestrator, lang:shell, status:active, cluster:orchestration, agents, coordination, core]
+  cq:
+    path: cli/cq
+    desc: Code quality and technical debt analysis tools
+    tags: [type:tool, lang:shell, status:active, quality, tech-debt]
+  dotfiles:
+    path: dotfiles
+    desc: Personal configuration files
+    tags: [type:infrastructure, lang:shell, status:active, config]
+  duet:
+    path: cli/duet
+    desc: Claude Code plugin for git, reflection, and code quality
+    tags: [type:library, lang:markdown, status:active, cluster:cli, plugin, git, skills]
+  flow:
+    path: cli/flow
+    desc: State management for agent coordination
+    tags: [type:library, lang:go, status:active, cluster:council, state, agents]
+  forge:
+    path: forge
+    desc: Turns specs into proven solutions through parallel prototyping and synthesis
+    tags: [type:cluster, lang:markdown, status:active, specs, synthesis, prototyping]
+  get-shit-done:
+    path: forge/get-shit-done
+    desc: Spec-driven development with structured milestones
+    tags: [type:tool, lang:markdown, status:active, cluster:forge, specs, milestones]
+  geordi:
+    path: geordi
+    desc: Unified API and GUI for the agent ecosystem
+    tags: [type:service, lang:python, status:active, cluster:orchestration, api, gui, dashboard]
+  lineage:
+    path: _archive/lineage
+    desc: Unified memory backbone (absorbed by lore)
+    tags: [type:library, lang:shell, status:archived, memory]
+  mirror:
+    path: mirror
+    desc: Judgment capture and refinement tool
+    tags: [type:application, lang:go, status:active, cluster:orchestration, cli, judgment, learning]
+  molt:
+    path: cli/molt
+    desc: CLI task manager with TUI and session management
+    tags: [type:application, lang:rust, status:active, tui, tasks]
+  lore:
+    path: lore
+    desc: Persistent knowledge layer -- memory, intent, registry, patterns
+    tags: [type:library, lang:shell, status:active, cluster:orchestration, memory, intent, registry, patterns, core]
+  neo:
+    path: neo
+    desc: Team manager for Claude Code Agent Teams
+    tags: [type:orchestrator, lang:shell, status:active, cluster:orchestration, agents, teams]
+  oracle:
+    path: _archive/oracle
+    desc: Intent and goals layer (absorbed by lore)
+    tags: [type:orchestrator, lang:shell, status:archived, goals, intent]
+  qin:
+    path: cli/qin
+    desc: Stringless qin — after Tao Yuanming
+    tags: [type:tool, lang:markdown, status:active, philosophy]
+  site:
+    path: site
+    desc: Personal site — philosophy meets programming
+    tags: [type:application, lang:markdown, status:active, site, philosophy]
+  spec-trace:
+    path: forge/spec-trace
+    desc: Requirements traceability from specs to tests
+    tags: [type:tool, lang:python, status:active, cluster:forge, testing, traceability]
+  tutor:
+    path: tutor
+    desc: Learning framework and curriculum
+    tags: [type:library, lang:markdown, status:active, learning, documentation]

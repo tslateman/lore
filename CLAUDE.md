@@ -1,4 +1,4 @@
-# Lineage
+# Lore
 
 Memory that compounds. Persistent, queryable knowledge across agent sessions.
 
@@ -6,24 +6,24 @@ Memory that compounds. Persistent, queryable knowledge across agent sessions.
 
 ```bash
 # Record a decision
-./lineage.sh remember "Use JSONL for storage" --rationale "Append-only, simple"
+./lore.sh remember "Use JSONL for storage" --rationale "Append-only, simple"
 
 # Capture a pattern
-./lineage.sh learn "Safe bash arithmetic" --context "set -e scripts" --solution "Use x=\$((x+1))"
+./lore.sh learn "Safe bash arithmetic" --context "set -e scripts" --solution "Use x=\$((x+1))"
 
 # End a session (capture context for next time)
-./lineage.sh handoff "Finished X, next steps: Y, blocked on Z"
+./lore.sh handoff "Finished X, next steps: Y, blocked on Z"
 
 # Resume previous session
-./lineage.sh resume
+./lore.sh resume
 
 # Search everything
-./lineage.sh search "authentication"
+./lore.sh search "authentication"
 ```
 
 ## Project Structure
 
-- `lineage.sh`: Main entry point, dispatches to components
+- `lore.sh`: Main entry point, dispatches to components
 - `journal/`: Decision capture with rationale and outcome tracking
   - `journal.sh`, `lib/`, `data/decisions.jsonl`
 - `graph/`: Knowledge graph connecting concepts, files, decisions, lessons
@@ -32,15 +32,22 @@ Memory that compounds. Persistent, queryable knowledge across agent sessions.
   - `patterns.sh`, `lib/`, `data/patterns.yaml`
 - `transfer/`: Session snapshots and handoff
   - `transfer.sh`, `lib/`, `data/sessions/`
+- `intent/`: Goals and missions (absorbed from Oracle/Telos)
+  - `lib/intent.sh`, `data/goals/`, `data/missions/`
+- `registry/`: Project metadata and context
+  - `lib/registry.sh`, `data/metadata.yaml`, `data/clusters.yaml`, etc.
 
 ## Key Concepts
 
-**Four components, one CLI.** Each component handles a different aspect of memory:
+**Seven components, one CLI.** Each component handles a different aspect of memory:
 
 - Journal answers "why did we choose this?"
 - Graph answers "what relates to this?"
 - Patterns answers "what did we learn?"
 - Transfer answers "what's next?"
+- Inbox answers "what did we notice?"
+- Intent answers "what are we trying to achieve?" (goals and missions)
+- Registry answers "what exists and how does it connect?" (project metadata)
 
 **Append-only.** Decisions and patterns are never deleted, only marked revised or abandoned.
 
@@ -48,7 +55,7 @@ Memory that compounds. Persistent, queryable knowledge across agent sessions.
 
 ## Integration Contract
 
-See `LINEAGE_CONTRACT.md` for how other projects (Neo, Oracle, Council) write to and read from Lineage. Tags always include the source project name.
+See `LORE_CONTRACT.md` for how other projects (Neo, Council) write to and read from Lore. Tags always include the source project name.
 
 ## Data Formats
 
@@ -56,6 +63,9 @@ See `LINEAGE_CONTRACT.md` for how other projects (Neo, Oracle, Council) write to
 - Graph: JSON (nodes keyed by ID, edges as array)
 - Patterns: YAML (patterns and anti_patterns lists)
 - Sessions: JSON (one file per session in `transfer/data/sessions/`)
+- Goals: YAML (one file per goal in `intent/data/goals/`)
+- Missions: YAML (one file per mission in `intent/data/missions/`)
+- Registry: YAML (`registry/data/metadata.yaml`, `clusters.yaml`, `relationships.yaml`, `contracts.yaml`)
 
 ## Coding Conventions
 
@@ -64,7 +74,7 @@ See `LINEAGE_CONTRACT.md` for how other projects (Neo, Oracle, Council) write to
 - Use `trap` for cleanup
 - Conventional commits with Strunk's-style body (see ~/.claude/CLAUDE.md)
 
-## Part of Lore
+## Orchestration Hub
 
-Tracked in ~/dev/lore. Provides shared memory to: Neo, Oracle, Council, Lore.
-Contract: `LINEAGE_CONTRACT.md`
+Lore is the memory backbone. It absorbed Oracle (intent/goals) and the old Lore registry (registry/metadata) to consolidate the orchestration stack. Provides shared memory to: Neo, Council, and all projects.
+Contract: `LORE_CONTRACT.md`

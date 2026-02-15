@@ -1,0 +1,606 @@
+#!/usr/bin/env bash
+# Intent layer - Goals and missions management
+# Absorbed from Oracle (Telos) into Lore
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DATA_DIR="${SCRIPT_DIR}/../data"
+GOALS_DIR="${DATA_DIR}/goals"
+MISSIONS_DIR="${DATA_DIR}/missions"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# Valid status values
+VALID_GOAL_STATUSES="draft active blocked completed cancelled"
+VALID_GOAL_PRIORITIES="critical high medium low"
+VALID_MISSION_STATUSES="pending assigned in_progress blocked completed failed"
+
+# Ensure data directories exist
+init_intent() {
+    mkdir -p "$GOALS_DIR" "$MISSIONS_DIR"
+}
+
+# Generate unique ID
+generate_id() {
+    local prefix="${1:-id}"
+    local random_hex
+    if command -v xxd &>/dev/null; then
+        random_hex=$(head -c 4 /dev/urandom | xxd -p)
+    else
+        random_hex=$(head -c 4 /dev/urandom | od -An -tx1 | tr -d ' \n')
+    fi
+    echo "${prefix}-$(date +%s)-${random_hex}"
+}
+
+# Get current timestamp in ISO format
+timestamp() {
+    date -Iseconds
+}
+
+# Check if yq is available
+check_yq() {
+    if ! command -v yq &>/dev/null; then
+        echo -e "${RED}Error: yq is required but not installed${NC}" >&2
+        return 1
+    fi
+}
+
+# Status color
+status_color() {
+    local status="$1"
+    case "$status" in
+        active|in_progress) echo -e "${GREEN}" ;;
+        completed|done) echo -e "${GREEN}${BOLD}" ;;
+        blocked|failed) echo -e "${RED}" ;;
+        pending|draft) echo -e "${YELLOW}" ;;
+        cancelled) echo -e "${DIM}" ;;
+        *) echo -e "${NC}" ;;
+    esac
+}
+
+# Priority color
+priority_color() {
+    local priority="$1"
+    case "$priority" in
+        critical) echo -e "${RED}${BOLD}" ;;
+        high) echo -e "${RED}" ;;
+        medium) echo -e "${YELLOW}" ;;
+        low) echo -e "${DIM}" ;;
+        *) echo -e "${NC}" ;;
+    esac
+}
+
+# Print horizontal separator
+print_separator() {
+    printf '%*s\n' "${COLUMNS:-80}" '' | tr ' ' '-'
+}
+
+# Get goal file path
+get_goal_file() {
+    local goal_id="$1"
+    echo "${GOALS_DIR}/${goal_id}.yaml"
+}
+
+# Get mission file path
+get_mission_file() {
+    local mission_id="$1"
+    echo "${MISSIONS_DIR}/${mission_id}.yaml"
+}
+
+# List all goal files
+list_goal_files() {
+    find "$GOALS_DIR" -name "*.yaml" -type f 2>/dev/null | sort
+}
+
+# List all mission files
+list_mission_files() {
+    find "$MISSIONS_DIR" -name "*.yaml" -type f 2>/dev/null | sort
+}
+
+# ============================================
+# Goal Functions
+# ============================================
+
+create_goal() {
+    local goal_name=""
+    local priority="medium"
+    local deadline=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --priority)
+                priority="$2"
+                shift 2
+                ;;
+            --deadline)
+                deadline="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Error: Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                if [[ -z "$goal_name" ]]; then
+                    goal_name="$1"
+                else
+                    echo -e "${RED}Error: Unexpected argument: $1${NC}" >&2
+                    return 1
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$goal_name" ]]; then
+        echo -e "${RED}Error: Goal name required${NC}" >&2
+        echo "Usage: lore goal create <name> [--priority <p>] [--deadline <date>]" >&2
+        return 1
+    fi
+
+    if [[ ! " $VALID_GOAL_PRIORITIES " =~ " $priority " ]]; then
+        echo -e "${RED}Error: Invalid priority '$priority'${NC}" >&2
+        echo "Valid priorities: $VALID_GOAL_PRIORITIES" >&2
+        return 1
+    fi
+
+    check_yq
+    init_intent
+
+    local goal_id
+    goal_id=$(generate_id "goal")
+
+    local goal_file
+    goal_file=$(get_goal_file "$goal_id")
+
+    local ts
+    ts=$(timestamp)
+    local user
+    user="${USER:-unknown}"
+
+    local deadline_value="null"
+    if [[ -n "$deadline" ]]; then
+        deadline_value="\"$deadline\""
+    fi
+
+    cat > "$goal_file" << EOF
+id: $goal_id
+name: "$goal_name"
+description: ""
+
+created_at: "$ts"
+created_by: "$user"
+
+status: draft
+priority: $priority
+deadline: $deadline_value
+
+success_criteria: []
+depends_on: []
+projects: []
+tags: []
+metrics: {}
+notes: ""
+
+mission_hints:
+  max_parallel: 3
+  preferred_team_size: 2
+  decomposition_strategy: sequential
+EOF
+
+    echo -e "${GREEN}Created goal:${NC} $goal_id"
+    echo -e "${DIM}File: $goal_file${NC}"
+}
+
+list_goals() {
+    local filter_status=""
+    local filter_priority=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --status)
+                filter_status="$2"
+                shift 2
+                ;;
+            --priority)
+                filter_priority="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Error: Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                echo -e "${RED}Error: Unexpected argument: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    check_yq
+    init_intent
+
+    local goal_files
+    goal_files=$(list_goal_files)
+
+    if [[ -z "$goal_files" ]]; then
+        echo -e "${YELLOW}No goals found${NC}"
+        return 0
+    fi
+
+    echo -e "${BOLD}Goals${NC}"
+    print_separator
+    printf "%-22s %-30s %-12s %-10s %-12s\n" "ID" "NAME" "STATUS" "PRIORITY" "DEADLINE"
+    print_separator
+
+    local count=0
+    while IFS= read -r goal_file; do
+        [[ -z "$goal_file" ]] && continue
+
+        local id name status priority deadline
+        id=$(yq -r '.id // "unknown"' "$goal_file")
+        name=$(yq -r '.name // "Untitled"' "$goal_file")
+        status=$(yq -r '.status // "unknown"' "$goal_file")
+        priority=$(yq -r '.priority // "medium"' "$goal_file")
+        deadline=$(yq -r '.deadline // "--"' "$goal_file")
+        [[ "$deadline" == "null" ]] && deadline="--"
+
+        if [[ -n "$filter_status" && "$status" != "$filter_status" ]]; then
+            continue
+        fi
+        if [[ -n "$filter_priority" && "$priority" != "$filter_priority" ]]; then
+            continue
+        fi
+
+        if [[ ${#name} -gt 28 ]]; then
+            name="${name:0:25}..."
+        fi
+
+        local short_id="${id:0:20}"
+        [[ ${#id} -gt 20 ]] && short_id="${short_id}..."
+
+        local status_c priority_c
+        status_c=$(status_color "$status")
+        priority_c=$(priority_color "$priority")
+
+        printf "%-22s %-30s ${status_c}%-12s${NC} ${priority_c}%-10s${NC} %-12s\n" \
+            "$short_id" "$name" "$status" "$priority" "$deadline"
+
+        ((count++)) || true
+    done <<< "$goal_files"
+
+    print_separator
+    echo -e "${DIM}Total: ${count} goal(s)${NC}"
+}
+
+get_goal() {
+    local goal_id=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -*)
+                echo -e "${RED}Error: Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                goal_id="$1"
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$goal_id" ]]; then
+        echo -e "${RED}Error: Goal ID required${NC}" >&2
+        echo "Usage: lore goal show <goal-id>" >&2
+        return 1
+    fi
+
+    check_yq
+
+    local goal_file
+    goal_file=$(get_goal_file "$goal_id")
+
+    if [[ ! -f "$goal_file" ]]; then
+        echo -e "${RED}Error: Goal not found: $goal_id${NC}" >&2
+        return 1
+    fi
+
+    local name status priority deadline description created_at
+    name=$(yq -r '.name // "Untitled"' "$goal_file")
+    status=$(yq -r '.status // "unknown"' "$goal_file")
+    priority=$(yq -r '.priority // "medium"' "$goal_file")
+    deadline=$(yq -r '.deadline // "none"' "$goal_file")
+    description=$(yq -r '.description // ""' "$goal_file")
+    created_at=$(yq -r '.created_at // "unknown"' "$goal_file")
+    [[ "$deadline" == "null" ]] && deadline="none"
+
+    echo -e "${BOLD}${name}${NC}"
+    print_separator
+    if [[ -n "$description" && "$description" != "null" ]]; then
+        echo -e "${DIM}${description}${NC}"
+        echo ""
+    fi
+
+    echo -e "  ID:       ${goal_id}"
+    echo -e "  Status:   ${status}"
+    echo -e "  Priority: ${priority}"
+    echo -e "  Deadline: ${deadline}"
+    echo -e "  Created:  ${created_at}"
+
+    local criteria_count
+    criteria_count=$(yq -r '.success_criteria | length' "$goal_file" 2>/dev/null || echo "0")
+    if [[ "$criteria_count" -gt 0 ]]; then
+        echo ""
+        echo -e "${BOLD}Success Criteria${NC}"
+        for ((i=0; i<criteria_count; i++)); do
+            local sc_desc sc_met
+            sc_desc=$(yq -r ".success_criteria[$i].description" "$goal_file")
+            sc_met=$(yq -r ".success_criteria[$i].met // false" "$goal_file")
+            if [[ "$sc_met" == "true" ]]; then
+                echo -e "  ${GREEN}[x]${NC} ${sc_desc}"
+            else
+                echo -e "  ${RED}[ ]${NC} ${sc_desc}"
+            fi
+        done
+    fi
+
+    print_separator
+    echo -e "${DIM}File: $goal_file${NC}"
+}
+
+# ============================================
+# Mission Functions
+# ============================================
+
+create_mission() {
+    local goal_id=""
+    local mission_name=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --name)
+                mission_name="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Error: Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                if [[ -z "$goal_id" ]]; then
+                    goal_id="$1"
+                else
+                    echo -e "${RED}Error: Unexpected argument: $1${NC}" >&2
+                    return 1
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$goal_id" ]]; then
+        echo -e "${RED}Error: Goal ID required${NC}" >&2
+        echo "Usage: lore mission generate <goal-id>" >&2
+        return 1
+    fi
+
+    check_yq
+    init_intent
+
+    local goal_file
+    goal_file=$(get_goal_file "$goal_id")
+
+    if [[ ! -f "$goal_file" ]]; then
+        echo -e "${RED}Error: Goal not found: $goal_id${NC}" >&2
+        return 1
+    fi
+
+    local goal_name goal_priority goal_deadline
+    goal_name=$(yq -r '.name' "$goal_file")
+    goal_priority=$(yq -r '.priority // "medium"' "$goal_file")
+    goal_deadline=$(yq -r '.deadline // "null"' "$goal_file")
+
+    local criteria_count
+    criteria_count=$(yq -r '.success_criteria | length' "$goal_file")
+
+    if [[ "$criteria_count" -eq 0 ]]; then
+        echo -e "${YELLOW}No success criteria defined for goal${NC}"
+        return 0
+    fi
+
+    echo -e "${BLUE}Generating missions for goal: $goal_id${NC}"
+
+    local created_count=0
+    local prev_mission_id=""
+
+    for ((i=0; i<criteria_count; i++)); do
+        local sc_id sc_desc
+        sc_id=$(yq -r ".success_criteria[$i].id" "$goal_file")
+        sc_desc=$(yq -r ".success_criteria[$i].description" "$goal_file")
+
+        local mission_id
+        mission_id=$(generate_id "mission")
+
+        local name="$goal_name - $sc_desc"
+        if [[ ${#name} -gt 80 ]]; then
+            name="${name:0:77}..."
+        fi
+
+        local depends_on="[]"
+        if [[ -n "$prev_mission_id" ]]; then
+            depends_on="[\"$prev_mission_id\"]"
+        fi
+
+        local ts
+        ts=$(timestamp)
+
+        local mission_file
+        mission_file=$(get_mission_file "$mission_id")
+
+        cat > "$mission_file" << EOF
+id: $mission_id
+name: "$name"
+description: |
+  Mission derived from goal success criterion.
+  Criterion: $sc_desc
+
+goal_id: $goal_id
+status: pending
+created_at: "$ts"
+priority: $goal_priority
+deadline: $goal_deadline
+depends_on: $depends_on
+
+work_items:
+  - id: wi-1
+    description: "$sc_desc"
+    completed: false
+
+addresses_criteria:
+  - $sc_id
+EOF
+
+        echo -e "  ${CYAN}$mission_id${NC}: $name"
+        prev_mission_id="$mission_id"
+        ((created_count++)) || true
+    done
+
+    echo -e "${GREEN}Created $created_count mission(s)${NC}"
+}
+
+list_missions() {
+    local filter_goal=""
+    local filter_status=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --goal)
+                filter_goal="$2"
+                shift 2
+                ;;
+            --status)
+                filter_status="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Error: Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    check_yq
+    init_intent
+
+    local mission_files
+    mission_files=$(list_mission_files)
+
+    if [[ -z "$mission_files" ]]; then
+        echo -e "${YELLOW}No missions found${NC}"
+        return 0
+    fi
+
+    printf "${BOLD}%-28s %-35s %-12s %-12s${NC}\n" "ID" "NAME" "STATUS" "GOAL"
+    print_separator
+
+    while IFS= read -r mission_file; do
+        [[ -z "$mission_file" ]] && continue
+
+        local id name goal_id status
+        id=$(yq -r '.id' "$mission_file")
+        name=$(yq -r '.name' "$mission_file")
+        goal_id=$(yq -r '.goal_id' "$mission_file")
+        status=$(yq -r '.status' "$mission_file")
+
+        if [[ -n "$filter_goal" && "$goal_id" != "$filter_goal" ]]; then
+            continue
+        fi
+        if [[ -n "$filter_status" && "$status" != "$filter_status" ]]; then
+            continue
+        fi
+
+        if [[ ${#name} -gt 33 ]]; then
+            name="${name:0:30}..."
+        fi
+
+        local goal_display="${goal_id:0:11}"
+        [[ ${#goal_id} -gt 11 ]] && goal_display="${goal_display}.."
+
+        local status_c
+        status_c=$(status_color "$status")
+
+        printf "%-28s %-35s ${status_c}%-12s${NC} %-12s\n" \
+            "$id" "$name" "$status" "$goal_display"
+    done <<< "$mission_files"
+}
+
+# ============================================
+# Main dispatch
+# ============================================
+
+intent_help() {
+    echo "Intent - Goals and Missions"
+    echo ""
+    echo "Usage:"
+    echo "  lore goal create <name> [--priority <p>] [--deadline <date>]"
+    echo "  lore goal list [--status <s>] [--priority <p>]"
+    echo "  lore goal show <goal-id>"
+    echo ""
+    echo "  lore mission generate <goal-id>"
+    echo "  lore mission list [--goal <id>] [--status <s>]"
+}
+
+intent_goal_main() {
+    if [[ $# -eq 0 ]]; then
+        intent_help
+        return 0
+    fi
+
+    local command="$1"
+    shift
+
+    case "$command" in
+        create)   create_goal "$@" ;;
+        list)     list_goals "$@" ;;
+        show)     get_goal "$@" ;;
+        -h|--help|help) intent_help ;;
+        *)
+            echo -e "${RED}Unknown goal command: $command${NC}" >&2
+            intent_help >&2
+            return 1
+            ;;
+    esac
+}
+
+intent_mission_main() {
+    if [[ $# -eq 0 ]]; then
+        intent_help
+        return 0
+    fi
+
+    local command="$1"
+    shift
+
+    case "$command" in
+        generate) create_mission "$@" ;;
+        list)     list_missions "$@" ;;
+        -h|--help|help) intent_help ;;
+        *)
+            echo -e "${RED}Unknown mission command: $command${NC}" >&2
+            intent_help >&2
+            return 1
+            ;;
+    esac
+}

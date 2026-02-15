@@ -1,0 +1,202 @@
+# Cross-Project Relationships
+#
+# Dependencies, integrations, and shared resources
+# across the ~/dev ecosystem.
+
+version: "1.0"
+
+# Direct dependencies between projects
+dependencies:
+  # ── Council components ────────────────────────────────────────────
+  bach:
+    depends_on:
+      - project: flow
+        type: runtime
+        reason: Receives tasks via TASK_CONTRACT
+
+  # ── Orchestration stack ───────────────────────────────────────────
+  oracle:
+    depends_on:
+      - project: lore
+        type: runtime
+        reason: Reads project registry for system-wide context
+      - project: neo
+        type: runtime
+        reason: Delegates team coordination
+      - project: lineage
+        type: runtime
+        reason: Records goal/mission decisions, reads patterns for planning
+
+  neo:
+    depends_on:
+      - project: agent-of-empires
+        type: runtime
+        reason: Uses tmux session management for agent teams
+      - project: lineage
+        type: runtime
+        reason: Records team lifecycle events, reads patterns before spawning
+
+  lore:
+    depends_on:
+      - project: lineage
+        type: runtime
+        reason: Syncs relationships to graph, enriches context with decisions/patterns
+
+  council:
+    depends_on:
+      - project: lineage
+        type: runtime
+        reason: Records ADR decisions and architectural principles
+
+  # ── Visibility layer ─────────────────────────────────────────────
+  geordi:
+    depends_on:
+      - project: lineage
+        type: runtime
+        reason: Reads journal, graph, patterns, and session data
+      - project: lore
+        type: runtime
+        reason: Reads mani.yaml and registry YAML for project/cluster/relationship data
+      - project: council
+        type: runtime
+        reason: Reads seats, ADRs, initiatives, and charter
+
+  # ── CLI standalone ────────────────────────────────────────────────
+  duet:
+    depends_on: []
+    # Standalone plugin — no runtime dependencies on other projects
+
+  # ── Forge components ──────────────────────────────────────────────
+  get-shit-done:
+    depends_on:
+      - project: spec-trace
+        type: workflow
+        reason: Specs define what to prototype
+
+  coalesce:
+    depends_on:
+      - project: get-shit-done
+        type: workflow
+        reason: Parallel prototypes feed synthesis
+
+  # -- External tools ---------------------------------------------------------
+  entire:
+    depends_on: []
+    # Standalone tool -- no runtime dependencies on other projects
+
+# Shared code/resources
+shared:
+  lineage:
+    provides_to:
+      - project: neo
+        type: optional
+        reason: Persists team decisions and learned patterns across sessions
+      - project: oracle
+        type: optional
+        reason: Records goal outcomes and lessons for future planning
+      - project: council
+        type: optional
+        reason: Captures charter rationale and governance decisions
+      - project: lore
+        type: optional
+        reason: Stores cross-project patterns and architectural decisions
+      - project: mirror
+        type: optional
+        reason: Judgment decisions feed persistent memory
+
+# Integration points (optional connections)
+integrations:
+  mirror:
+    integrates_with:
+      - project: lineage
+        type: optional
+        reason: Judgment captures enrich decision history
+        status: active
+
+  neo:
+    integrates_with:
+      - project: lineage
+        type: optional
+        reason: Write team decisions to journal, read patterns before spawning teams
+        status: active
+
+  oracle:
+    integrates_with:
+      - project: lineage
+        type: optional
+        reason: Log goal outcomes, read patterns for planning context
+        status: active
+
+  lore:
+    integrates_with:
+      - project: lineage
+        type: optional
+        reason: Sync relationships to graph, enrich context with decisions/patterns
+        status: active
+
+  council:
+    integrates_with:
+      - project: lineage
+        type: optional
+        reason: Export charter decisions, read institutional memory
+        status: active
+
+  entire:
+    integrates_with:
+      - project: lineage
+        type: optional
+        reason: Bridge extracts decisions and patterns from session transcripts
+        status: proposed
+        contract: lore/contracts/ENTIRE_BRIDGE_CONTRACT.md
+
+# Patterns borrowed across projects
+pattern_sharing:
+  - pattern: contract-interfaces
+    source: flow
+    adopted_by:
+      - bach
+    description: Markdown-based interface contracts
+
+  - pattern: narrow-interfaces
+    source: council
+    adopted_by:
+      - flow
+      - bach
+      - get-shit-done
+      - coalesce
+    description: Components only know adjacent interfaces
+
+  - pattern: claude-md-entry
+    source: lore
+    adopted_by:
+      - council
+      - flow
+      - bach
+      - neo
+      - duet
+      - lineage
+      - mirror
+    description: CLAUDE.md as agent entry point for each project
+
+  - pattern: structured-memory
+    source: lineage
+    adopted_by:
+      - mirror
+    description: JSON/YAML schemas for decisions, patterns, and session state
+
+  - pattern: unified-memory
+    source: lineage
+    adopted_by:
+      - oracle
+      - neo
+      - lore
+      - council
+    description: Projects write memory to Lineage, read context from Lineage; client libraries fail silently if unavailable
+
+  - pattern: spec-driven
+    source: forge
+    adopted_by:
+      - get-shit-done
+      - spec-trace
+      - coalesce
+    description: Specs before code; parallel exploration beats serial refinement

@@ -60,15 +60,26 @@ add_node() {
     existing=$(jq -r --arg id "$id" '.nodes[$id] // empty' "$GRAPH_FILE")
 
     if [[ -n "$existing" ]]; then
-        # Merge: update data and updated_at, preserve created_at
-        jq --arg id "$id" \
+        # Compare: only write if data or name actually changed
+        local changed
+        changed=$(jq --arg id "$id" \
            --arg name "$name" \
            --argjson new_data "$data" \
-           --arg updated "$timestamp" \
-           '.nodes[$id].data = (.nodes[$id].data * $new_data) | .nodes[$id].name = $name | .nodes[$id].updated_at = $updated' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           'if .nodes[$id].name == $name and .nodes[$id].data == (.nodes[$id].data * $new_data) then "no" else "yes" end' \
+           "$GRAPH_FILE")
 
-        echo "Merged node: $id"
+        if [[ "$changed" == '"yes"' ]]; then
+            jq --arg id "$id" \
+               --arg name "$name" \
+               --argjson new_data "$data" \
+               --arg updated "$timestamp" \
+               '.nodes[$id].data = (.nodes[$id].data * $new_data) | .nodes[$id].name = $name | .nodes[$id].updated_at = $updated' \
+               "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+
+            echo "Merged node: $id"
+        else
+            echo "Unchanged node: $id"
+        fi
     else
         # Create new node
         jq --arg id "$id" \
@@ -147,13 +158,23 @@ update_node() {
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-    jq --arg id "$id" \
+    local changed
+    changed=$(jq --arg id "$id" \
        --argjson data "$data" \
-       --arg updated "$timestamp" \
-       'if .nodes[$id] then .nodes[$id].data = (.nodes[$id].data * $data) | .nodes[$id].updated_at = $updated else . end' \
-       "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+       'if .nodes[$id] and .nodes[$id].data == (.nodes[$id].data * $data) then "no" else "yes" end' \
+       "$GRAPH_FILE")
 
-    echo "Updated node: $id"
+    if [[ "$changed" == '"yes"' ]]; then
+        jq --arg id "$id" \
+           --argjson data "$data" \
+           --arg updated "$timestamp" \
+           'if .nodes[$id] then .nodes[$id].data = (.nodes[$id].data * $data) | .nodes[$id].updated_at = $updated else . end' \
+           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+
+        echo "Updated node: $id"
+    else
+        echo "Unchanged node: $id"
+    fi
 }
 
 # Get node count

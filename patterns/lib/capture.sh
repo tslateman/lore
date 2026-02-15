@@ -114,8 +114,8 @@ capture_pattern() {
     local temp_file
     temp_file=$(mktemp)
 
-    LINEAGE_PATTERN_YAML="$pattern_yaml" awk '
-        BEGIN { pattern = ENVIRON["LINEAGE_PATTERN_YAML"] }
+    LORE_PATTERN_YAML="$pattern_yaml" awk '
+        BEGIN { pattern = ENVIRON["LORE_PATTERN_YAML"] }
         /^patterns:/ {
             print
             if (getline nextline > 0) {
@@ -188,8 +188,8 @@ capture_anti_pattern() {
     local temp_file
     temp_file=$(mktemp)
 
-    LINEAGE_ANTI_PATTERN_YAML="$anti_pattern_yaml" awk '
-        BEGIN { anti_pattern = ENVIRON["LINEAGE_ANTI_PATTERN_YAML"] }
+    LORE_ANTI_PATTERN_YAML="$anti_pattern_yaml" awk '
+        BEGIN { anti_pattern = ENVIRON["LORE_ANTI_PATTERN_YAML"] }
         /^anti_patterns:/ {
             print
             if (getline nextline > 0) {

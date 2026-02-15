@@ -27,6 +27,7 @@ Context Transfer is the key to "memory that compounds." It captures session stat
 ## Commands
 
 ### `init`
+
 Start a new session. Creates a session file with a unique ID.
 
 ```bash
@@ -35,7 +36,9 @@ Start a new session. Creates a session file with a unique ID.
 ```
 
 ### `snapshot`
+
 Capture current session state including:
+
 - Git state (branch, uncommitted changes, recent commits)
 - Active files (recently modified)
 - Environment context
@@ -47,7 +50,9 @@ Capture current session state including:
 ```
 
 ### `resume <session-id>`
+
 Load context from a previous session. Displays:
+
 - What was accomplished (goals, decisions)
 - Patterns learned (important lessons)
 - Open threads needing attention
@@ -60,6 +65,7 @@ Load context from a previous session. Displays:
 ```
 
 ### `handoff <message>`
+
 Create explicit handoff notes for your successor.
 
 ```bash
@@ -67,6 +73,7 @@ Create explicit handoff notes for your successor.
 ```
 
 ### `status`
+
 Show what context is currently loaded.
 
 ```bash
@@ -75,6 +82,7 @@ Show what context is currently loaded.
 ```
 
 ### `diff <session1> <session2>`
+
 Compare what changed between sessions.
 
 ```bash
@@ -82,6 +90,7 @@ Compare what changed between sessions.
 ```
 
 ### `list`
+
 List all saved sessions.
 
 ```bash
@@ -90,7 +99,9 @@ List all saved sessions.
 ```
 
 ### `compress <session-id>`
+
 Compress a session to its essential elements while preserving:
+
 - All goals addressed
 - All decisions made
 - All patterns learned (never compressed)
@@ -112,10 +123,7 @@ Sessions are stored as JSON in `data/sessions/`:
   "ended_at": "2024-01-15T18:45:00Z",
   "summary": "Implemented user authentication with OAuth2",
 
-  "goals_addressed": [
-    "Add OAuth2 login flow",
-    "Secure API endpoints"
-  ],
+  "goals_addressed": ["Add OAuth2 login flow", "Secure API endpoints"],
 
   "decisions_made": [
     "Use JWT for session tokens",
@@ -138,9 +146,7 @@ Sessions are stored as JSON in `data/sessions/`:
       "Implement rate limiting",
       "Add token revocation endpoint"
     ],
-    "blockers": [
-      "Waiting on OAuth provider API key for staging"
-    ],
+    "blockers": ["Waiting on OAuth provider API key for staging"],
     "questions": [
       "Should we support multiple OAuth providers?",
       "What's the token expiry policy?"
@@ -153,9 +159,7 @@ Sessions are stored as JSON in `data/sessions/`:
       "abc1234 Add OAuth2 callback handler",
       "def5678 Implement JWT token generation"
     ],
-    "uncommitted": [
-      "src/auth/rate_limit.rs"
-    ]
+    "uncommitted": ["src/auth/rate_limit.rs"]
   }
 }
 ```
@@ -163,24 +167,28 @@ Sessions are stored as JSON in `data/sessions/`:
 ## Library Functions
 
 ### snapshot.sh
+
 - `snapshot_session` - Capture current session state
 - `capture_git_state` - Get git branch, commits, uncommitted files
 - `capture_active_files` - Find recently modified files
 - `add_goal`, `add_decision`, `add_thread`, `add_pattern` - Add items to session
 
 ### resume.sh
+
 - `resume_session` - Load and display previous session context
 - `get_session_brief` - Quick summary for fast loading
 - `find_latest_session` - Find most recent session
 - `resume_latest` - Resume the most recent session
 
 ### handoff.sh
+
 - `create_handoff` - Create structured handoff notes
 - `add_next_step`, `add_blocker`, `add_question` - Add handoff items
 - `interactive_handoff` - Guided handoff creation
 - `format_handoff` - Display formatted handoff notes
 
 ### compress.sh
+
 - `compress_session` - Smart compression preserving essentials
 - `extract_critical` - Extract only most critical information
 - `one_line_summary` - Generate log-friendly summary
@@ -190,6 +198,7 @@ Sessions are stored as JSON in `data/sessions/`:
 ## Philosophy
 
 ### What Gets Preserved
+
 - **Goals** - What was attempted, even if incomplete
 - **Decisions** - The choices made and why
 - **Patterns** - Lessons learned (NEVER compressed or deleted)
@@ -197,24 +206,27 @@ Sessions are stored as JSON in `data/sessions/`:
 - **Handoff Notes** - Explicit succession guidance
 
 ### What Gets Compressed
+
 - Detailed git history (kept: branch, recent commits)
 - Full file lists (kept: most active files)
 - Environment details (kept: working directory)
 
 ### The Golden Rule
+
 **Patterns learned are never lost.** Even when pruning old sessions, patterns are extracted and archived. These represent hard-won lessons that compound over time.
 
-## Integration with Lineage
+## Integration with Lore
 
-Context Transfer integrates with other Lineage components:
+Context Transfer integrates with other Lore components:
+
 - Links to relevant **Journal** entries from the session timeframe
 - References **Patterns** that were active or learned
 - Connects to **Goals** that were addressed
 
 ## Environment Variables
 
-- `LINEAGE_TRANSFER_ROOT` - Override the transfer component root directory
-- `LINEAGE_ROOT` - Root directory for all Lineage components (for cross-linking)
+- `LORE_TRANSFER_ROOT` - Override the transfer component root directory
+- `LORE_ROOT` - Root directory for all Lore components (for cross-linking)
 
 ## Examples
 

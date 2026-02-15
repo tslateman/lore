@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# lineage.sh - Memory that compounds
+# lore.sh - Memory that compounds
 #
 # A system for AI agents to build persistent, searchable memory across sessions.
 
 set -euo pipefail
 
-LINEAGE_DIR="${LINEAGE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
 # Colors
 RED='\033[0;31m'
@@ -18,9 +18,9 @@ DIM='\033[2m'
 NC='\033[0m'
 
 show_help() {
-    echo "Lineage - Memory That Compounds"
+    echo "Lore - Memory That Compounds"
     echo ""
-    echo "Usage: lineage <component> <command> [options]"
+    echo "Usage: lore <component> <command> [options]"
     echo ""
     echo "Components:"
     echo "  journal   Decision capture with rationale and outcomes"
@@ -28,19 +28,34 @@ show_help() {
     echo "  patterns  Learned patterns and anti-patterns"
     echo "  transfer  Session context and succession"
     echo "  inbox     Raw observation staging area"
+    echo "  intent    Goals and missions (from Telos/Oracle)"
+    echo "  registry  Project metadata and context"
     echo ""
     echo "Quick Commands:"
-    echo "  lineage remember <text>     Quick capture to journal"
-    echo "  lineage learn <pattern>     Quick pattern capture"
-    echo "  lineage handoff <message>   Create handoff for next session"
-    echo "  lineage resume [session]    Resume from previous session"
-    echo "  lineage search <query>      Search across all components"
-    echo "  lineage context <project>   Gather full context for a project"
-    echo "  lineage suggest <context>   Suggest relevant patterns"
-    echo "  lineage status              Show current session state"
-    echo "  lineage observe <text>     Capture a raw observation to inbox"
-    echo "  lineage inbox [--status S] List inbox observations"
-    echo "  lineage ingest <proj> <type> <file>  Bulk import from external formats"
+    echo "  lore remember <text>     Quick capture to journal"
+    echo "  lore learn <pattern>     Quick pattern capture"
+    echo "  lore handoff <message>   Create handoff for next session"
+    echo "  lore resume [session]    Resume from previous session"
+    echo "  lore search <query>      Search across all components"
+    echo "  lore context <project>   Gather full context for a project"
+    echo "  lore suggest <context>   Suggest relevant patterns"
+    echo "  lore status              Show current session state"
+    echo "  lore observe <text>     Capture a raw observation to inbox"
+    echo "  lore inbox [--status S] List inbox observations"
+    echo "  lore ingest <proj> <type> <file>  Bulk import from external formats"
+    echo ""
+    echo "Intent (Goals & Missions):"
+    echo "  lore goal create <name>           Create a goal"
+    echo "  lore goal list [--status S]       List goals"
+    echo "  lore goal show <goal-id>          Show goal details"
+    echo "  lore mission generate <goal-id>   Generate missions from goal"
+    echo "  lore mission list                 List missions"
+    echo ""
+    echo "Registry (Project Metadata):"
+    echo "  lore registry show <project>      Show enriched project details"
+    echo "  lore registry list                List all projects"
+    echo "  lore registry context <project>   Assemble context for onboarding"
+    echo "  lore registry validate            Check registry consistency"
     echo ""
     echo "Philosophy:"
     echo "  - Decisions have rationale, not just outcomes"
@@ -51,44 +66,44 @@ show_help() {
 
 # Quick commands that span components
 cmd_remember() {
-    "$LINEAGE_DIR/journal/journal.sh" record "$@"
+    "$LORE_DIR/journal/journal.sh" record "$@"
 }
 
 cmd_learn() {
-    "$LINEAGE_DIR/patterns/patterns.sh" capture "$@"
+    "$LORE_DIR/patterns/patterns.sh" capture "$@"
 }
 
 cmd_handoff() {
-    "$LINEAGE_DIR/transfer/transfer.sh" handoff "$@"
+    "$LORE_DIR/transfer/transfer.sh" handoff "$@"
 }
 
 cmd_resume() {
-    "$LINEAGE_DIR/transfer/transfer.sh" resume "$@"
+    "$LORE_DIR/transfer/transfer.sh" resume "$@"
 }
 
 cmd_search() {
     local query="$1"
-    echo -e "${BOLD}Searching across Lineage...${NC}"
+    echo -e "${BOLD}Searching across Lore...${NC}"
     echo ""
     
     echo -e "${CYAN}Journal:${NC}"
-    "$LINEAGE_DIR/journal/journal.sh" query "$query" 2>/dev/null || echo "  (no results)"
+    "$LORE_DIR/journal/journal.sh" query "$query" 2>/dev/null || echo "  (no results)"
     echo ""
     
     echo -e "${CYAN}Graph:${NC}"
-    "$LINEAGE_DIR/graph/graph.sh" query "$query" 2>/dev/null || echo "  (no results)"
+    "$LORE_DIR/graph/graph.sh" query "$query" 2>/dev/null || echo "  (no results)"
     echo ""
     
     echo -e "${CYAN}Patterns:${NC}"
-    "$LINEAGE_DIR/patterns/patterns.sh" list 2>/dev/null | grep -i "$query" || echo "  (no results)"
+    "$LORE_DIR/patterns/patterns.sh" list 2>/dev/null | grep -i "$query" || echo "  (no results)"
 }
 
 cmd_status() {
-    "$LINEAGE_DIR/transfer/transfer.sh" status
+    "$LORE_DIR/transfer/transfer.sh" status
 }
 
 cmd_suggest() {
-    "$LINEAGE_DIR/patterns/patterns.sh" suggest "$@"
+    "$LORE_DIR/patterns/patterns.sh" suggest "$@"
 }
 
 cmd_context() {
@@ -96,7 +111,7 @@ cmd_context() {
 
     if [[ -z "$project" ]]; then
         echo -e "${RED}Error: Project name required${NC}" >&2
-        echo "Usage: lineage context <project>" >&2
+        echo "Usage: lore context <project>" >&2
         return 1
     fi
 
@@ -104,27 +119,27 @@ cmd_context() {
     echo ""
 
     echo -e "${BOLD}Decisions:${NC}"
-    "$LINEAGE_DIR/journal/journal.sh" query "$project" --project "$project" 2>/dev/null || echo "  (no decisions)"
+    "$LORE_DIR/journal/journal.sh" query "$project" --project "$project" 2>/dev/null || echo "  (no decisions)"
     echo ""
 
     echo -e "${BOLD}Patterns:${NC}"
-    "$LINEAGE_DIR/patterns/patterns.sh" suggest "$project" 2>/dev/null || echo "  (no patterns)"
+    "$LORE_DIR/patterns/patterns.sh" suggest "$project" 2>/dev/null || echo "  (no patterns)"
     echo ""
 
     echo -e "${BOLD}Graph:${NC}"
     local node_id
-    node_id=$("$LINEAGE_DIR/graph/graph.sh" list project 2>/dev/null \
+    node_id=$("$LORE_DIR/graph/graph.sh" list project 2>/dev/null \
         | awk -v p="$project" '{gsub(/\033\[[0-9;]*m/,"")} tolower($3) == tolower(p) { print $1 }')
 
     if [[ -n "$node_id" ]]; then
-        "$LINEAGE_DIR/graph/graph.sh" related "$node_id" --hops 2 2>/dev/null || echo "  (no neighbors)"
+        "$LORE_DIR/graph/graph.sh" related "$node_id" --hops 2 2>/dev/null || echo "  (no neighbors)"
     else
         echo "  (project not in graph)"
     fi
 }
 
 cmd_observe() {
-    source "$LINEAGE_DIR/inbox/lib/inbox.sh"
+    source "$LORE_DIR/inbox/lib/inbox.sh"
 
     local content=""
     local source="manual"
@@ -157,7 +172,7 @@ cmd_observe() {
 
     if [[ -z "$content" ]]; then
         echo -e "${RED}Error: Observation text required${NC}" >&2
-        echo "Usage: lineage observe <text> [--source <source>] [--tags <tags>]" >&2
+        echo "Usage: lore observe <text> [--source <source>] [--tags <tags>]" >&2
         return 1
     fi
 
@@ -172,7 +187,7 @@ cmd_observe() {
 }
 
 cmd_inbox() {
-    source "$LINEAGE_DIR/inbox/lib/inbox.sh"
+    source "$LORE_DIR/inbox/lib/inbox.sh"
 
     local filter_status=""
 
@@ -227,14 +242,21 @@ main() {
         inbox)      shift; cmd_inbox "$@" ;;
 
         # Ingest command
-        ingest)     shift; source "$LINEAGE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
+        ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
 
         # Component dispatch
-        journal)    shift; "$LINEAGE_DIR/journal/journal.sh" "$@" ;;
-        graph)      shift; "$LINEAGE_DIR/graph/graph.sh" "$@" ;;
-        patterns)   shift; "$LINEAGE_DIR/patterns/patterns.sh" "$@" ;;
-        transfer)   shift; "$LINEAGE_DIR/transfer/transfer.sh" "$@" ;;
-        
+        journal)    shift; "$LORE_DIR/journal/journal.sh" "$@" ;;
+        graph)      shift; "$LORE_DIR/graph/graph.sh" "$@" ;;
+        patterns)   shift; "$LORE_DIR/patterns/patterns.sh" "$@" ;;
+        transfer)   shift; "$LORE_DIR/transfer/transfer.sh" "$@" ;;
+
+        # Intent (goals and missions)
+        goal)       shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_goal_main "$@" ;;
+        mission)    shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_mission_main "$@" ;;
+
+        # Registry (project metadata)
+        registry)   shift; source "$LORE_DIR/registry/lib/registry.sh"; registry_main "$@" ;;
+
         # Help
         -h|--help|help) show_help ;;
         

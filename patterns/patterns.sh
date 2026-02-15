@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pattern Learner - Capture lessons learned, anti-patterns, and reusable solutions
-# Part of the Lineage memory system for AI agents
+# Part of the Lore memory system for AI agents
 
 set -euo pipefail
 

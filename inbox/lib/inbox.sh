@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Inbox staging area - append-only raw observations
-# Part of the Lineage memory system for AI agents
+# Part of the Lore memory system for AI agents
 
 set -euo pipefail
 
@@ -94,7 +94,7 @@ inbox_list() {
 # Mark an observation as promoted
 # Args: observation_id target_description
 # Sets status to "promoted" and records the promotion target.
-# Does NOT create the target entry -- use lineage remember or lineage learn.
+# Does NOT create the target entry -- use lore remember or lore learn.
 inbox_promote() {
     local obs_id="$1"
     local target="${2:-}"

@@ -1,0 +1,89 @@
+# metadata.yaml - Lore overlay for mani-managed projects
+# Contains role, contracts, components, and links that mani doesn't model.
+# Projects without metadata can be omitted entirely.
+#
+# Fields:
+#   role        - Project's function within its cluster
+#   contracts   - exposes/consumes: interface files
+#   components  - Sub-projects (for orchestrators/clusters)
+#   links       - External URLs (docs, upstream, etc.)
+
+version: "1.0"
+metadata:
+  agent-of-empires:
+    links:
+      docs: https://njbrake.github.io/agent-of-empires/
+      upstream: https://github.com/njbrake/agent-of-empires
+  bach:
+    role: workers
+    contracts:
+      exposes:
+        - TASK_CONTRACT.md
+      consumes:
+        - flow/SIGNAL_CONTRACT.md
+  cli:
+    role: workspace
+    components:
+      - flow
+      - bach
+      - duet
+  council:
+    role: coordination
+    components:
+      - flow
+      - bach
+  entire:
+    role: session_capture
+    contracts:
+      exposes:
+        - entire/checkpoints/v1 (orphan branch)
+        - .entire/settings.json
+      consumes:
+        - lineage/LINEAGE_CONTRACT.md (via bridge)
+    links:
+      docs: https://docs.entire.io/quickstart
+      upstream: https://github.com/entireio/cli
+  duet:
+    role: quality
+    contracts:
+      exposes:
+        - .claude-plugin/plugin.json
+        - skills/FRAMEWORKS.md
+  flow:
+    role: state
+    contracts:
+      exposes:
+        - SIGNAL_CONTRACT.md
+        - ARCHITECTURE.md
+  forge:
+    components:
+      - get-shit-done
+      - spec-trace
+      - coalesce
+  geordi:
+    role: visibility
+    contracts:
+      consumes:
+        - lineage/LINEAGE_CONTRACT.md
+  lineage:
+    role: memory
+    contracts:
+      exposes:
+        - lib/lineage-client-base.sh
+    components:
+      - journal
+      - graph
+      - patterns
+      - transfer
+  mirror:
+    role: judgment
+  lore:
+    role: registry
+  neo:
+    role: teams
+  oracle:
+    role: intent
+    contracts:
+      exposes:
+        - goals/
+        - missions/

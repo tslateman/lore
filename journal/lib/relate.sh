@@ -8,11 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/store.sh"
 
 # Source the main graph library
-_LINEAGE_ROOT="${SCRIPT_DIR}/../.."
-export GRAPH_DIR="${_LINEAGE_ROOT}/graph"
+_LORE_ROOT="${SCRIPT_DIR}/../.."
+export GRAPH_DIR="${_LORE_ROOT}/graph"
 export GRAPH_FILE="${GRAPH_DIR}/data/graph.json"
 # edges.sh sources nodes.sh internally
-source "${_LINEAGE_ROOT}/graph/lib/edges.sh"
+source "${_LORE_ROOT}/graph/lib/edges.sh"
 
 # Map journal relationship names to valid graph edge types
 _map_edge_type() {

@@ -1,2 +1,3 @@
 {"id":"obs-76a62b2b","timestamp":"2026-02-14T17:37:27Z","source":"test-observation.md","content":"Vector search fails on large datasets","status":"raw","tags":["mirror","sync"]}
 {"id":"obs-76a62b2b","timestamp":"2026-02-14T17:37:27Z","source":"test-observation.md","content":"Vector search fails on large datasets","status":"promoted","tags":["mirror","sync"],"promoted_to":"decision","promoted_at":"2026-02-14T17:37:40Z"}
+{"id":"obs-0d37e7e3","timestamp":"2026-02-14T18:20:58Z","source":"praxis-test","content":"Test observation from Praxis facade","status":"raw","tags":[]}

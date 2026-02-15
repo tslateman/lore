@@ -54,6 +54,7 @@ Requires: `bash`, `jq`
 ```
 
 Node types:
+
 - `concept` - Abstract ideas or topics
 - `file` - Source files or documents
 - `pattern` - Recurring patterns or practices
@@ -62,6 +63,7 @@ Node types:
 - `session` - Work sessions or sprints
 
 Examples:
+
 ```bash
 ./graph.sh add concept "microservices" --data '{"tags": ["architecture"]}'
 ./graph.sh add lesson "cache invalidation is hard" --data '{"source": "session-123"}'
@@ -76,6 +78,7 @@ Examples:
 ```
 
 Edge types:
+
 - `relates_to` - General relationship
 - `learned_from` - Knowledge derived from
 - `affects` - Has impact on
@@ -87,6 +90,7 @@ Edge types:
 - `depends_on` - Requires
 
 Examples:
+
 ```bash
 ./graph.sh link concept-abc file-def --relation "implements"
 ./graph.sh link lesson-123 session-456 --relation "learned_from"
@@ -101,6 +105,7 @@ Examples:
 ```
 
 Examples:
+
 ```bash
 ./graph.sh query "authentication"
 ./graph.sh query "auth" --type concept --fuzzy
@@ -205,6 +210,7 @@ The graph is stored in `data/graph.json`:
 The graph functionality is split into reusable libraries:
 
 ### lib/nodes.sh
+
 - `add_node <type> <name> [data]` - Add or merge a node
 - `get_node <id>` - Retrieve node by ID
 - `find_node <name> [type]` - Find node by name
@@ -213,6 +219,7 @@ The graph functionality is split into reusable libraries:
 - `update_node <id> <data>` - Update node data
 
 ### lib/edges.sh
+
 - `add_edge <from> <to> <relation> [weight] [bidirectional]` - Create edge
 - `delete_edge <from> <to> [relation]` - Remove edge
 - `get_outgoing_edges <node>` - Get edges from node
@@ -220,6 +227,7 @@ The graph functionality is split into reusable libraries:
 - `get_neighbors <node>` - Get all connected nodes
 
 ### lib/search.sh
+
 - `search <query> [options]` - Full-text search with ranking
 - `search_fuzzy <query> [type] [limit]` - Fuzzy matching
 - `search_by_tags <tags> [type]` - Search by tags
@@ -227,6 +235,7 @@ The graph functionality is split into reusable libraries:
 - `recent_nodes [limit] [type]` - Recently updated nodes
 
 ### lib/traverse.sh
+
 - `bfs <start> [max_depth]` - Breadth-first traversal
 - `dfs <start> [max_depth]` - Depth-first traversal
 - `shortest_path <from> <to>` - Find shortest path
@@ -297,9 +306,9 @@ The graph functionality is split into reusable libraries:
 ./graph.sh link lesson-xyz session-abc --relation "learned_from"
 ```
 
-## Integration with Lineage
+## Integration with Lore
 
-Memory Graph is part of the Lineage memory system. It can be used alongside:
+Memory Graph is part of the Lore memory system. It can be used alongside:
 
 - **Session tracking** - Store per-session learnings
 - **Context builders** - Provide relevant knowledge for prompts
