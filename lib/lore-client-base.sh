@@ -72,3 +72,24 @@ lore_suggest_patterns() {
     check_lore || return 0
     "$LORE_DIR/patterns/patterns.sh" suggest "$@" 2>/dev/null || true
 }
+
+# Capture a raw observation to inbox
+# Args: <text> [--source <source>] [--tags <tags>]
+lore_observe() {
+    check_lore || return 0
+    "$LORE_DIR/lore.sh" observe "$@" 2>/dev/null || true
+}
+
+# Create a goal
+# Args: <name> [--priority P] [--tags "t1,t2"]
+lore_create_goal() {
+    check_lore || return 0
+    "$LORE_DIR/lore.sh" goal create "$@" 2>/dev/null || true
+}
+
+# Show enriched project details from registry
+# Args: <project>
+lore_registry_show() {
+    check_lore || return 0
+    "$LORE_DIR/lore.sh" registry show "$@" 2>/dev/null || true
+}

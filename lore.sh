@@ -85,17 +85,55 @@ cmd_search() {
     local query="$1"
     echo -e "${BOLD}Searching across Lore...${NC}"
     echo ""
-    
+
     echo -e "${CYAN}Journal:${NC}"
     "$LORE_DIR/journal/journal.sh" query "$query" 2>/dev/null || echo "  (no results)"
     echo ""
-    
+
     echo -e "${CYAN}Graph:${NC}"
     "$LORE_DIR/graph/graph.sh" query "$query" 2>/dev/null || echo "  (no results)"
     echo ""
-    
+
     echo -e "${CYAN}Patterns:${NC}"
     "$LORE_DIR/patterns/patterns.sh" list 2>/dev/null | grep -i "$query" || echo "  (no results)"
+    echo ""
+
+    echo -e "${CYAN}Inbox:${NC}"
+    local inbox_file="$LORE_DIR/inbox/data/observations.jsonl"
+    if [[ -f "$inbox_file" ]]; then
+        grep -i "$query" "$inbox_file" 2>/dev/null \
+            | jq -r '"  \(.id) [\(.status)] \(.content[0:80])"' 2>/dev/null \
+            || echo "  (no results)"
+    else
+        echo "  (no results)"
+    fi
+    echo ""
+
+    echo -e "${CYAN}Goals:${NC}"
+    local goals_dir="$LORE_DIR/intent/data/goals"
+    if [[ -d "$goals_dir" ]] && ls "$goals_dir"/*.yaml &>/dev/null; then
+        grep -li "$query" "$goals_dir"/*.yaml 2>/dev/null \
+            | while read -r f; do
+                local name
+                name=$(basename "$f" .yaml)
+                echo "  $name"
+            done
+        [[ ${PIPESTATUS[0]} -ne 0 ]] && echo "  (no results)"
+    else
+        echo "  (no results)"
+    fi
+    echo ""
+
+    echo -e "${CYAN}Registry:${NC}"
+    local found_registry=false
+    for reg_file in "$LORE_DIR/registry/data"/*.yaml; do
+        [[ -f "$reg_file" ]] || continue
+        if grep -qi "$query" "$reg_file" 2>/dev/null; then
+            echo "  $(basename "$reg_file"): $(grep -ci "$query" "$reg_file" 2>/dev/null) match(es)"
+            found_registry=true
+        fi
+    done
+    [[ "$found_registry" == false ]] && echo "  (no results)"
 }
 
 cmd_status() {

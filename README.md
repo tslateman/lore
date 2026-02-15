@@ -18,12 +18,15 @@ Lore changes that:
 
 ## Components
 
-| Component     | Purpose               | Key Question              |
-| ------------- | --------------------- | ------------------------- |
-| **journal/**  | Decision capture      | "Why did we choose this?" |
-| **graph/**    | Knowledge connections | "What relates to this?"   |
-| **patterns/** | Lessons learned       | "What did we learn?"      |
-| **transfer/** | Session succession    | "What's next?"            |
+| Component     | Purpose               | Key Question                           |
+| ------------- | --------------------- | -------------------------------------- |
+| **journal/**  | Decision capture      | "Why did we choose this?"              |
+| **graph/**    | Knowledge connections | "What relates to this?"                |
+| **patterns/** | Lessons learned       | "What did we learn?"                   |
+| **transfer/** | Session succession    | "What's next?"                         |
+| **inbox/**    | Raw observations      | "What did we notice?"                  |
+| **intent/**   | Goals and missions    | "What are we trying to achieve?"       |
+| **registry/** | Project metadata      | "What exists and how does it connect?" |
 
 ## Quick Start
 
@@ -50,24 +53,37 @@ Lore changes that:
 ## Architecture
 
 ```
+~/dev/mani.yaml              # Source of truth for projects, paths, tags
 lore/
-├── lore.sh             # Main entry point
-├── journal/            # Decision Journal
-│   ├── journal.sh      # CLI
-│   ├── lib/            # capture, store, relate
-│   └── data/           # decisions.jsonl
-├── graph/              # Memory Graph
-│   ├── graph.sh        # CLI
-│   ├── lib/            # nodes, edges, search, traverse
-│   └── data/           # graph.json
-├── patterns/           # Pattern Learner
-│   ├── patterns.sh     # CLI
-│   ├── lib/            # capture, match, suggest
-│   └── data/           # patterns.yaml
-└── transfer/           # Context Transfer
-    ├── transfer.sh     # CLI
-    ├── lib/            # snapshot, resume, handoff, compress
-    └── data/           # sessions/
+├── lore.sh                  # Main entry point
+├── lib/                     # Shared libraries (ingest, client base)
+├── failures/                # Failure tracking
+│   └── data/
+├── graph/                   # Memory Graph
+│   ├── graph.sh
+│   ├── lib/
+│   └── data/                # graph.json
+├── inbox/                   # Raw observations staging
+│   ├── lib/
+│   └── data/                # observations.jsonl
+├── intent/                  # Goals and missions
+│   ├── lib/
+│   └── data/                # goals/, missions/
+├── journal/                 # Decision Journal
+│   ├── journal.sh
+│   ├── lib/
+│   └── data/                # decisions.jsonl
+├── patterns/                # Pattern Learner
+│   ├── patterns.sh
+│   ├── lib/
+│   └── data/                # patterns.yaml
+├── registry/                # Project metadata and context
+│   ├── lib/
+│   └── data/                # metadata.yaml, clusters.yaml, etc.
+└── transfer/                # Context Transfer
+    ├── transfer.sh
+    ├── lib/
+    └── data/                # sessions/
 ```
 
 ## Integration with CLAUDE.md
@@ -94,7 +110,7 @@ This is memory that compounds.
 
 ## Origin
 
-Built during the Monarch/Neo/Oracle/Council session (2026-02-09) after asking:
+Built during the first orchestration session (2026-02-09) after asking:
 "If you could build anything, what would it be?"
 
 The answer: memory that persists across sessions, learns from mistakes,

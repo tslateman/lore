@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ingest.sh - Bulk import from external project formats into Lore
 #
-# Parses Monarch relationships.yaml, HANDOFF.md, and pattern_sharing
+# Parses relationships.yaml, HANDOFF.md, and pattern_sharing
 # entries into Lore journal decisions, graph nodes, and patterns.
 
 set -euo pipefail
 
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
-# Ingest Monarch relationships.yaml into graph nodes + edges
+# Ingest relationships.yaml into graph nodes + edges
 # Usage: ingest_relationships <project_name> <relationships_yaml>
 ingest_relationships() {
     local project="$1"
