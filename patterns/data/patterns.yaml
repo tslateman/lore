@@ -3,6 +3,16 @@
 
 patterns:
 
+    - id: "pat-092136-e3216f19"
+      name: "Prototype Decomposition"
+      context: "Praxis prototype proved Sync-Promote-Execute lifecycle in Python. Needed to distribute implementation across existing shell-based repos (Lineage, Neo) without introducing Python or new projects."
+      problem: ""
+      solution: "Build prototype to validate design intent. Decompose into plan files targeting existing repos — each plan references prototype code by file and line for design intent, implements in target repo's conventions. Prototype dissolves after plans execute. Key: plan files gate dependencies (Lineage inbox before Neo sync), include What NOT to Do sections to prevent scope creep, and explicitly forbid copying the prototype's technology choices."
+      category: "general"
+      origin: "session-2026-02-14"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-14T18:02:16Z"
     - id: "pat-001891-ec497317"
       name: "Architecture decisions"
       context: "Promoted from Mirror judgment analysis"

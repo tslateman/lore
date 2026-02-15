@@ -1,5 +1,9 @@
 # Plan: Add Inbox Staging to Lineage
 
+## Status
+
+**Status:** Complete — implemented and committed 2026-02-14
+
 ## Context
 
 Lineage has four components (journal, graph, patterns, transfer) but no staging
@@ -109,15 +113,15 @@ Verify the shell version handles:
 
 ## Acceptance Criteria
 
-- [ ] `lineage observe "something interesting"` appends to
+- [x] `lineage observe "something interesting"` appends to
       `inbox/data/observations.jsonl`
-- [ ] `lineage inbox` lists raw observations with timestamps
-- [ ] `lineage inbox --status promoted` filters by status
-- [ ] Observations have unique IDs (`obs-` prefix + 8 hex chars)
-- [ ] JSONL format: one valid JSON object per line
-- [ ] Empty content is rejected with an error message
-- [ ] LINEAGE_CONTRACT.md documents the inbox component
-- [ ] Existing commands (`remember`, `learn`, `search`) are unchanged
+- [x] `lineage inbox` lists raw observations with timestamps
+- [x] `lineage inbox --status promoted` filters by status
+- [x] Observations have unique IDs (`obs-` prefix + 8 hex chars)
+- [x] JSONL format: one valid JSON object per line
+- [x] Empty content is rejected with an error message
+- [x] LINEAGE_CONTRACT.md documents the inbox component
+- [x] Existing commands (`remember`, `learn`, `search`) are unchanged
 
 ## Testing
 
