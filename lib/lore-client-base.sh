@@ -93,3 +93,10 @@ lore_registry_show() {
     check_lore || return 0
     "$LORE_DIR/lore.sh" registry show "$@" 2>/dev/null || true
 }
+
+# Run comprehensive registry validation
+# Returns 0 even on failure (fail-silent for integration)
+lore_validate() {
+    check_lore || return 0
+    "$LORE_DIR/lore.sh" validate "$@" 2>/dev/null || true
+}

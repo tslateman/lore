@@ -45,6 +45,7 @@ show_help() {
     echo "  lore fail <type> <msg>  Log a failure report"
     echo "  lore failures [opts]    List failures (--type, --mission)"
     echo "  lore triggers           Show recurring failure types (Rule of Three)"
+    echo "  lore validate            Run comprehensive registry checks"
     echo "  lore ingest <proj> <type> <file>  Bulk import from external formats"
     echo ""
     echo "Intent (Goals & Missions):"
@@ -419,7 +420,8 @@ main() {
         failures)   shift; cmd_failures "$@" ;;
         triggers)   shift; cmd_triggers "$@" ;;
 
-        # Ingest command
+        # Top-level commands
+        validate)   shift; source "$LORE_DIR/lib/validate.sh"; cmd_validate "$@" ;;
         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
 
         # Component dispatch
@@ -437,7 +439,7 @@ main() {
 
         # Help
         -h|--help|help) show_help ;;
-        
+
         *)
             echo -e "${RED}Unknown command: $1${NC}" >&2
             show_help >&2

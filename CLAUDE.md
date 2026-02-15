@@ -1,53 +1,40 @@
 # Lore
 
-Memory that compounds. Persistent, queryable knowledge across agent sessions.
+Explicit context management for multi-agent systems.
 
 ## Quick Start
 
 ```bash
 # Record a decision
-./lore.sh remember "Use JSONL for storage" --rationale "Append-only, simple"
+lore remember "Use JSONL for storage" --rationale "Append-only, simple"
 
 # Capture a pattern
-./lore.sh learn "Safe bash arithmetic" --context "set -e scripts" --solution "Use x=\$((x+1))"
+lore learn "Safe bash arithmetic" --context "set -e scripts" --solution "Use x=\$((x+1))"
 
 # End a session (capture context for next time)
-./lore.sh handoff "Finished X, next steps: Y, blocked on Z"
+lore handoff "Finished X, next steps: Y, blocked on Z"
 
 # Resume previous session
-./lore.sh resume
+lore resume
 
 # Search everything
-./lore.sh search "authentication"
+lore search "authentication"
 ```
 
-## Project Structure
+## Components
 
-- `lore.sh`: Main entry point, dispatches to components
-- `journal/`: Decision capture with rationale and outcome tracking
-  - `journal.sh`, `lib/`, `data/decisions.jsonl`
-- `graph/`: Knowledge graph connecting concepts, files, decisions, lessons
-  - `graph.sh`, `lib/`, `data/graph.json`
-- `patterns/`: Scored patterns and anti-patterns
-  - `patterns.sh`, `lib/`, `data/patterns.yaml`
-- `transfer/`: Session snapshots and handoff
-  - `transfer.sh`, `lib/`, `data/sessions/`
-- `intent/`: Goals and missions
-  - `lib/intent.sh`, `data/goals/`, `data/missions/`
-- `registry/`: Project metadata and context
-  - `lib/registry.sh`, `data/metadata.yaml`, `data/clusters.yaml`, etc.
+Eight components, one CLI. See `SYSTEM.md` for architecture, data flow, and the component table.
 
-## Key Concepts
-
-**Seven components, one CLI.** Each component handles a different aspect of memory:
-
-- Journal answers "why did we choose this?"
-- Graph answers "what relates to this?"
-- Patterns answers "what did we learn?"
-- Transfer answers "what's next?"
-- Inbox answers "what did we notice?"
-- Intent answers "what are we trying to achieve?" (goals and missions)
-- Registry answers "what exists and how does it connect?" (project metadata)
+| Component     | Key Question                     |
+| ------------- | -------------------------------- |
+| **registry/** | "What exists and how connected?" |
+| **transfer/** | "What's next?"                   |
+| **journal/**  | "Why did we choose this?"        |
+| **patterns/** | "What did we learn?"             |
+| **failures/** | "What went wrong?"               |
+| **inbox/**    | "What did we notice?"            |
+| **intent/**   | "What are we trying to achieve?" |
+| **graph/**    | "What relates to this?"          |
 
 **Append-only.** Decisions and patterns are never deleted, only marked revised or abandoned.
 
@@ -65,6 +52,7 @@ See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags 
 - Sessions: JSON (one file per session in `transfer/data/sessions/`)
 - Goals: YAML (one file per goal in `intent/data/goals/`)
 - Missions: YAML (one file per mission in `intent/data/missions/`)
+- Failures: JSONL (append-only in `failures/data/`)
 - Registry: YAML (`registry/data/metadata.yaml`, `clusters.yaml`, `relationships.yaml`, `contracts.yaml`)
 
 ## Coding Conventions
@@ -76,4 +64,4 @@ See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags 
 
 ## Integration
 
-Lore is the shared memory backbone. Projects write decisions, patterns, and observations; they read context, patterns, and goals. Contract: `LORE_CONTRACT.md`
+Other projects integrate via `lib/lore-client-base.sh` -- fail-silent wrappers that record decisions, patterns, and observations without blocking if lore is unavailable. See `LORE_CONTRACT.md` for the full write/read interface.
