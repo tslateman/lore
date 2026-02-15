@@ -58,8 +58,8 @@ projects:
     tags: [type:library, lang:markdown, status:active, cluster:cli, plugin, git, skills]
   flow:
     path: cli/flow
-    desc: State management for agent coordination
-    tags: [type:library, lang:go, status:active, cluster:council, state, agents]
+    desc: State management for agent coordination (absorbed by neo)
+    tags: [type:library, lang:go, status:archived, state, agents]
   forge:
     path: forge
     desc: Turns specs into proven solutions through parallel prototyping and synthesis
@@ -72,9 +72,9 @@ projects:
     path: geordi
     desc: Unified API and GUI for the agent ecosystem
     tags: [type:service, lang:python, status:active, cluster:orchestration, api, gui, dashboard]
-  lineage:
-    path: _archive/lineage
-    desc: Unified memory backbone (absorbed by lore)
+  lore-legacy:
+    path: lore
+    desc: Unified memory backbone (legacy entry, see lore)
     tags: [type:library, lang:shell, status:archived, memory]
   mirror:
     path: mirror
@@ -93,9 +93,13 @@ projects:
     desc: Team manager for Claude Code Agent Teams
     tags: [type:orchestrator, lang:shell, status:active, cluster:orchestration, agents, teams]
   oracle:
-    path: _archive/oracle
+    path: oracle
     desc: Intent and goals layer (absorbed by lore)
     tags: [type:orchestrator, lang:shell, status:archived, goals, intent]
+  praxis:
+    path: praxis
+    desc: Structured failure journals and analysis
+    tags: [type:tool, lang:python, status:active, failures, analysis, wisdom]
   qin:
     path: cli/qin
     desc: Stringless qin — after Tao Yuanming

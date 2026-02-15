@@ -8,16 +8,16 @@ version: "1.0"
 clusters:
 
   orchestration:
-    root: ~/dev/oracle
-    description: Goal-driven orchestration with shared memory
+    root: ~/dev/lore
+    description: Memory-driven orchestration with shared context
     status: active
 
     components:
-      oracle:
-        path: ~/dev/oracle
-        role: intent
+      lore:
+        path: ~/dev/lore
+        role: memory
         order: 1
-        description: Goals and mission decomposition
+        description: Persistent memory, intent, registry, and context assembly
 
       neo:
         path: ~/dev/neo
@@ -31,76 +31,44 @@ clusters:
         order: 3
         description: Coordination patterns and governance
 
-      lore:
-        path: ~/dev/lore
-        role: registry
-        order: 4
-        description: Project registry and context assembly
-
-      lineage:
-        path: ~/dev/lineage
-        role: memory
-        order: 5
-        description: Persistent memory -- decisions, patterns, knowledge graph
-
       mirror:
         path: ~/dev/mirror
         role: judgment
-        order: 6
+        order: 4
         description: Judgment capture and refinement
 
       geordi:
         path: ~/dev/geordi
         role: visibility
-        order: 7
+        order: 5
         description: Unified API and GUI for the ecosystem
 
       entire:
         path: external (entireio/cli)
         role: session_capture
-        order: 8
+        order: 6
         description: Per-repo AI session capture and audit trail
 
     data_flow:
-      - from: oracle
-        to: lineage
-        type: decisions
-        contract: lib/lineage-client-base.sh
-
       - from: neo
-        to: lineage
+        to: lore
         type: decisions
-        contract: lib/lineage-client-base.sh
-
-      - from: lore
-        to: lineage
-        type: relationships
-        contract: lib/lineage-client-base.sh
+        contract: lib/lore-client-base.sh
 
       - from: council
-        to: lineage
+        to: lore
         type: decisions
-        contract: lib/lineage-client-base.sh
+        contract: lib/lore-client-base.sh
 
-      - from: lineage
-        to: oracle
-        type: context
-        contract: lib/lineage-client-base.sh
-
-      - from: lineage
+      - from: lore
         to: neo
         type: patterns
-        contract: lib/lineage-client-base.sh
+        contract: lib/lore-client-base.sh
 
-      - from: lineage
-        to: lore
-        type: context
-        contract: lib/lineage-client-base.sh
-
-      - from: lineage
+      - from: lore
         to: geordi
         type: context
-        contract: LINEAGE_CONTRACT.md
+        contract: LORE_CONTRACT.md
 
       - from: lore
         to: geordi
@@ -113,15 +81,15 @@ clusters:
         description: Seats, ADRs, initiatives, charter
 
       - from: entire
-        to: lineage
+        to: lore
         type: sessions
         contract: contracts/ENTIRE_BRIDGE_CONTRACT.md
 
     principles:
-      - Memory flows to Lineage; context flows from Lineage
+      - Memory flows to Lore; context flows from Lore
       - Operational state stays in each project
       - Patterns learned are never lost
-      - Client libraries fail silently if Lineage unavailable
+      - Client libraries fail silently if Lore unavailable
 
   council:
     root: ~/dev/council

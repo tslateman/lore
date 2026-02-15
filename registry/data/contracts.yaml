@@ -21,11 +21,11 @@ contracts:
     interface: Neo to aoe
     location: neo/CONTAINER_CONTRACT.md
     status: defined
-  lineage:
-    interface: All to Lineage
-    location: lineage/LINEAGE_CONTRACT.md
+  lore:
+    interface: All to Lore
+    location: lore/LORE_CONTRACT.md
     status: defined
   entire_bridge:
-    interface: Entire to Lineage
+    interface: Entire to Lore
     location: lore/contracts/ENTIRE_BRIDGE_CONTRACT.md
     status: proposed
