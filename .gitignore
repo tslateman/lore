@@ -4,3 +4,6 @@ transfer/data/.current_session
 
 # Derived indexes (rebuildable from decisions.jsonl)
 journal/data/index/
+
+# Tool-local data
+.entire/

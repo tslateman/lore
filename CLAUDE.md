@@ -32,7 +32,7 @@ Memory that compounds. Persistent, queryable knowledge across agent sessions.
   - `patterns.sh`, `lib/`, `data/patterns.yaml`
 - `transfer/`: Session snapshots and handoff
   - `transfer.sh`, `lib/`, `data/sessions/`
-- `intent/`: Goals and missions (absorbed from Oracle/Telos)
+- `intent/`: Goals and missions
   - `lib/intent.sh`, `data/goals/`, `data/missions/`
 - `registry/`: Project metadata and context
   - `lib/registry.sh`, `data/metadata.yaml`, `data/clusters.yaml`, etc.
@@ -55,7 +55,7 @@ Memory that compounds. Persistent, queryable knowledge across agent sessions.
 
 ## Integration Contract
 
-See `LORE_CONTRACT.md` for how other projects (Neo, Council) write to and read from Lore. Tags always include the source project name.
+See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags always include the source project name.
 
 ## Data Formats
 
@@ -74,7 +74,6 @@ See `LORE_CONTRACT.md` for how other projects (Neo, Council) write to and read f
 - Use `trap` for cleanup
 - Conventional commits with Strunk's-style body (see ~/.claude/CLAUDE.md)
 
-## Orchestration Hub
+## Integration
 
-Lore is the memory backbone. It absorbed Oracle (intent/goals) and the old Lore registry (registry/metadata) to consolidate the orchestration stack. Provides shared memory to: Neo, Council, and all projects.
-Contract: `LORE_CONTRACT.md`
+Lore is the shared memory backbone. Projects write decisions, patterns, and observations; they read context, patterns, and goals. Contract: `LORE_CONTRACT.md`

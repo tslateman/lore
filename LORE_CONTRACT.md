@@ -6,15 +6,16 @@ Lore is the shared memory backbone for the orchestration stack. It accepts struc
 
 ## Components
 
-| Component | Accepts                   | Returns                             | Storage                           |
-| --------- | ------------------------- | ----------------------------------- | --------------------------------- |
-| journal   | decisions with rationale  | decision records, related decisions | `journal/data/decisions.jsonl`    |
-| graph     | nodes and edges           | subgraphs, traversals               | `graph/data/graph.json`           |
-| patterns  | lessons and anti-patterns | matched patterns, suggestions       | `patterns/data/patterns.yaml`     |
-| transfer  | session snapshots         | session state, handoff notes        | `transfer/data/sessions/`         |
-| inbox     | raw observations          | observation records                 | `inbox/data/observations.jsonl`   |
-| intent    | goals with criteria       | goal records, missions              | `intent/data/goals/`, `missions/` |
-| registry  | project metadata          | project details, context bundles    | `registry/data/*.yaml`            |
+| Component | Accepts                   | Returns                              | Storage                           |
+| --------- | ------------------------- | ------------------------------------ | --------------------------------- |
+| journal   | decisions with rationale  | decision records, related decisions  | `journal/data/decisions.jsonl`    |
+| graph     | nodes and edges           | subgraphs, traversals                | `graph/data/graph.json`           |
+| patterns  | lessons and anti-patterns | matched patterns, suggestions        | `patterns/data/patterns.yaml`     |
+| transfer  | session snapshots         | session state, handoff notes         | `transfer/data/sessions/`         |
+| inbox     | raw observations          | observation records                  | `inbox/data/observations.jsonl`   |
+| intent    | goals with criteria       | goal records, missions               | `intent/data/goals/`, `missions/` |
+| registry  | project metadata          | project details, context bundles     | `registry/data/*.yaml`            |
+| failures  | failure reports (JSONL)   | failure records, triggers, timelines | `failures/data/failures.jsonl`    |
 
 ## Write Interface
 
@@ -35,7 +36,7 @@ lore journal record "<decision>" \
   --type architecture|implementation|naming|tooling|process|bugfix|refactor \
   --alternatives "<option A>" --alternatives "<option B>" \
   --entities "file.py" --entities "concept-name" \
-  --tags "neo,team-management"
+  --tags "myproject,team-management"
 ```
 
 **Decision schema** (JSON):
@@ -224,14 +225,14 @@ lore registry validate            # check registry consistency
 
 ## Integration by Project
 
-### Neo (team decisions)
+### Team Decisions
 
 When a team completes a mission or makes a significant decision:
 
 ```bash
 lore remember "Team alpha chose Redis over Memcached for session cache" \
   --rationale "Need pub/sub for invalidation, Redis supports it natively" \
-  --tags "neo,team-alpha,caching" \
+  --tags "myproject,team-alpha,caching" \
   --type implementation
 ```
 
@@ -242,32 +243,32 @@ lore patterns match "team coordination"
 lore search "caching"
 ```
 
-### Telos (goal outcomes)
+### Goal Outcomes (intent)
 
 When a goal succeeds or fails:
 
 ```bash
 lore remember "Goal 'improve API latency' achieved - p95 dropped from 800ms to 200ms" \
   --rationale "Connection pooling and query optimization were the key wins" \
-  --tags "telos,performance,goal-outcome" \
+  --tags "intent,performance,goal-outcome" \
   --type implementation
 
 lore journal update <dec-id> --outcome successful \
   --lesson "Connection pooling alone gave 60% of the improvement"
 ```
 
-### Council (governance decisions)
+### Governance Decisions
 
 When charter decisions are made or revised:
 
 ```bash
 lore remember "Critic seat gets veto power on security-related changes" \
   --rationale "Security review must not be overridden by velocity pressure" \
-  --tags "council,governance,security" \
+  --tags "myproject,governance,security" \
   --type process
 ```
 
-### Monarch (cross-project patterns)
+### Cross-Project Patterns
 
 When a pattern emerges across projects:
 
@@ -280,11 +281,11 @@ lore learn "Contract-first interfaces" \
 
 ## Conventions
 
-- **Tags always include the source project name** (e.g., `neo`, `telos`, `council`)
+- **Tags always include the source project name** (e.g., `teamctl`, `governance`, `analysis`)
 - **Decisions use the project's own terminology** in the decision text
 - **Patterns include origin** so you can trace where a lesson came from
 - **Session handoffs belong to the project that creates them** -- use `--tags` to namespace
-- **Graph nodes can reference entities across projects** -- use full paths (e.g., `neo/state/agents/`)
+- **Graph nodes can reference entities across projects** -- use full paths (e.g., `myproject/state/agents/`)
 
 ## Data Locations
 
@@ -302,6 +303,7 @@ registry/data/metadata.yaml       # Project roles, contracts, components
 registry/data/clusters.yaml       # Cluster definitions and data flow
 registry/data/relationships.yaml  # Cross-project dependencies
 registry/data/contracts.yaml      # Contract location tracking
+failures/data/failures.jsonl     # Failure reports
 ```
 
 ## Non-Goals
