@@ -1,3 +1,5 @@
+Status: Superseded (Lineage absorbed into Lore; handoff paths now under `~/dev/lore/`)
+
 # Plan: Wire `lineage handoff` into Session End
 
 ## Context

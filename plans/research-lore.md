@@ -1,3 +1,5 @@
+Status: Complete (consumed by api-architecture.md)
+
 # Lore Research Document
 
 Deep research for unified API design covering Lineage, Lore, and Council.

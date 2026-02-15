@@ -1,3 +1,5 @@
+Status: Complete (consumed by api-architecture.md)
+
 # Lineage Codebase Research
 
 Comprehensive analysis of every CLI command, data schema, library function, query capability, and integration point. This document drives API design decisions.

@@ -1,3 +1,5 @@
+Status: Complete (consumed by api-architecture.md)
+
 # Council Research Document
 
 Comprehensive analysis of ~/dev/council for unified API design across Lineage, Lore, and Council.

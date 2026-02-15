@@ -1,3 +1,5 @@
+Status: Superseded (Lineage absorbed into Lore; `lore.sh resume` replaces `lineage.sh resume`)
+
 # Plan: Wire `lineage resume` with Pattern Suggestions
 
 ## Context

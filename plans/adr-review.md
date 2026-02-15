@@ -1,3 +1,5 @@
+Status: Active
+
 # ADR Review: Three Council Pattern Documents
 
 Reviewed 2026-02-13. All three ingested into Lineage today as architecture decisions with status `pending`.

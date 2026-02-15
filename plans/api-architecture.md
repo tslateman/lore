@@ -1,3 +1,5 @@
+Status: Active
+
 # Unified API Architecture: Lineage + Lore + Council
 
 ## Design Philosophy
@@ -26,33 +28,32 @@ browser.
 ### File Locations (configurable via env)
 
 ```
-LINEAGE_DIR  = ~/dev/lineage
-LORE_DIR     = ~/dev/lore
-COUNCIL_DIR  = ~/dev/council
-DEV_PATH     = ~/dev
-MANI_FILE    = ~/dev/mani.yaml
+LORE_DIR        = ~/dev/lore          # Lore root (absorbed Lineage)
+COUNCIL_DIR     = ~/dev/council
+WORKSPACE_ROOT  = ~/dev              # Derived from script location
+MANI_FILE       = ~/dev/mani.yaml
 ```
 
 ### Read Paths (direct file I/O, no shell)
 
-| Data              | File                                        | Format | Parser        |
-| ----------------- | ------------------------------------------- | ------ | ------------- |
-| Journal decisions | $LINEAGE_DIR/journal/data/decisions.jsonl   | JSONL  | readline+json |
-| Graph             | $LINEAGE_DIR/graph/data/graph.json          | JSON   | json.load     |
-| Patterns          | $LINEAGE_DIR/patterns/data/patterns.yaml    | YAML   | PyYAML        |
-| Sessions          | $LINEAGE_DIR/transfer/data/sessions/\*.json | JSON   | json.load     |
-| Projects (mani)   | $DEV_PATH/mani.yaml                         | YAML   | PyYAML        |
-| Metadata          | $LORE_DIR/registry/metadata.yaml            | YAML   | PyYAML        |
-| Clusters          | $LORE_DIR/registry/clusters.yaml            | YAML   | PyYAML        |
-| Relationships     | $LORE_DIR/registry/relationships.yaml       | YAML   | PyYAML        |
-| Contracts         | $LORE_DIR/registry/contracts.yaml           | YAML   | PyYAML        |
-| Council charter   | $COUNCIL_DIR/charter.md                     | MD     | frontmatter   |
-| Seat content      | $COUNCIL_DIR/<seat>/\*.md                   | MD     | markdown      |
-| Initiatives       | $COUNCIL_DIR/initiatives/\*.md              | MD     | markdown      |
-| ADRs              | $COUNCIL_DIR/<seat>/adr-\*.md               | MD     | markdown      |
-| Tokens            | $COUNCIL_DIR/cred-broker/data/tokens.json   | JSON   | json.load     |
-| Audit log         | $COUNCIL_DIR/cred-broker/data/audit.log     | JSONL  | readline+json |
-| Marshal blocks    | $COUNCIL_DIR/.claude/marshal-blocks         | text   | readline      |
+| Data              | File                                      | Format | Parser        |
+| ----------------- | ----------------------------------------- | ------ | ------------- |
+| Journal decisions | $LORE_DIR/journal/data/decisions.jsonl    | JSONL  | readline+json |
+| Graph             | $LORE_DIR/graph/data/graph.json           | JSON   | json.load     |
+| Patterns          | $LORE_DIR/patterns/data/patterns.yaml     | YAML   | PyYAML        |
+| Sessions          | $LORE_DIR/transfer/data/sessions/\*.json  | JSON   | json.load     |
+| Projects (mani)   | $WORKSPACE_ROOT/mani.yaml                 | YAML   | PyYAML        |
+| Metadata          | $LORE_DIR/registry/metadata.yaml          | YAML   | PyYAML        |
+| Clusters          | $LORE_DIR/registry/clusters.yaml          | YAML   | PyYAML        |
+| Relationships     | $LORE_DIR/registry/relationships.yaml     | YAML   | PyYAML        |
+| Contracts         | $LORE_DIR/registry/contracts.yaml         | YAML   | PyYAML        |
+| Council charter   | $COUNCIL_DIR/charter.md                   | MD     | frontmatter   |
+| Seat content      | $COUNCIL_DIR/<seat>/\*.md                 | MD     | markdown      |
+| Initiatives       | $COUNCIL_DIR/initiatives/\*.md            | MD     | markdown      |
+| ADRs              | $COUNCIL_DIR/<seat>/adr-\*.md             | MD     | markdown      |
+| Tokens            | $COUNCIL_DIR/cred-broker/data/tokens.json | JSON   | json.load     |
+| Audit log         | $COUNCIL_DIR/cred-broker/data/audit.log   | JSONL  | readline+json |
+| Marshal blocks    | $COUNCIL_DIR/.claude/marshal-blocks       | text   | readline      |
 
 ### Write Paths (via shell subprocess)
 
@@ -60,7 +61,7 @@ Writes delegate to existing CLIs to preserve validation logic and side effects:
 
 ```python
 # Journal write
-subprocess.run(["./lineage.sh", "remember", text, "--rationale", r, "--tags", t])
+subprocess.run(["./lore.sh", "remember", text, "--rationale", r, "--tags", t])
 
 # Graph write
 subprocess.run(["./graph/graph.sh", "add", node_type, name, "--data", json_str])
