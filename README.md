@@ -1,54 +1,63 @@
 # Lore
 
-Memory that compounds.
+Explicit context management for multi-agent systems.
 
-A system for AI agents to build persistent, searchable memory across sessions.
+## Setup
 
-## Philosophy
+```bash
+export PATH="$HOME/dev/lore:$PATH"
+```
 
-> "The Mentor seat asks: Who will carry this forward?"
+## Usage
 
-Right now, every session starts cold. Context is compacted, summarized, lost.
-Lore changes that:
+```bash
+lore remember "Use JSONL for storage" \
+  --rationale "Simpler than SQLite, append-only matches our use case"
 
-- **Decisions have rationale** - not just what was done, but _why_
-- **Patterns are never lost** - lessons learned persist and prevent repeated mistakes
-- **Context transfers** - another agent picks up exactly where you left off
-- **Memory compounds** - knowledge builds over time, not reset each session
+lore learn "Safe bash arithmetic" \
+  --context "Incrementing variables with set -e" \
+  --solution "Use x=\$((x + 1)) instead of ((x++))"
+
+lore handoff "Auth implementation 80% complete, need OAuth integration"
+
+lore resume
+
+lore search "authentication"
+```
+
+See `lore --help` for the full command list.
+
+## Why Lore
+
+MEMORY.md gives each agent implicit context -- loaded into the prompt, hoped to
+be relevant. Lore gives explicit context -- structured writes, typed queries,
+cross-project assembly. The difference matters when multiple agents need the
+same context, when context exceeds what fits in a system prompt, or when you
+need to query across time.
+
+**Registry** is the proven core. It maps 24 projects with roles, contracts,
+cluster membership, and dependencies. `lore registry context neo` assembles an
+onboarding bundle no agent could build from scratch.
+
+**Transfer** provides session continuity. `lore resume` at session start loads
+the previous session's state -- what was done, what's next, what's blocked.
+
+**Journal, patterns, inbox, intent, and graph** provide structured storage for
+decisions, lessons, observations, goals, and relationships. These components
+earn their keep at scale -- when the flat-file approach stops fitting in a
+prompt.
 
 ## Components
 
 | Component     | Purpose               | Key Question                           |
 | ------------- | --------------------- | -------------------------------------- |
-| **journal/**  | Decision capture      | "Why did we choose this?"              |
-| **graph/**    | Knowledge connections | "What relates to this?"                |
-| **patterns/** | Lessons learned       | "What did we learn?"                   |
+| **registry/** | Project metadata      | "What exists and how does it connect?" |
 | **transfer/** | Session succession    | "What's next?"                         |
+| **journal/**  | Decision capture      | "Why did we choose this?"              |
+| **patterns/** | Lessons learned       | "What did we learn?"                   |
 | **inbox/**    | Raw observations      | "What did we notice?"                  |
 | **intent/**   | Goals and missions    | "What are we trying to achieve?"       |
-| **registry/** | Project metadata      | "What exists and how does it connect?" |
-
-## Quick Start
-
-```bash
-# Record a decision with rationale
-./lore.sh remember "Use JSONL for storage" \
-  --rationale "Simpler than SQLite, append-only matches our use case"
-
-# Capture a pattern learned
-./lore.sh learn "Safe bash arithmetic" \
-  --context "Incrementing variables with set -e" \
-  --solution "Use x=\$((x + 1)) instead of ((x++))"
-
-# Create handoff for next session
-./lore.sh handoff "Auth implementation 80% complete, need OAuth integration"
-
-# Resume from previous session
-./lore.sh resume
-
-# Search across all components
-./lore.sh search "authentication"
-```
+| **graph/**    | Knowledge connections | "What relates to this?"                |
 
 ## Architecture
 
@@ -86,32 +95,8 @@ lore/
     └── data/                # sessions/
 ```
 
-## Integration with CLAUDE.md
+## Integration
 
-Lore can export to CLAUDE.md format:
-
-```bash
-# Export recent decisions as markdown
-./lore.sh journal export --format markdown --recent 10
-
-# Export learned patterns
-./lore.sh patterns list --format markdown
-
-# Generate session retro
-./lore.sh transfer handoff --format markdown
-```
-
-## The Golden Rule
-
-**Patterns learned are never lost.**
-
-When compressing context or archiving old sessions, lessons learned are always preserved.
-This is memory that compounds.
-
-## Origin
-
-Built during the first orchestration session (2026-02-09) after asking:
-"If you could build anything, what would it be?"
-
-The answer: memory that persists across sessions, learns from mistakes,
-and enables true succession between agents.
+Other projects integrate via `lib/lore-client-base.sh` -- fail-silent wrappers
+that record decisions, patterns, and observations without blocking if lore is
+unavailable. See `LORE_CONTRACT.md` for the full write/read interface.

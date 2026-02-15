@@ -42,6 +42,9 @@ show_help() {
     echo "  lore status              Show current session state"
     echo "  lore observe <text>     Capture a raw observation to inbox"
     echo "  lore inbox [--status S] List inbox observations"
+    echo "  lore fail <type> <msg>  Log a failure report"
+    echo "  lore failures [opts]    List failures (--type, --mission)"
+    echo "  lore triggers           Show recurring failure types (Rule of Three)"
     echo "  lore ingest <proj> <type> <file>  Bulk import from external formats"
     echo ""
     echo "Intent (Goals & Missions):"
@@ -96,6 +99,17 @@ cmd_search() {
 
     echo -e "${CYAN}Patterns:${NC}"
     "$LORE_DIR/patterns/patterns.sh" list 2>/dev/null | grep -i "$query" || echo "  (no results)"
+    echo ""
+
+    echo -e "${CYAN}Failures:${NC}"
+    local failures_file="$LORE_DIR/failures/data/failures.jsonl"
+    if [[ -f "$failures_file" ]]; then
+        grep -i "$query" "$failures_file" 2>/dev/null \
+            | jq -r '"  \(.id) [\(.error_type)] \(.error_message[0:80])"' 2>/dev/null \
+            || echo "  (no results)"
+    else
+        echo "  (no results)"
+    fi
     echo ""
 
     echo -e "${CYAN}Inbox:${NC}"
@@ -174,6 +188,129 @@ cmd_context() {
     else
         echo "  (project not in graph)"
     fi
+}
+
+cmd_fail() {
+    source "$LORE_DIR/failures/lib/failures.sh"
+
+    local error_type=""
+    local message=""
+    local tool=""
+    local mission=""
+    local step=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --tool|-t)
+                tool="$2"
+                shift 2
+                ;;
+            --mission|-m)
+                mission="$2"
+                shift 2
+                ;;
+            --step|-s)
+                step="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                if [[ -z "$error_type" ]]; then
+                    error_type="$1"
+                elif [[ -z "$message" ]]; then
+                    message="$1"
+                else
+                    message="$message $1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$error_type" || -z "$message" ]]; then
+        echo -e "${RED}Error: error_type and message required${NC}" >&2
+        echo "Usage: lore fail <error_type> <message> [--tool T] [--mission M] [--step S]" >&2
+        echo "Types: UserDeny HardDeny NonZeroExit Timeout ToolError LogicError" >&2
+        return 1
+    fi
+
+    local id
+    id=$(failures_append "$error_type" "$message" "$tool" "$mission" "$step")
+
+    echo -e "${GREEN}Logged:${NC} ${BOLD}$id${NC}"
+    echo -e "  ${CYAN}Type:${NC} $error_type"
+    echo -e "  ${CYAN}Message:${NC} $message"
+    [[ -n "$tool" ]] && echo -e "  ${CYAN}Tool:${NC} $tool"
+    [[ -n "$mission" ]] && echo -e "  ${CYAN}Mission:${NC} $mission"
+}
+
+cmd_failures() {
+    source "$LORE_DIR/failures/lib/failures.sh"
+
+    local filter_type=""
+    local filter_mission=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --type)
+                filter_type="$2"
+                shift 2
+                ;;
+            --mission)
+                filter_mission="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                echo -e "${RED}Unknown argument: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    local results
+    results=$(failures_list "$filter_type" "$filter_mission")
+
+    local count
+    count=$(echo "$results" | jq 'length')
+
+    if [[ "$count" -eq 0 ]]; then
+        echo -e "${YELLOW}No failures found${NC}"
+        return 0
+    fi
+
+    echo -e "${GREEN}Failures ($count):${NC}"
+    echo
+
+    echo "$results" | jq -r '.[] | "  \(.id) [\(.error_type)] \(.timestamp[0:16])\n    \(.error_message[0:70])\(.error_message | if length > 70 then "..." else "" end)\n"'
+}
+
+cmd_triggers() {
+    source "$LORE_DIR/failures/lib/failures.sh"
+
+    local threshold="${1:-3}"
+
+    local results
+    results=$(failures_triggers "$threshold")
+
+    local count
+    count=$(echo "$results" | jq 'length')
+
+    if [[ "$count" -eq 0 ]]; then
+        echo -e "${YELLOW}No recurring failure types (threshold: ${threshold})${NC}"
+        return 0
+    fi
+
+    echo -e "${GREEN}Recurring Failures (>= ${threshold} occurrences):${NC}"
+    echo
+
+    echo "$results" | jq -r '.[] | "  \(.error_type): \(.count) occurrences (latest: \(.latest[0:16]))\n    Sample: \(.sample_message[0:70])\n"'
 }
 
 cmd_observe() {
@@ -278,6 +415,9 @@ main() {
         status)     shift; cmd_status "$@" ;;
         observe)    shift; cmd_observe "$@" ;;
         inbox)      shift; cmd_inbox "$@" ;;
+        fail)       shift; cmd_fail "$@" ;;
+        failures)   shift; cmd_failures "$@" ;;
+        triggers)   shift; cmd_triggers "$@" ;;
 
         # Ingest command
         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;

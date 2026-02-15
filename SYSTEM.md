@@ -34,8 +34,9 @@ opt-in via CLI or client library. Any project that calls `lore remember` or
 2. lore goal list       See active goals
 3. Work happens         Agents read patterns, make decisions
 4. lore remember        Capture decisions with rationale
-5. lore learn           Capture patterns from experience
-6. lore handoff         Snapshot state for next session
+5. lore fail            Log failures with error type and context
+6. lore learn           Capture patterns from experience
+7. lore handoff         Snapshot state for next session
 ```
 
 ### The Compounding Loop
@@ -63,7 +64,7 @@ Each component answers one question. Together they form institutional memory.
 | `transfer/` | What's next?              | JSON   | Session handoff              |
 | `inbox/`    | What did we notice?       | JSONL  | Observations from any source |
 | `intent/`   | What are we trying to do? | YAML   | Goals, mission decomp        |
-| `failures/` | What went wrong?          | JSONL  | Failure reporters            |
+| `failures/` | What went wrong?          | JSONL  | Any project via CLI          |
 | `registry/` | What exists?              | YAML   | Project metadata             |
 
 ### Storage Conventions
@@ -90,15 +91,18 @@ goals, missions, metadata).
 
 Lore exposes one contract: `LORE_CONTRACT.md`.
 
-| Interface | Example                             | Effect                     |
-| --------- | ----------------------------------- | -------------------------- |
-| Write     | `lore remember "X" --rationale "Y"` | Appends to journal         |
-| Write     | `lore learn "X" --context "Y"`      | Appends to patterns        |
-| Write     | `lore observe "X"`                  | Appends to inbox           |
-| Write     | `lore goal create "X"`              | Creates goal YAML          |
-| Read      | `lore search "X"`                   | Searches journal + graph   |
-| Read      | `lore resume`                       | Loads last session context |
-| Read      | `lore registry context <project>`   | Assembles project context  |
+| Interface | Example                             | Effect                             |
+| --------- | ----------------------------------- | ---------------------------------- |
+| Write     | `lore remember "X" --rationale "Y"` | Appends to journal                 |
+| Write     | `lore learn "X" --context "Y"`      | Appends to patterns                |
+| Write     | `lore observe "X"`                  | Appends to inbox                   |
+| Write     | `lore fail NonZeroExit "msg"`       | Appends to failures                |
+| Write     | `lore goal create "X"`              | Creates goal YAML                  |
+| Read      | `lore search "X"`                   | Searches all components            |
+| Read      | `lore resume`                       | Loads last session context         |
+| Read      | `lore failures --type X`            | Queries failure reports            |
+| Read      | `lore triggers`                     | Recurring failures (Rule of Three) |
+| Read      | `lore registry context <project>`   | Assembles project context          |
 
 Tags always include the source project name. Decisions from a team orchestrator
 include its project tag. Governance decisions include theirs. This makes
