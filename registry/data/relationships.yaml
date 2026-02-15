@@ -10,7 +10,7 @@ dependencies:
   # ── Council components ────────────────────────────────────────────
   bach:
     depends_on:
-      - project: flow
+      - project: neo
         type: runtime
         reason: Receives tasks via TASK_CONTRACT
 
@@ -115,7 +115,7 @@ integrations:
 # Patterns borrowed across projects
 pattern_sharing:
   - pattern: contract-interfaces
-    source: flow
+    source: neo
     adopted_by:
       - bach
     description: Markdown-based interface contracts
@@ -123,7 +123,7 @@ pattern_sharing:
   - pattern: narrow-interfaces
     source: council
     adopted_by:
-      - flow
+      - neo
       - bach
       - get-shit-done
       - coalesce
@@ -133,9 +133,8 @@ pattern_sharing:
     source: lore
     adopted_by:
       - council
-      - flow
-      - bach
       - neo
+      - bach
       - duet
       - mirror
     description: CLAUDE.md as agent entry point for each project
