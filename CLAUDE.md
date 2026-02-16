@@ -4,6 +4,8 @@ Explicit context management for multi-agent systems.
 
 ## Quick Start
 
+See the [tutorial](docs/tutorial.md) for a hands-on walkthrough. The essentials:
+
 ```bash
 # Record decisions, patterns, and failures with one command
 lore capture "Use JSONL for storage" --rationale "Append-only, simple"
