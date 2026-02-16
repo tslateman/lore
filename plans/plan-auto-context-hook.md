@@ -1,283 +1,249 @@
-# Plan: Auto-Context Injection via UserPromptSubmit Hook
+# Plan: Auto-Context Injection Hook
 
 Status: Proposed
 
 ## Problem
 
-Agents start cold. Each session begins with CLAUDE.md and whatever the user
-types -- no awareness of relevant decisions, patterns, or failures already
-captured in lore. The `lore resume` instruction in CLAUDE.md helps, but only
-if the agent runs it and only if the user remembers to ask. Context should
-arrive automatically, scoped to the user's actual question.
+Agents start cold. CLAUDE.md loads, but no project-specific decisions,
+patterns, or failures arrive unless the agent runs `lore resume`. Context
+should inject automatically, scoped to where the user is working.
 
-## Prior Art
+## Hook API
 
-[claude-mem](https://github.com/thedotmack/claude-mem) solved this for
-general-purpose memory: a `UserPromptSubmit` hook captures every prompt,
-stores it in SQLite, then injects recent context via
-`hookSpecificOutput.additionalContext` on subsequent sessions. Their approach
-prioritizes recency over relevance and uses progressive disclosure (an index
-of summaries, not full records).
-
-Lore's advantage: structured, typed data. Decisions carry rationale. Patterns
-carry solutions. Failures carry error types. We can rank by _kind_, not just
-timestamp.
-
-## Mechanism
-
-### Hook Event
-
-`UserPromptSubmit` -- fires after the user submits a prompt, before Claude
-processes it. The hook script receives JSON on stdin:
+Claude Code's `UserPromptSubmit` hook fires after the user submits a prompt,
+before Claude processes it. The script receives JSON on stdin:
 
 ```json
 {
   "session_id": "abc123",
-  "user_prompt": "Why does the deploy script fail on staging?",
+  "prompt": "Why does the deploy script fail on staging?",
   "cwd": "/Users/tslater/dev/flow",
   "hook_event_name": "UserPromptSubmit"
 }
 ```
 
-The script returns JSON on stdout. The key field is
-`hookSpecificOutput.additionalContext`, a string injected silently into
-Claude's context window without displaying to the user.
-
-### Integration Point
-
-A command hook in lore's settings or as a plugin hook:
-
-```json
-{
-  "UserPromptSubmit": [
-    {
-      "matcher": "*",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "bash ~/dev/lore/hooks/inject-context.sh",
-          "timeout": 5
-        }
-      ]
-    }
-  ]
-}
-```
-
-The 5-second timeout keeps the hook fast. If lore is unavailable, the script
-exits 0 with no output -- fail-silent, consistent with lore's integration
-philosophy.
-
-## What to Inject
-
-### Sources (Priority Order)
-
-| Priority | Source   | Data                                                | Why                                      |
-| -------- | -------- | --------------------------------------------------- | ---------------------------------------- |
-| 1        | patterns | Scored patterns matching keywords                   | Direct "do this / avoid that" guidance   |
-| 2        | journal  | Recent decisions mentioning the project or keywords | Rationale prevents re-litigating choices |
-| 3        | failures | Recent failures for the project/tool                | Prevents repeating known mistakes        |
-| 4        | transfer | Latest handoff note for the project                 | Picks up where the last session left off |
-| 5        | registry | Project metadata (role, contracts, deps)            | Orients the agent in the ecosystem       |
-| 6        | inbox    | Raw observations tagged with the project            | Low-signal but sometimes useful          |
-
-### Not Injected
-
-- **Graph**: Too structural for prompt-level context. Better served by
-  explicit `lore graph query` calls.
-- **Intent (goals/missions)**: Injected only if the prompt mentions a
-  goal-related keyword ("goal", "mission", "milestone"). Otherwise noise.
-
-## Keyword Extraction
-
-Simple and fast -- no NLP library, no external service:
-
-1. **Project detection**: Derive project name from `$cwd`. Strip the
-   workspace root (`~/dev/`) and take the first path segment. If `cwd` is
-   `/Users/tslater/dev/flow/src`, project = `flow`.
-
-2. **Keyword extraction**: Split the user's prompt into words. Remove
-   stopwords (a, the, is, to, ...). Lowercase the remainder. Keep 5-10
-   significant terms.
-
-3. **Compound matching**: Some keywords map to lore tags:
-   - `deploy` -> search tags `deploy`, `ci`, `pipeline`
-   - `test` -> search tags `test`, `testing`, `ci`
-   - `auth` -> search tags `auth`, `authentication`, `security`
-
-   This mapping lives in a small config file
-   (`hooks/keyword-synonyms.yaml`), editable without code changes.
-
-### Why Not an LLM for Keyword Extraction?
-
-A prompt-based hook could extract keywords with better semantic
-understanding, but it adds 1-3 seconds of latency and costs a model call per
-prompt. The keyword approach runs in <100ms, covers the common case, and
-degrades gracefully to project-only matching when no keywords hit. If keyword
-quality proves insufficient, a prompt-based hook can replace step 2 later.
-
-## Relevance Ranking
-
-Each candidate result gets a score:
-
-```
-score = source_weight * recency_factor * match_strength
-```
-
-- **source_weight**: patterns=1.0, journal=0.9, failures=0.8, transfer=0.7,
-  registry=0.6, inbox=0.3
-- **recency_factor**: `1.0 / (1 + days_since_created / 30)` -- recent items
-  score higher, old items decay toward 0 but never vanish
-- **match_strength**: `keyword_matches / total_keywords` -- what fraction of
-  extracted keywords appear in the record's text/tags
-
-Results below a threshold (e.g., score < 0.1) are dropped. The top N results
-(governed by the token budget) are kept.
-
-## Token Budgeting
-
-The injected context must fit in a fixed budget to avoid crowding the
-agent's working memory.
-
-### Budget Allocation
-
-- **Total budget**: 2,000 tokens (configurable via
-  `LORE_CONTEXT_BUDGET` env var)
-- **Header/framing**: ~100 tokens (section markers, attribution)
-- **Content**: ~1,900 tokens for actual records
-
-### Estimation
-
-Use a simple heuristic: **1 token ~ 4 characters** (conservative for
-English). Each candidate record is measured by `${#text} / 4`. Records are
-added in score order until the budget fills. The last record that would
-exceed the budget is truncated or dropped.
-
-### Format
-
-The injected string uses a compact, scannable format:
-
-```
---- Lore Context (auto-injected, 3 items) ---
-
-[pattern] Safe bash arithmetic (confidence: 0.9)
-  Context: set -e scripts
-  Solution: Use x=$((x+1)) not x=$(expr $x + 1)
-
-[decision] dec-a1b2c3d4 (2026-02-10)
-  Use JSONL for storage -- append-only, simple, grep-friendly
-
-[failure] fail-e5f6 (2026-02-14, tool: Bash)
-  NonZeroExit: deploy.sh fails when DEPLOY_ENV unset
-
---- end lore context ---
-```
-
-Markers (`--- Lore Context ---`) let the agent (and humans reading
-transcripts) distinguish injected context from user input.
-
-### Progressive Disclosure
-
-If the budget allows only summaries, inject one-line summaries with IDs.
-The agent can call `lore journal show <id>` or `lore patterns show <id>`
-for full details. This mirrors claude-mem's index approach but with typed
-records.
-
-## Implementation Outline
-
-### File Structure
-
-```
-hooks/
-  inject-context.sh       # Main hook script (entry point)
-  lib/
-    extract-keywords.sh   # Keyword extraction from prompt
-    query-sources.sh      # Query each lore component
-    rank-results.sh       # Score and sort candidates
-    format-output.sh      # Build the injection payload
-  keyword-synonyms.yaml   # Editable synonym mapping
-  config.yaml             # Budget, thresholds, source weights
-```
-
-### Script Flow
-
-```
-stdin (JSON) --> extract project + keywords
-             --> query patterns, journal, failures, transfer, registry
-             --> score and rank results
-             --> trim to token budget
-             --> format as hookSpecificOutput JSON
-             --> stdout
-```
-
-### Output Format
+The script returns JSON on stdout:
 
 ```json
 {
   "hookSpecificOutput": {
-    "additionalContext": "--- Lore Context (auto-injected, 3 items) ---\n\n[pattern] Safe bash arithmetic..."
+    "additionalContext": "--- lore context ---\n..."
   }
 }
 ```
 
+The `additionalContext` string injects silently into Claude's context window.
+Exit 0 with no output means "allow, inject nothing."
+
+`UserPromptSubmit` does not support matchers -- it fires on every prompt.
+
+## Design
+
+One script. Detect the project from `cwd`, grep lore's data files for
+matches, format results, emit JSON. No ranking, no synonyms, no config files.
+Prove the concept before adding machinery.
+
+### Project Detection
+
+Strip the workspace root from `cwd`, take the first path segment:
+
+```bash
+LORE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
+project="${cwd#$WORKSPACE_ROOT/}"   # flow/src -> flow/src
+project="${project%%/*}"             # flow/src -> flow
+```
+
+If `cwd` is outside the workspace, inject nothing.
+
+### What to Query
+
+Three sources, in order. Each adds lines until the budget fills.
+
+| Source   | Query                                  | Why                                    |
+| -------- | -------------------------------------- | -------------------------------------- |
+| patterns | grep project name + prompt keywords    | Direct "do this / avoid that" guidance |
+| journal  | grep project name in decisions.jsonl   | Rationale prevents re-litigating       |
+| transfer | latest session handoff for the project | Picks up where the last session ended  |
+
+Not queried: registry (CLAUDE.md already covers it), graph (too structural),
+inbox (low signal), intent (noise unless goal-related).
+
+### Keyword Extraction
+
+Split the prompt into words. Drop common stopwords (a, the, is, to, in, for,
+of, on, it, do, be, has, was, are, with, that, this, from, not, but, what,
+why, how, can, should, would, does). Lowercase the rest. Keep up to 8 terms.
+
+No synonym expansion. If a keyword hits, great. If not, project-only matching
+still returns useful context.
+
+### Token Budget
+
+- **Budget**: 1,500 characters (~375 tokens). Enough for 3-5 compact results.
+- **Estimation**: `${#text}`. Characters, not tokens. Simple and conservative.
+- **Overflow**: Stop adding results when the budget fills. No truncation of
+  individual records -- either the whole record fits or it's dropped.
+
+### Output Format
+
+```
+--- lore context (auto-injected, 3 items) ---
+
+[pattern] Safe bash arithmetic (confidence: 0.9)
+  Problem: ((x++)) returns exit code 1 when x is 0
+  Solution: Use x=$((x + 1)) instead
+
+[decision] dec-a1b2c3d4 (2026-02-10)
+  Use JSONL for storage -- append-only, grep-friendly
+
+[handoff] session-20260214 (2026-02-14)
+  Auth implementation 80% complete, need OAuth integration
+
+--- end lore context ---
+```
+
+Markers distinguish injected context from user input.
+
+## Implementation
+
+### Single File
+
+```
+hooks/
+  inject-context.sh    # Entry point, registered as UserPromptSubmit hook
+```
+
+No lib/ directory, no config files, no synonym mappings. One script under 150
+lines. If the script grows past 200 lines, decompose then.
+
+### Hook Registration
+
+In `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/dev/lore/hooks/inject-context.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+5-second timeout. The script should finish in under 200ms (a few greps on
+small files). The timeout catches edge cases.
+
+### Script Outline
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Read JSON from stdin
+input=$(cat)
+cwd=$(echo "$input" | jq -r '.cwd // ""')
+prompt=$(echo "$input" | jq -r '.prompt // ""')
+
+# Derive project
+LORE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
+project="${cwd#$WORKSPACE_ROOT/}"
+project="${project%%/*}"
+
+# Bail if outside workspace or project is empty
+[[ -z "$project" || "$project" == "$cwd" ]] && exit 0
+
+# Extract keywords from prompt (drop stopwords)
+keywords=$(extract_keywords "$prompt")
+
+# Query sources, accumulate results within budget
+results=""
+budget=1500
+
+results+=$(query_patterns "$project" "$keywords")
+results+=$(query_journal "$project")
+results+=$(query_transfer "$project")
+
+# If nothing matched, exit silently
+[[ -z "$results" ]] && exit 0
+
+# Emit JSON
+count=$(echo "$results" | grep -c '^\[')
+jq -n --arg ctx "--- lore context (auto-injected, $count items) ---
+
+$results
+--- end lore context ---" \
+  '{ hookSpecificOutput: { additionalContext: $ctx } }'
+```
+
 ### Error Handling
 
-- `jq` parse failure on stdin: exit 0, inject nothing
-- No matching results: exit 0, inject nothing (no noise)
-- lore component missing or broken: skip that source, continue
-- Timeout approaching: stop querying, return what we have
+- `jq` parse failure: exit 0
+- No matching results: exit 0 (no noise)
+- Data file missing: skip that source
+- Any unexpected error: `trap 'exit 0' ERR` at top -- fail-silent
 
-## Phased Delivery
+### Query Functions
 
-### Phase 1: Project-Only Context
+**Patterns**: Parse `patterns.yaml` with yq, grep for project name or
+keywords in name/context/problem/solution fields. Format matching patterns as
+one-line summaries.
 
-Inject the latest handoff note and top 3 patterns for the detected project.
-No keyword extraction, no ranking. Validates the hook wiring and output
-format.
+**Journal**: `grep -i "$project" decisions.jsonl`, take the 3 most recent
+(tail -3), extract decision text with jq.
 
-### Phase 2: Keyword Matching
+**Transfer**: Find the latest session file in `transfer/data/sessions/`,
+extract the handoff message if it mentions the project.
 
-Add keyword extraction and search across journal + failures. Implement
-scoring and token budgeting.
+## Testing
 
-### Phase 3: Synonym Expansion + Tuning
+```bash
+# Simulate a prompt from the flow project
+echo '{"cwd":"/Users/tslater/dev/flow","prompt":"fix the deploy script","session_id":"test"}' \
+  | bash hooks/inject-context.sh
 
-Add `keyword-synonyms.yaml`. Tune weights and thresholds based on real
-usage. Add `LORE_CONTEXT_BUDGET` and `LORE_CONTEXT_DEBUG` env vars.
+# Should output JSON with additionalContext, or nothing if no matches
 
-### Phase 4: Metrics
+# Simulate outside workspace (should exit silently)
+echo '{"cwd":"/tmp","prompt":"hello","session_id":"test"}' \
+  | bash hooks/inject-context.sh
 
-Log injection stats (items injected, budget used, query time) to
-`failures/data/` or a dedicated metrics file. Track whether injected context
-actually gets referenced in the session (requires a PostToolUse or Stop hook
-to check).
+# Dry run: check timing
+time echo '{"cwd":"/Users/tslater/dev/lore","prompt":"bash patterns","session_id":"test"}' \
+  | bash hooks/inject-context.sh
+```
 
-## Risks and Mitigations
+## What This Doesn't Do (Yet)
 
-| Risk                         | Impact                           | Mitigation                                                |
-| ---------------------------- | -------------------------------- | --------------------------------------------------------- |
-| Stale context misleads agent | Agent acts on outdated decision  | Recency decay in scoring; show timestamps                 |
-| Latency exceeds timeout      | Context not injected             | 5s timeout; fast grep-based queries; fail-silent          |
-| Token budget too small       | Useful context truncated         | Configurable budget; progressive disclosure               |
-| Token budget too large       | Crowds agent's working memory    | Default 2,000 tokens; monitor session quality             |
-| Keyword extraction too naive | Misses relevant context          | Phase 3 synonyms; upgrade path to prompt-based extraction |
-| Irrelevant context injected  | Noise degrades agent performance | Score threshold; "no results = no injection"              |
+Deferred until the basic hook proves useful:
 
-## Open Questions
+- **Relevance ranking**: No scoring formula. Results appear in source order
+  (patterns, journal, transfer). Ranking adds complexity for marginal gain at
+  current data volumes (~55 journal entries, ~13 patterns).
+- **Synonym expansion**: No `keyword-synonyms.yaml`. Keywords match literally.
+- **SessionStart hook**: Could inject project-level orientation on session
+  start. Separate concern, separate hook.
+- **Metrics**: No injection stats, no tracking of whether context gets used.
+- **Cache**: Queries are fast greps on small files. Caching adds complexity
+  for <100ms operations.
+- **`lore resume` retirement**: Once the hook is reliable, the manual `lore
+resume` instruction in CLAUDE.md becomes redundant. Remove it then.
 
-1. **Should the hook also fire on SessionStart?** A SessionStart hook could
-   inject project-level orientation (registry metadata, active goals) while
-   UserPromptSubmit handles per-prompt relevance. Two hooks, two purposes.
+## Risks
 
-2. **Cache across prompts?** If the user sends 5 prompts about the same
-   topic, should results be cached? The first query is cheap (<100ms), so
-   caching adds complexity for minimal gain. Defer unless latency becomes
-   an issue.
-
-3. **Plugin vs settings hook?** A plugin packages the hook portably. A
-   settings hook in `~/.claude/settings.json` is simpler but tied to one
-   machine. Recommend: start with settings, migrate to plugin once stable.
-
-4. **Interaction with `lore resume`?** The CLAUDE.md instruction to run
-   `lore resume` at session start overlaps with auto-injection of transfer
-   context. Once the hook is reliable, the manual instruction can be removed.
+| Risk                    | Mitigation                                                  |
+| ----------------------- | ----------------------------------------------------------- |
+| Stale context misleads  | Show timestamps; agents can verify                          |
+| Latency exceeds timeout | 5s timeout; greps on <100 line files finish in milliseconds |
+| Irrelevant context      | No results = no injection; project scoping filters noise    |
+| Budget too small        | 1,500 chars fits 3-5 results; increase if needed            |
+| Budget too large        | Crowds working memory; start small, expand if starved       |
