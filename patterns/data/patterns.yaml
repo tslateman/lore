@@ -3,6 +3,16 @@
 
 patterns:
 
+    - id: "pat-219191-7ff433b2"
+      name: "Hybrid search with Reciprocal Rank Fusion"
+      context: "Implementing semantic search with limited dependencies"
+      problem: "Combining results from multiple ranking signals (FTS5 BM25 and vector cosine similarity) that use incompatible score scales"
+      solution: "Use Reciprocal Rank Fusion (RRF): score = sum(1/(k+rank)) where k=60. RRF is rank-based, not score-based, so it handles different scales naturally. Records appearing in both result sets get boosted."
+      category: "general"
+      origin: "session-2026-02-15"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-16T05:19:51Z"
     - id: "pat-092136-e3216f19"
       name: "Prototype Decomposition"
       context: "Praxis prototype proved Sync-Promote-Execute lifecycle in Python. Needed to distribute implementation across existing shell-based repos (Lineage, Neo) without introducing Python or new projects."

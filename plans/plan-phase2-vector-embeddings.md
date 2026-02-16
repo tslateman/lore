@@ -1,7 +1,7 @@
 # Plan: Phase 2 — Vector Embeddings
 
-Status: Draft
-Trigger: Implement when FTS5 fails 3x (Rule of Three)
+Status: Implemented
+Completed: 2026-02-15
 
 ## Problem
 
