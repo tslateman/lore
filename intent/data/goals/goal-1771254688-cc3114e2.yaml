@@ -23,7 +23,9 @@ tags:
   - integration
   - feedback-loop
 metrics: {}
-notes: "Part of the Feedback Loop initiative tracked in Council."
+notes: |
+  Part of the Feedback Loop initiative tracked in Council.
+  Flow integration (phase-routed pattern injection) is in scope if needed.
 
 mission_hints:
   max_parallel: 1
