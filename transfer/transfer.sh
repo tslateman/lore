@@ -23,6 +23,8 @@ source "${SCRIPT_DIR}/lib/snapshot.sh"
 source "${SCRIPT_DIR}/lib/resume.sh"
 source "${SCRIPT_DIR}/lib/handoff.sh"
 source "${SCRIPT_DIR}/lib/compress.sh"
+source "${SCRIPT_DIR}/lib/search.sh"
+source "${SCRIPT_DIR}/lib/export.sh"
 
 # Ensure data directories exist
 mkdir -p "${SESSIONS_DIR}"
@@ -45,6 +47,8 @@ COMMANDS:
     diff <session1> <session2>  Compare what changed between sessions
     list                        List all saved sessions
     init                        Initialize a new session
+    search <query> [limit]      Search sessions by content
+    export <session-id>         Export session to markdown or JSON
 
 OPTIONS:
     -h, --help                  Show this help message
@@ -69,6 +73,12 @@ EXAMPLES:
 
     # Compare two sessions
     transfer.sh diff session-abc123 session-def456
+
+    # Search sessions
+    transfer.sh search "authentication"
+
+    # Export session to markdown
+    transfer.sh export session-abc123
 EOF
 }
 
@@ -104,15 +114,24 @@ cmd_init() {
     "active_files": [],
     "recent_commands": [],
     "environment": {}
+  },
+  "related": {
+    "journal_entries": [],
+    "patterns": [],
+    "goals": []
   }
 }
 EOF
 
     # Set as current session
     echo "${session_id}" > "${CURRENT_SESSION_FILE}"
+    
+    # Export for subprocesses (journal, patterns, etc.)
+    export LORE_SESSION_ID="${session_id}"
 
     echo "Initialized new session: ${session_id}"
     echo "Session file: ${session_file}"
+    echo "export LORE_SESSION_ID=${session_id}  # Run this to use unified session ID"
 }
 
 #######################################
@@ -401,6 +420,12 @@ main() {
                 exit 1
             fi
             compress_session "$1"
+            ;;
+        search)
+            search_sessions "$@"
+            ;;
+        export)
+            export_session "$@"
             ;;
         ""|help)
             usage

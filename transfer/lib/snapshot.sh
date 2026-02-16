@@ -215,9 +215,11 @@ add_goal() {
 
 #######################################
 # Add a decision to the current session
+# Also creates a journal entry for unified tracking
 #######################################
 add_decision() {
     local decision="$1"
+    local rationale="${2:-}"
 
     if [[ ! -f "${CURRENT_SESSION_FILE}" ]]; then
         echo "No active session."
@@ -228,13 +230,38 @@ add_decision() {
     session_id=$(cat "${CURRENT_SESSION_FILE}")
     local session_file="${SESSIONS_DIR}/${session_id}.json"
 
+    # Create journal entry with session tag for unified tracking
+    local lore_root="${LORE_ROOT:-$(dirname "$(dirname "${TRANSFER_ROOT}")")}"
+    local journal_sh="${lore_root}/journal/journal.sh"
+    local dec_id=""
+    
+    if [[ -x "${journal_sh}" ]]; then
+        # Record in journal, capture the decision ID
+        local journal_output
+        journal_output=$("${journal_sh}" record "${decision}" \
+            ${rationale:+--rationale "${rationale}"} \
+            --tags "session:${session_id}" 2>/dev/null) || true
+        
+        # Extract decision ID from output (format: "Recorded decision: dec-xxxxxxxx")
+        dec_id=$(echo "${journal_output}" | grep -o 'dec-[a-f0-9]*' | head -1) || true
+    fi
+
     local tmp_file
     tmp_file=$(mktemp)
 
-    jq --arg decision "${decision}" '.decisions_made += [$decision]' "${session_file}" > "${tmp_file}"
+    # Store both plain text (backward compat) and journal entry ID reference
+    if [[ -n "${dec_id}" ]]; then
+        jq --arg decision "${decision}" --arg dec_id "${dec_id}" \
+            '.decisions_made += [$decision] | .related.journal_entries += [$dec_id]' \
+            "${session_file}" > "${tmp_file}"
+    else
+        jq --arg decision "${decision}" '.decisions_made += [$decision]' \
+            "${session_file}" > "${tmp_file}"
+    fi
     mv "${tmp_file}" "${session_file}"
 
     echo "Added decision: ${decision}"
+    [[ -n "${dec_id}" ]] && echo "  Journal entry: ${dec_id}"
 }
 
 #######################################

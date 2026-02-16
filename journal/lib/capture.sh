@@ -11,9 +11,13 @@ generate_decision_id() {
 }
 
 # Generate session ID if not set
+# Checks: 1) LORE_SESSION_ID env, 2) transfer's current session, 3) journal's local session
 get_session_id() {
     if [[ -n "${LORE_SESSION_ID:-}" ]]; then
         echo "$LORE_SESSION_ID"
+    elif [[ -f "${SCRIPT_DIR}/../../transfer/data/.current_session" ]]; then
+        # Use transfer's active session for unified session IDs
+        cat "${SCRIPT_DIR}/../../transfer/data/.current_session"
     elif [[ -f "${SCRIPT_DIR}/../data/.current_session" ]]; then
         cat "${SCRIPT_DIR}/../data/.current_session"
     else
