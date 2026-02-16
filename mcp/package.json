@@ -1,0 +1,26 @@
+{
+  "name": "lore-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Lore - explicit context management for multi-agent systems",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "lore-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
