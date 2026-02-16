@@ -2,11 +2,14 @@
 #
 # Resume - Load context from previous session
 #
-# Loads previous session snapshot
-# Summarizes what happened in that session
-# Highlights unfinished work and open questions
-# Surfaces relevant patterns learned
-# Shows active spec context (if any)
+# Fork-on-resume: Creates a NEW session inheriting context from the old one.
+# Historical sessions are never modified after handoff.
+#
+# Behavior:
+# 1. Display context from the parent session (read-only)
+# 2. Create new session with parent_session link
+# 3. Inherit: open_threads, handoff.next_steps → initial context
+# 4. Set .current_session to the NEW session
 #
 
 # Resolve LORE_DIR for cross-component calls
@@ -46,6 +49,95 @@ suggest_patterns_for_context() {
         echo "${output}"
         echo ""
     fi
+}
+
+#######################################
+# Fork a new session from a parent session
+# Creates new session inheriting context, sets as current
+# Args: parent_session_id
+# Returns: new session ID (also sets CURRENT_SESSION_FILE)
+#######################################
+fork_session_from_parent() {
+    local parent_id="$1"
+    local parent_file="${SESSIONS_DIR}/${parent_id}.json"
+
+    if [[ ! -f "${parent_file}" ]]; then
+        echo "Parent session not found: ${parent_id}" >&2
+        return 1
+    fi
+
+    # Generate new session ID
+    local new_id="session-$(date +%Y%m%d-%H%M%S)-$(openssl rand -hex 4 2>/dev/null || echo $$)"
+    local new_file="${SESSIONS_DIR}/${new_id}.json"
+
+    # Detect project name
+    local project_name=""
+    if git rev-parse --git-dir &>/dev/null; then
+        project_name=$(basename "$(git rev-parse --show-toplevel)")
+    else
+        project_name=$(basename "$PWD")
+    fi
+
+    # Extract inherited context from parent
+    local open_threads next_steps blockers questions
+    open_threads=$(jq -c '.open_threads // []' "${parent_file}")
+    next_steps=$(jq -c '.handoff.next_steps // []' "${parent_file}")
+    blockers=$(jq -c '.handoff.blockers // []' "${parent_file}")
+    questions=$(jq -c '.handoff.questions // []' "${parent_file}")
+
+    # Create new session with inherited context
+    jq -n \
+        --arg id "${new_id}" \
+        --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --arg parent "${parent_id}" \
+        --arg project "${project_name}" \
+        --argjson open_threads "${open_threads}" \
+        --argjson next_steps "${next_steps}" \
+        --argjson blockers "${blockers}" \
+        --argjson questions "${questions}" \
+        '{
+            id: $id,
+            started_at: $started,
+            ended_at: null,
+            parent_session: $parent,
+            summary: "",
+            goals_addressed: [],
+            decisions_made: [],
+            patterns_learned: [],
+            open_threads: $open_threads,
+            handoff: {
+                next_steps: [],
+                blockers: [],
+                questions: []
+            },
+            inherited: {
+                next_steps: $next_steps,
+                blockers: $blockers,
+                questions: $questions
+            },
+            git_state: {
+                branch: "",
+                commits: [],
+                uncommitted: []
+            },
+            context: {
+                project: $project,
+                active_files: [],
+                recent_commands: [],
+                environment: {}
+            },
+            related: {
+                journal_entries: [],
+                patterns: [],
+                goals: []
+            }
+        }' > "${new_file}"
+
+    # Set as current session
+    echo "${new_id}" > "${CURRENT_SESSION_FILE}"
+
+    # Return the new session ID
+    echo "${new_id}"
 }
 
 #######################################
@@ -360,12 +452,16 @@ resume_session() {
         suggest_patterns_for_context "${combined_context}" 5
     fi
 
-    # Set as current session for continuation
-    echo "${session_id}" > "${CURRENT_SESSION_FILE}"
+    # Fork: create new session inheriting from this one
+    local new_session_id
+    new_session_id=$(fork_session_from_parent "${session_id}")
 
     echo "=============================================="
-    echo "  Session loaded. You can continue working."
-    echo "  Use 'transfer.sh snapshot' to save progress."
+    echo "  Forked new session: ${new_session_id}"
+    echo "  Parent: ${session_id}"
+    echo ""
+    echo "  Inherited ${threads_count} open threads."
+    echo "  Use 'lore snapshot' to save progress."
     echo "=============================================="
 }
 
