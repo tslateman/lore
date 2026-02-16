@@ -75,6 +75,26 @@ CREATE TABLE IF NOT EXISTS embeddings (
     created_at TEXT NOT NULL,
     PRIMARY KEY (record_type, record_id)
 );
+
+-- Phase 3: Graph edges for relationship traversal
+CREATE TABLE IF NOT EXISTS graph_edges (
+    from_id TEXT NOT NULL,
+    to_id TEXT NOT NULL,
+    relation TEXT NOT NULL,
+    weight REAL DEFAULT 1.0,
+    PRIMARY KEY (from_id, to_id, relation)
+);
+CREATE INDEX IF NOT EXISTS idx_edges_from ON graph_edges(from_id);
+CREATE INDEX IF NOT EXISTS idx_edges_to ON graph_edges(to_id);
+
+-- Graph nodes for content lookup during expansion
+CREATE TABLE IF NOT EXISTS graph_nodes (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    data TEXT,  -- JSON
+    created_at TEXT
+);
 SQL
 }
 
@@ -293,6 +313,10 @@ index_stats() {
     sqlite3 "$DB" "SELECT COUNT(*) FROM transfers;"
     echo -n "  Embeddings: "
     sqlite3 "$DB" "SELECT COUNT(*) FROM embeddings;" 2>/dev/null || echo "0"
+    echo -n "  Graph nodes: "
+    sqlite3 "$DB" "SELECT COUNT(*) FROM graph_nodes;" 2>/dev/null || echo "0"
+    echo -n "  Graph edges: "
+    sqlite3 "$DB" "SELECT COUNT(*) FROM graph_edges;" 2>/dev/null || echo "0"
     echo -n "  Access log entries: "
     sqlite3 "$DB" "SELECT COUNT(*) FROM access_log;"
     echo -n "  Database size: "
@@ -446,13 +470,315 @@ load_embeddings() {
     echo "  Generated ${count} new embeddings"
 }
 
+# --- Phase 3: Graph-Enhanced Recall ---
+
+GRAPH_FILE="${LORE_DIR}/graph/data/graph.json"
+
+# Edge type relevance weights for scoring
+declare -A EDGE_WEIGHTS=(
+    ["implements"]=1.0
+    ["derived_from"]=0.9
+    ["learned_from"]=0.9
+    ["contradicts"]=0.8
+    ["relates_to"]=0.7
+    ["affects"]=0.7
+    ["depends_on"]=0.6
+    ["produces"]=0.6
+    ["consumes"]=0.6
+    ["part_of"]=0.6
+    ["supersedes"]=0.5
+    ["references"]=0.5
+    ["contains"]=0.5
+    ["summarized_by"]=0.4
+)
+
+# Load graph edges and nodes into SQLite for fast traversal
+load_graph() {
+    [[ -f "$GRAPH_FILE" ]] || {
+        echo "  Skipping graph (no graph.json found)"
+        return 0
+    }
+    
+    echo "  Loading graph data..."
+    
+    # Clear existing graph data
+    sqlite3 "$DB" "DELETE FROM graph_edges; DELETE FROM graph_nodes;" 2>/dev/null || true
+    
+    local node_count=0
+    local edge_count=0
+    
+    # Load nodes
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local id type name data created_at
+        
+        id=$(echo "$line" | jq -r '.id // ""')
+        type=$(echo "$line" | jq -r '.type // ""')
+        name=$(echo "$line" | jq -r '.name // ""')
+        data=$(echo "$line" | jq -c '.data // {}')
+        created_at=$(echo "$line" | jq -r '.created_at // ""')
+        
+        sqlite3 "$DB" "INSERT OR REPLACE INTO graph_nodes(id, type, name, data, created_at)
+            VALUES ($(sql_quote "$id"), $(sql_quote "$type"), $(sql_quote "$name"),
+                    $(sql_quote "$data"), $(sql_quote "$created_at"));"
+        node_count=$((node_count + 1))
+    done < <(jq -c '.nodes | to_entries[] | {id: .key} + .value' "$GRAPH_FILE" 2>/dev/null)
+    
+    # Load edges
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local from_id to_id relation weight
+        
+        from_id=$(echo "$line" | jq -r '.from // ""')
+        to_id=$(echo "$line" | jq -r '.to // ""')
+        relation=$(echo "$line" | jq -r '.relation // "relates_to"')
+        weight=$(echo "$line" | jq -r '.weight // 1.0')
+        
+        sqlite3 "$DB" "INSERT OR REPLACE INTO graph_edges(from_id, to_id, relation, weight)
+            VALUES ($(sql_quote "$from_id"), $(sql_quote "$to_id"),
+                    $(sql_quote "$relation"), $weight);"
+        edge_count=$((edge_count + 1))
+        
+        # Handle bidirectional edges
+        local bidir
+        bidir=$(echo "$line" | jq -r '.bidirectional // false')
+        if [[ "$bidir" == "true" ]]; then
+            sqlite3 "$DB" "INSERT OR REPLACE INTO graph_edges(from_id, to_id, relation, weight)
+                VALUES ($(sql_quote "$to_id"), $(sql_quote "$from_id"),
+                        $(sql_quote "$relation"), $weight);"
+            edge_count=$((edge_count + 1))
+        fi
+    done < <(jq -c '.edges[]' "$GRAPH_FILE" 2>/dev/null)
+    
+    echo "  Loaded ${node_count} nodes, ${edge_count} edges"
+}
+
+# Traverse graph from a set of starting nodes
+# Returns related nodes with hop distance and edge type
+graph_traverse() {
+    local start_ids="$1"
+    local max_hops="${2:-1}"
+    local edge_filter="${3:-}"
+    
+    # Use Python for cleaner graph traversal with BFS
+    python3 - "$DB" "$start_ids" "$max_hops" "$edge_filter" <<'PYTHON'
+import sys
+import sqlite3
+from collections import deque
+
+db_path = sys.argv[1]
+start_ids = sys.argv[2].split(',') if sys.argv[2] else []
+max_hops = int(sys.argv[3]) if sys.argv[3] else 1
+edge_filter = sys.argv[4].split(',') if sys.argv[4] else []
+
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
+
+# BFS traversal
+visited = {}  # id -> (hop_distance, edge_type, from_id)
+queue = deque()
+
+for start_id in start_ids:
+    start_id = start_id.strip()
+    if start_id:
+        visited[start_id] = (0, 'start', None)
+        queue.append((start_id, 0))
+
+while queue:
+    current_id, current_hop = queue.popleft()
+    
+    if current_hop >= max_hops:
+        continue
+    
+    # Get outgoing edges
+    if edge_filter:
+        placeholders = ','.join('?' * len(edge_filter))
+        cursor.execute(f"""
+            SELECT to_id, relation, weight FROM graph_edges 
+            WHERE from_id = ? AND relation IN ({placeholders})
+        """, [current_id] + edge_filter)
+    else:
+        cursor.execute("""
+            SELECT to_id, relation, weight FROM graph_edges WHERE from_id = ?
+        """, (current_id,))
+    
+    for to_id, relation, weight in cursor.fetchall():
+        if to_id not in visited:
+            visited[to_id] = (current_hop + 1, relation, current_id)
+            queue.append((to_id, current_hop + 1))
+    
+    # Also get incoming edges (graph is not always bidirectional)
+    if edge_filter:
+        placeholders = ','.join('?' * len(edge_filter))
+        cursor.execute(f"""
+            SELECT from_id, relation, weight FROM graph_edges 
+            WHERE to_id = ? AND relation IN ({placeholders})
+        """, [current_id] + edge_filter)
+    else:
+        cursor.execute("""
+            SELECT from_id, relation, weight FROM graph_edges WHERE to_id = ?
+        """, (current_id,))
+    
+    for from_id, relation, weight in cursor.fetchall():
+        if from_id not in visited:
+            visited[from_id] = (current_hop + 1, relation, current_id)
+            queue.append((from_id, current_hop + 1))
+
+conn.close()
+
+# Output: id|hop|edge_type|from_id
+print("id|hop|edge_type|via")
+for node_id, (hop, edge_type, via) in sorted(visited.items(), key=lambda x: x[1][0]):
+    if hop > 0:  # Skip start nodes
+        print(f"{node_id}|{hop}|{edge_type}|{via or ''}")
+PYTHON
+}
+
+# Get node content for display
+get_node_content() {
+    local node_id="$1"
+    sqlite3 "$DB" "SELECT type, name, data FROM graph_nodes WHERE id = $(sql_quote "$node_id");" 2>/dev/null
+}
+
+# Expand search results with graph relationships
+# Takes initial results and returns expanded set with graph-related nodes
+expand_with_graph() {
+    local initial_results="$1"
+    local graph_depth="${2:-1}"
+    local edge_filter="${3:-}"
+    
+    # Extract IDs from initial results (pipe-delimited, id is second field)
+    local result_ids
+    result_ids=$(echo "$initial_results" | tail -n +2 | cut -d'|' -f2 | tr '\n' ',' | sed 's/,$//')
+    
+    [[ -z "$result_ids" ]] && {
+        echo "$initial_results"
+        return 0
+    }
+    
+    # Traverse graph from result IDs
+    local expanded
+    expanded=$(graph_traverse "$result_ids" "$graph_depth" "$edge_filter")
+    
+    # Merge initial results with expanded nodes
+    # Apply score decay based on hop distance
+    python3 - "$initial_results" "$expanded" "$DB" <<'PYTHON'
+import sys
+import sqlite3
+import json
+
+initial_raw = sys.argv[1]
+expanded_raw = sys.argv[2]
+db_path = sys.argv[3]
+
+# Edge type weights for relevance scoring
+EDGE_WEIGHTS = {
+    "implements": 1.0,
+    "derived_from": 0.9,
+    "learned_from": 0.9,
+    "contradicts": 0.8,
+    "relates_to": 0.7,
+    "affects": 0.7,
+    "depends_on": 0.6,
+    "produces": 0.6,
+    "consumes": 0.6,
+    "part_of": 0.6,
+    "supersedes": 0.5,
+    "references": 0.5,
+    "contains": 0.5,
+    "summarized_by": 0.4,
+    "start": 1.0,
+}
+
+# Hop distance decay: score * 0.7^hop
+DECAY_FACTOR = 0.7
+
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
+
+results = {}  # id -> {type, content, score, hop, edge_type}
+
+# Parse initial results (skip header)
+lines = initial_raw.strip().split('\n')
+if len(lines) > 1:
+    for line in lines[1:]:
+        if not line or '|' not in line:
+            continue
+        parts = line.split('|')
+        if len(parts) >= 3:
+            record_type, record_id, content = parts[0], parts[1], parts[2]
+            # Get score from last numeric field if present
+            score = 1.0
+            for p in reversed(parts):
+                try:
+                    score = float(p)
+                    break
+                except ValueError:
+                    continue
+            
+            results[record_id] = {
+                'type': record_type,
+                'content': content[:100],
+                'score': score,
+                'hop': 0,
+                'edge_type': 'direct',
+            }
+
+# Parse expanded results
+expanded_lines = expanded_raw.strip().split('\n')
+if len(expanded_lines) > 1:
+    for line in expanded_lines[1:]:
+        if not line or '|' not in line:
+            continue
+        parts = line.split('|')
+        if len(parts) >= 3:
+            node_id, hop, edge_type = parts[0], int(parts[1]), parts[2]
+            
+            if node_id in results:
+                continue  # Already in results from direct search
+            
+            # Look up node content
+            cursor.execute("SELECT type, name, data FROM graph_nodes WHERE id = ?", (node_id,))
+            row = cursor.fetchone()
+            if not row:
+                continue
+            
+            node_type, name, data = row
+            
+            # Calculate decayed score
+            edge_weight = EDGE_WEIGHTS.get(edge_type, 0.5)
+            decayed_score = edge_weight * (DECAY_FACTOR ** hop)
+            
+            results[node_id] = {
+                'type': f"graph:{node_type}",
+                'content': name[:100],
+                'score': decayed_score,
+                'hop': hop,
+                'edge_type': edge_type,
+            }
+
+conn.close()
+
+# Sort by score descending
+sorted_results = sorted(results.items(), key=lambda x: x[1]['score'], reverse=True)
+
+# Output
+print("type|id|content|score|hop|edge")
+for node_id, data in sorted_results:
+    content = data['content'].replace('\n', ' ').replace('|', ' ')
+    print(f"{data['type']}|{node_id}|{content}|{data['score']:.4f}|{data['hop']}|{data['edge_type']}")
+PYTHON
+}
+
 # --- Commands ---
 
 cmd_build() {
     local skip_embeddings=false
+    local skip_graph=false
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --no-embeddings) skip_embeddings=true; shift ;;
+            --no-graph) skip_graph=true; shift ;;
             *) shift ;;
         esac
     done
@@ -476,6 +802,11 @@ SQL
     # Phase 2: Generate embeddings
     if [[ "$skip_embeddings" != "true" ]]; then
         load_embeddings
+    fi
+    
+    # Phase 3: Load graph data
+    if [[ "$skip_graph" != "true" ]]; then
+        load_graph
     fi
     
     echo "Done."
@@ -706,6 +1037,142 @@ cmd_hybrid() {
     hybrid_search "$query" "$project" "$limit"
 }
 
+# Graph-enhanced search: expands results by following graph relationships
+cmd_graph_search() {
+    if [[ ! -f "$DB" ]]; then
+        echo "Index not found. Building..." >&2
+        cmd_build >&2
+    fi
+
+    local query="${1:?Usage: search-index.sh graph <query> [--depth N] [--edges type1,type2]}"
+    shift
+    local depth="1" edges="" limit="10" project="" mode="hybrid"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --depth|-d)   depth="$2"; shift 2 ;;
+            --edges|-e)   edges="$2"; shift 2 ;;
+            --limit|-n)   limit="$2"; shift 2 ;;
+            --project|-p) project="$2"; shift 2 ;;
+            --mode|-m)    mode="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    # Get initial results using specified mode
+    local initial_results
+    case "$mode" in
+        fts)      initial_results=$(search_query "$query" "$project" "$limit") ;;
+        semantic) initial_results=$(semantic_search "$query" "$limit") ;;
+        hybrid)   initial_results=$(hybrid_search "$query" "$project" "$limit") ;;
+        *)        initial_results=$(hybrid_search "$query" "$project" "$limit") ;;
+    esac
+    
+    # Also search graph nodes directly and add matching IDs
+    local graph_matches
+    graph_matches=$(sqlite3 "$DB" "SELECT id FROM graph_nodes WHERE name LIKE '%${query}%' COLLATE NOCASE;" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+    
+    # If we found graph matches, add them to the search for expansion
+    if [[ -n "$graph_matches" ]]; then
+        # Get related nodes from graph matches
+        local graph_expanded
+        graph_expanded=$(graph_traverse "$graph_matches" "$depth" "$edges")
+        
+        # Merge graph results with initial results
+        python3 - "$initial_results" "$graph_expanded" "$DB" <<'PYTHON'
+import sys
+import sqlite3
+
+initial_raw = sys.argv[1]
+expanded_raw = sys.argv[2]
+db_path = sys.argv[3]
+
+EDGE_WEIGHTS = {
+    "implements": 1.0, "derived_from": 0.9, "learned_from": 0.9,
+    "contradicts": 0.8, "relates_to": 0.7, "affects": 0.7,
+    "depends_on": 0.6, "produces": 0.6, "consumes": 0.6,
+    "part_of": 0.6, "supersedes": 0.5, "references": 0.5,
+    "contains": 0.5, "summarized_by": 0.4, "start": 1.0,
+}
+DECAY_FACTOR = 0.7
+
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
+
+results = {}
+
+# Parse initial search results
+lines = initial_raw.strip().split('\n')
+if len(lines) > 1:
+    for line in lines[1:]:
+        if not line or '|' not in line:
+            continue
+        parts = line.split('|')
+        if len(parts) >= 3:
+            record_type, record_id, content = parts[0], parts[1], parts[2]
+            score = 1.0
+            for p in reversed(parts):
+                try:
+                    score = float(p)
+                    break
+                except ValueError:
+                    continue
+            results[record_id] = {
+                'type': record_type,
+                'content': content[:100],
+                'score': score,
+                'hop': 0,
+                'edge_type': 'direct',
+            }
+
+# Parse graph expansion results
+expanded_lines = expanded_raw.strip().split('\n')
+if len(expanded_lines) > 1:
+    for line in expanded_lines[1:]:
+        if not line or '|' not in line:
+            continue
+        parts = line.split('|')
+        if len(parts) >= 3:
+            node_id, hop, edge_type = parts[0], int(parts[1]), parts[2]
+            
+            cursor.execute("SELECT type, name FROM graph_nodes WHERE id = ?", (node_id,))
+            row = cursor.fetchone()
+            if not row:
+                continue
+            
+            node_type, name = row
+            edge_weight = EDGE_WEIGHTS.get(edge_type, 0.5)
+            decayed_score = edge_weight * (DECAY_FACTOR ** hop)
+            
+            # Graph results get a boost if not in direct results
+            if node_id not in results:
+                results[node_id] = {
+                    'type': f"graph:{node_type}",
+                    'content': name[:100],
+                    'score': decayed_score,
+                    'hop': hop,
+                    'edge_type': edge_type,
+                }
+
+# Also add graph nodes that directly match (hop 0)
+cursor.execute("SELECT id, type, name FROM graph_nodes WHERE id IN (SELECT id FROM graph_nodes WHERE name LIKE ? COLLATE NOCASE)", (f"%{sys.argv[2].split(',')[0].split('|')[0] if sys.argv[2] else ''}%",))
+# This is handled by start nodes
+
+conn.close()
+
+sorted_results = sorted(results.items(), key=lambda x: x[1]['score'], reverse=True)
+
+print("type|id|content|score|hop|edge")
+for node_id, data in sorted_results:
+    content = data['content'].replace('\n', ' ').replace('|', ' ')
+    print(f"{data['type']}|{node_id}|{content}|{data['score']:.4f}|{data['hop']}|{data['edge_type']}")
+PYTHON
+    else
+        # No graph matches, just expand from initial results
+        expand_with_graph "$initial_results" "$depth" "$edges"
+    fi
+}
+
 cmd_log_access() {
     local type="${1:?Usage: search-index.sh log-access <type> <id>}"
     local id="${2:?Usage: search-index.sh log-access <type> <id>}"
@@ -727,10 +1194,11 @@ main() {
         echo "Usage: search-index.sh <command> [options]"
         echo ""
         echo "Commands:"
-        echo "  build [--no-embeddings]     Build/rebuild the search index"
+        echo "  build [--no-embeddings] [--no-graph]  Build/rebuild the search index"
         echo "  search <query>              Search (FTS5 by default)"
         echo "  semantic <query>            Semantic search using embeddings"
         echo "  hybrid <query>              Hybrid search (FTS5 + semantic)"
+        echo "  graph <query>               Graph-enhanced search (expands via relationships)"
         echo "  log-access <type> <id>      Log access for reinforcement"
         echo "  stats                       Show index statistics"
         echo ""
@@ -738,6 +1206,10 @@ main() {
         echo "  --project, -p <name>        Boost results from project"
         echo "  --limit, -n <num>           Max results (default 10)"
         echo "  --mode, -m <fts|semantic|hybrid>  Search mode"
+        echo ""
+        echo "Graph search options:"
+        echo "  --depth, -d <num>           Graph traversal depth (default 1)"
+        echo "  --edges, -e <types>         Edge types to follow (comma-separated)"
         exit 1
     }
 
@@ -746,11 +1218,12 @@ main() {
         search)     shift; cmd_search "$@" ;;
         semantic)   shift; cmd_semantic "$@" ;;
         hybrid)     shift; cmd_hybrid "$@" ;;
+        graph)      shift; cmd_graph_search "$@" ;;
         log-access) shift; cmd_log_access "$@" ;;
         stats)      shift; cmd_stats "$@" ;;
         *)
             echo "Unknown command: $1" >&2
-            echo "Usage: search-index.sh <build|search|semantic|hybrid|log-access|stats>"
+            echo "Usage: search-index.sh <build|search|semantic|hybrid|graph|log-access|stats>"
             exit 1
             ;;
     esac

@@ -1,7 +1,7 @@
 # Plan: Phase 3 — Graph-Enhanced Recall
 
-Status: Draft
-Trigger: Implement after Phase 2 is stable
+Status: Implemented
+Completed: 2026-02-15
 
 ## Problem
 
