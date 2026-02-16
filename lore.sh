@@ -65,63 +65,316 @@ infer_capture_type() {
     fi
 }
 
+# Minimal help - fits on one screen
 show_help() {
-    echo "Lore - Memory That Compounds"
-    echo ""
-    echo "Usage: lore <component> <command> [options]"
-    echo ""
-    echo "Components:"
-    echo "  journal   Decision capture with rationale and outcomes"
-    echo "  graph     Searchable knowledge graph of concepts and relationships"
-    echo "  patterns  Learned patterns and anti-patterns"
-    echo "  transfer  Session context and succession"
-    echo "  inbox     Raw observation staging area"
-    echo "  intent    Goals and missions (from Telos/Oracle)"
-    echo "  registry  Project metadata and context"
-    echo ""
-    echo "Quick Commands:"
-    echo "  lore capture <text>      Universal capture (infers type from flags)"
-    echo "    --decision             Capture as decision (journal)"
-    echo "    --pattern              Capture as pattern (lessons learned)"
-    echo "    --failure              Capture as failure report"
-    echo "  lore remember <text>     Quick decision capture (shortcut for capture --decision)"
-    echo "  lore learn <pattern>     Quick pattern capture (shortcut for capture --pattern)"
-    echo "  lore fail <type> <msg>   Quick failure capture (shortcut for capture --failure)"
-    echo "  lore handoff <message>   Create handoff for next session"
-    echo "  lore resume [session]    Resume from previous session"
-    echo "  lore search <query>      Search across all components (keyword)"
-    echo "    --smart                Auto-select best mode (semantic if available)"
-    echo "    --semantic             Force semantic search (requires Ollama)"
-    echo "    --hybrid               Force hybrid search (keyword + semantic)"
-    echo "    --graph-depth N        Follow graph edges (0-3, default 0)"
-    echo "  lore index               Build/rebuild FTS5 search index"
-    echo "  lore context <project>   Gather full context for a project"
-    echo "  lore suggest <context>   Suggest relevant patterns"
-    echo "  lore status              Show current session state"
-    echo "  lore observe <text>     Capture a raw observation to inbox"
-    echo "  lore inbox [--status S] List inbox observations"
-    echo "  lore failures [opts]    List failures (--type, --mission)"
-    echo "  lore triggers           Show recurring failure types (Rule of Three)"
-    echo "  lore validate            Run comprehensive registry checks"
-    echo "  lore ingest <proj> <type> <file>  Bulk import from external formats"
-    echo ""
-    echo "Intent (Goals & Missions):"
-    echo "  lore goal create <name>           Create a goal"
-    echo "  lore goal list [--status S]       List goals"
-    echo "  lore goal show <goal-id>          Show goal details"
-    echo "  lore mission generate <goal-id>   Generate missions from goal"
-    echo "  lore mission list                 List missions"
-    echo ""
-    echo "Registry (Project Metadata):"
-    echo "  lore registry show <project>      Show enriched project details"
-    echo "  lore registry list                List all projects"
-    echo "  lore registry validate            Check registry consistency"
-    echo ""
-    echo "Philosophy:"
-    echo "  - Decisions have rationale, not just outcomes"
-    echo "  - Patterns learned are never lost"
-    echo "  - Context transfers between sessions"
-    echo "  - Memory compounds over time"
+    cat << 'EOF'
+Lore - Memory That Compounds
+
+Usage: lore <command> [options]
+
+Session:
+  resume              Load context from previous session
+  handoff <message>   Capture context for next session
+  status              Show current session state
+
+Capture:
+  remember <text>     Record a decision (--rationale "why")
+  learn <text>        Capture a pattern (--context "when")
+  fail <type> <msg>   Log a failure (Timeout, ToolError, etc.)
+
+Query:
+  search <query>      Search all components (--smart for semantic)
+
+Run 'lore help' for all commands.
+Run 'lore help <topic>' for: capture, search, intent, registry, components
+EOF
+}
+
+# Full help - all commands
+show_help_full() {
+    cat << 'EOF'
+Lore - Memory That Compounds
+
+Usage: lore <command> [options]
+
+SESSION LIFECYCLE
+  resume [session]        Load context from previous session (forks new session)
+  handoff <message>       Capture context for next session
+  status                  Show current session state
+
+CAPTURE
+  remember <text>         Record a decision with rationale
+    --rationale, -r       Why this decision was made
+    --alternatives, -a    Other options considered
+    --tags, -t            Tags for categorization
+  learn <text>            Capture a pattern or lesson
+    --context             When this pattern applies
+    --solution            The approach or fix
+    --category            Pattern category
+  fail <type> <message>   Log a failure for pattern detection
+    Types: Timeout, NonZeroExit, UserDeny, ToolError, LogicError
+  observe <text>          Capture raw observation to inbox
+  capture <text>          Universal capture (infers type from flags)
+
+QUERY
+  search <query>          Search across all components
+    --smart               Auto-select semantic if Ollama available
+    --semantic            Force semantic search (requires Ollama)
+    --hybrid              Combine keyword + semantic
+    --graph-depth N       Follow graph edges (0-3)
+  context <project>       Gather full context for a project
+  suggest <context>       Suggest relevant patterns
+  failures [--type T]     List failures
+  triggers                Show recurring failures (Rule of Three)
+
+INTENT (Goals & Missions)
+  goal create <name>      Create a goal
+  goal list [--status S]  List goals
+  goal show <id>          Show goal details
+  mission generate <id>   Generate missions from goal
+  mission list            List missions
+
+REGISTRY
+  registry show <proj>    Show project details
+  registry list           List all projects
+  registry validate       Check consistency
+
+MAINTENANCE
+  index                   Build/rebuild search index
+  validate                Run comprehensive checks
+  ingest <p> <t> <file>   Bulk import from external formats
+
+COMPONENTS (direct access)
+  journal <cmd>           Decision journal
+  patterns <cmd>          Patterns and anti-patterns
+  graph <cmd>             Knowledge graph
+  transfer <cmd>          Session management
+  inbox <cmd>             Observation staging
+  intent <cmd>            Goals and missions
+
+Run 'lore help <topic>' for detailed help on:
+  capture, search, intent, registry, components
+EOF
+}
+
+# Topic-specific help
+show_help_capture() {
+    cat << 'EOF'
+CAPTURE COMMANDS
+
+Record decisions, patterns, and failures for future retrieval.
+
+DECISIONS (remember)
+  lore remember "Use PostgreSQL" --rationale "Need ACID, team knows it"
+  lore remember "REST over GraphQL" -r "Simpler" -a "GraphQL, gRPC"
+
+  Options:
+    --rationale, -r <why>       Why this decision was made
+    --alternatives, -a <list>   Comma-separated alternatives considered
+    --tags, -t <list>           Comma-separated tags
+    --type <type>               architecture, implementation, naming, etc.
+    --files, -f <list>          Files affected
+    --force                     Skip duplicate check
+
+PATTERNS (learn)
+  lore learn "Retry with backoff" --context "External APIs" --solution "100ms * 2^n"
+
+  Options:
+    --context <when>            When this pattern applies
+    --solution <what>           The approach or technique
+    --problem <what>            What problem this solves
+    --category <cat>            Category (or "anti-pattern")
+    --confidence <0-1>          How confident in this pattern
+
+FAILURES (fail)
+  lore fail ToolError "Permission denied on /etc/hosts"
+  lore fail Timeout "API call exceeded 30s"
+
+  Error types:
+    Timeout       Operation exceeded time limit
+    NonZeroExit   Command returned non-zero
+    UserDeny      User rejected proposed action
+    ToolError     Tool execution failed
+    LogicError    Logical/validation error
+
+  Options:
+    --tool <name>               Tool that failed
+    --mission <id>              Related mission ID
+    --step <desc>               Step in workflow
+
+OBSERVATIONS (observe)
+  lore observe "Users frequently ask about retry logic"
+
+  Raw observations go to inbox for later triage.
+EOF
+}
+
+show_help_search() {
+    cat << 'EOF'
+SEARCH COMMANDS
+
+Find knowledge across all Lore components.
+
+BASIC SEARCH
+  lore search "authentication"
+  lore search "retry logic"
+
+  Searches: journal, patterns, sessions, graph, inbox
+
+SEARCH MODES
+  --smart             Auto-select best mode (semantic if Ollama running)
+  --semantic          Force semantic search (requires Ollama + nomic-embed-text)
+  --hybrid            Combine keyword + semantic with rank fusion
+
+  lore search "error handling" --smart
+  lore search "retry logic" --semantic
+
+GRAPH TRAVERSAL
+  --graph-depth N     Follow knowledge graph edges (0-3, default 0)
+
+  lore search "auth" --graph-depth 2
+
+  Depth 0: Direct matches only
+  Depth 1: Include directly connected concepts
+  Depth 2: Two hops from matches
+  Depth 3: Maximum traversal
+
+OTHER QUERIES
+  lore context <project>    Assemble full context for a project
+  lore suggest <text>       Get pattern suggestions for context
+  lore failures             List recorded failures
+  lore triggers             Show recurring failure patterns (3+ occurrences)
+
+BUILDING THE INDEX
+  lore index                Build/rebuild FTS5 search index
+
+  Run after bulk imports or if search seems stale.
+EOF
+}
+
+show_help_intent() {
+    cat << 'EOF'
+INTENT COMMANDS
+
+Goals define what you're trying to achieve. Missions break goals into steps.
+
+GOALS
+  lore goal create "Implement user authentication"
+  lore goal list
+  lore goal list --status active
+  lore goal show <goal-id>
+
+  Status values: draft, active, blocked, completed, cancelled
+
+MISSIONS
+  lore mission generate <goal-id>   Generate missions from a goal
+  lore mission list
+
+SPEC MANAGEMENT (SDD Integration)
+  lore spec list                    List specs by status
+  lore spec context <goal-id>       Full context for a spec
+  lore spec assign <goal-id>        Assign spec to current session
+  lore spec progress <goal-id>      Update phase (specify/plan/tasks/implement)
+  lore spec complete <goal-id>      Mark spec complete with outcome
+
+Specs track work through the specify → plan → tasks → implement lifecycle.
+Lore captures the durable knowledge; specs are ephemeral in feature branches.
+EOF
+}
+
+show_help_registry() {
+    cat << 'EOF'
+REGISTRY COMMANDS
+
+Project metadata and cross-project relationships.
+
+QUERY
+  lore registry list                List all registered projects
+  lore registry show <project>      Show project details with context
+  lore registry context <project>   Alias for 'show' (deprecated)
+
+VALIDATION
+  lore registry validate            Check registry consistency
+  lore validate                     Comprehensive validation (all components)
+
+DIRECT ACCESS
+  lore registry <subcommand>        Pass through to registry.sh
+
+Registry data lives in:
+  registry/data/metadata.yaml       Project metadata
+  registry/data/clusters.yaml       Project groupings
+  registry/data/relationships.yaml  Cross-project dependencies
+  registry/data/contracts.yaml      Interface contracts
+EOF
+}
+
+show_help_components() {
+    cat << 'EOF'
+COMPONENTS
+
+Lore has eight components. Each answers one question.
+
+  journal/    "Why did we choose this?"     Decision capture with rationale
+  patterns/   "What did we learn?"          Patterns and anti-patterns
+  transfer/   "What's next?"                Session handoff and resume
+  graph/      "What relates to this?"       Knowledge graph
+  inbox/      "What did we notice?"         Raw observation staging
+  intent/     "What are we trying to do?"   Goals and missions
+  failures/   "What went wrong?"            Failure reports
+  registry/   "What exists?"                Project metadata
+
+DIRECT ACCESS
+  lore journal <command>            Decision journal commands
+  lore patterns <command>           Pattern commands
+  lore transfer <command>           Session management
+  lore graph <command>              Knowledge graph
+  lore inbox <command>              Inbox management
+  lore intent <command>             Goals and missions
+
+Run 'lore <component> --help' for component-specific help.
+
+DATA FORMATS
+  JSONL    journal, inbox, failures (append-only logs)
+  JSON     graph, sessions (structured documents)
+  YAML     patterns, goals, missions, registry (human-editable)
+EOF
+}
+
+# Help command router
+cmd_help() {
+    local topic="${1:-}"
+
+    case "$topic" in
+        "")
+            show_help_full
+            ;;
+        capture|remember|learn|fail|observe)
+            show_help_capture
+            ;;
+        search|query|find)
+            show_help_search
+            ;;
+        intent|goal|goals|mission|missions|spec)
+            show_help_intent
+            ;;
+        registry|project|projects)
+            show_help_registry
+            ;;
+        components|component|journal|patterns|graph|transfer|inbox|failures)
+            show_help_components
+            ;;
+        *)
+            echo "Unknown help topic: $topic"
+            echo ""
+            echo "Available topics:"
+            echo "  capture     Decisions, patterns, failures, observations"
+            echo "  search      Search modes and options"
+            echo "  intent      Goals, missions, specs"
+            echo "  registry    Project metadata"
+            echo "  components  Direct component access"
+            return 1
+            ;;
+    esac
 }
 
 # Quick commands that span components
@@ -874,7 +1127,8 @@ main() {
         registry)   shift; source "$LORE_DIR/registry/lib/registry.sh"; registry_main "$@" ;;
 
         # Help
-        -h|--help|help) show_help ;;
+        -h|--help)  show_help ;;
+        help)       shift; cmd_help "$@" ;;
 
         *)
             echo -e "${RED}Unknown command: $1${NC}" >&2
