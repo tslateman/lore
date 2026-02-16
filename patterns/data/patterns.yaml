@@ -3,6 +3,16 @@
 
 patterns:
 
+    - id: "pat-270780-71839699"
+      name: "Sovereign Bridge"
+      context: "Integrating Lore with Claude Code or similar AI agents that manage their own task execution"
+      problem: "How to integrate AI coding agents with a persistent memory/context system without tight coupling"
+      solution: "Separate concerns into two layers: (1) Memory layer owns intent, decisions, patterns, failures — the *what* and *why*; (2) Execution layer owns task breakdown and implementation — the *how* and *when*. Connect them via spec files that serve as contracts. Specs include: goal, success_criteria, context (decisions, risks), done_when conditions. Memory layer exposes MCP tools for reading context; execution layer consumes specs and reports outcomes back."
+      category: "architecture"
+      origin: "session-2026-02-16"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-16T19:39:40Z"
     - id: "pat-219191-7ff433b2"
       name: "Hybrid search with Reciprocal Rank Fusion"
       context: "Implementing semantic search with limited dependencies"
