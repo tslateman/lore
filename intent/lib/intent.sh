@@ -560,6 +560,8 @@ intent_help() {
     echo ""
     echo "  lore mission generate <goal-id>"
     echo "  lore mission list [--goal <id>] [--status <s>]"
+    echo ""
+    echo "  lore intent export <goal-id> [--format yaml|markdown]"
 }
 
 intent_goal_main() {
@@ -603,4 +605,253 @@ intent_mission_main() {
             return 1
             ;;
     esac
+}
+
+# ============================================
+# Export Functions - Spec Generation
+# ============================================
+
+export_spec() {
+    local goal_id=""
+    local format="yaml"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --format)
+                format="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Error: Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+            *)
+                if [[ -z "$goal_id" ]]; then
+                    goal_id="$1"
+                else
+                    echo -e "${RED}Error: Unexpected argument: $1${NC}" >&2
+                    return 1
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$goal_id" ]]; then
+        echo -e "${RED}Error: Goal ID required${NC}" >&2
+        echo "Usage: lore intent export <goal-id> [--format yaml|markdown]" >&2
+        return 1
+    fi
+
+    if [[ "$format" != "yaml" && "$format" != "markdown" ]]; then
+        echo -e "${RED}Error: Invalid format '$format'. Use 'yaml' or 'markdown'${NC}" >&2
+        return 1
+    fi
+
+    check_yq
+
+    local goal_file
+    goal_file=$(get_goal_file "$goal_id")
+
+    if [[ ! -f "$goal_file" ]]; then
+        echo -e "${RED}Error: Goal not found: $goal_id${NC}" >&2
+        return 1
+    fi
+
+    # Extract goal data
+    local name description status priority deadline
+    name=$(yq -r '.name // "Untitled"' "$goal_file")
+    description=$(yq -r '.description // ""' "$goal_file")
+    status=$(yq -r '.status // "unknown"' "$goal_file")
+    priority=$(yq -r '.priority // "medium"' "$goal_file")
+    deadline=$(yq -r '.deadline // "none"' "$goal_file")
+    [[ "$deadline" == "null" ]] && deadline=""
+
+    # Build success criteria list
+    local criteria_count
+    criteria_count=$(yq -r '.success_criteria | length' "$goal_file" 2>/dev/null || echo "0")
+    
+    local success_criteria=""
+    for ((i=0; i<criteria_count; i++)); do
+        local sc_desc
+        sc_desc=$(yq -r ".success_criteria[$i].description" "$goal_file")
+        if [[ "$format" == "yaml" ]]; then
+            success_criteria="${success_criteria}  - \"${sc_desc}\"\n"
+        else
+            success_criteria="${success_criteria}- ${sc_desc}\n"
+        fi
+    done
+
+    # Get related missions
+    local missions_info=""
+    local mission_files
+    mission_files=$(list_mission_files)
+    
+    if [[ -n "$mission_files" ]]; then
+        while IFS= read -r mission_file; do
+            [[ -z "$mission_file" ]] && continue
+            local m_goal_id m_name m_status
+            m_goal_id=$(yq -r '.goal_id' "$mission_file")
+            if [[ "$m_goal_id" == "$goal_id" ]]; then
+                m_name=$(yq -r '.name' "$mission_file")
+                m_status=$(yq -r '.status' "$mission_file")
+                if [[ "$format" == "yaml" ]]; then
+                    missions_info="${missions_info}  - name: \"${m_name}\"\n    status: ${m_status}\n"
+                else
+                    missions_info="${missions_info}- [${m_status}] ${m_name}\n"
+                fi
+            fi
+        done <<< "$mission_files"
+    fi
+
+    # Query Lore for related context (decisions, patterns, failures)
+    local context_decisions=""
+    local context_patterns=""
+    local context_failures=""
+
+    # Search for related decisions (suppress errors if empty)
+    local decisions_raw
+    decisions_raw=$("$LORE_DIR/lore.sh" search "$name" 2>/dev/null | grep -i "decision\|chose\|decided" | head -3 || true)
+    if [[ -n "$decisions_raw" ]]; then
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            line=$(echo "$line" | sed 's/^[[:space:]]*//')
+            if [[ "$format" == "yaml" ]]; then
+                context_decisions="${context_decisions}    - \"${line}\"\n"
+            else
+                context_decisions="${context_decisions}  - ${line}\n"
+            fi
+        done <<< "$decisions_raw"
+    fi
+
+    # Get recent failures related to goal (strip ANSI codes)
+    local failures_raw
+    failures_raw=$("$LORE_DIR/lore.sh" failures 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | head -5 || true)
+    if [[ -n "$failures_raw" && "$failures_raw" != *"No failures"* ]]; then
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            [[ "$line" == "Failures"* ]] && continue
+            line=$(echo "$line" | sed 's/^[[:space:]]*//')
+            if [[ "$format" == "yaml" ]]; then
+                context_failures="${context_failures}    - \"${line}\"\n"
+            else
+                context_failures="${context_failures}  - ${line}\n"
+            fi
+        done <<< "$failures_raw"
+    fi
+
+    # Output based on format
+    if [[ "$format" == "yaml" ]]; then
+        cat << EOF
+# Spec: ${name}
+# Generated from Lore intent layer
+# Goal ID: ${goal_id}
+
+goal: "${name}"
+status: ${status}
+priority: ${priority}
+EOF
+        [[ -n "$deadline" ]] && echo "deadline: \"${deadline}\""
+        
+        if [[ -n "$description" && "$description" != "null" ]]; then
+            echo ""
+            echo "description: |"
+            echo "  ${description}"
+        fi
+
+        echo ""
+        echo "success_criteria:"
+        if [[ -n "$success_criteria" ]]; then
+            echo -e "$success_criteria" | sed '/^$/d'
+        else
+            echo "  []"
+        fi
+
+        if [[ -n "$missions_info" ]]; then
+            echo ""
+            echo "missions:"
+            echo -e "$missions_info" | sed '/^$/d'
+        fi
+
+        echo ""
+        echo "context:"
+        if [[ -n "$context_decisions" ]]; then
+            echo "  decisions:"
+            echo -e "$context_decisions" | sed '/^$/d'
+        fi
+        if [[ -n "$context_failures" ]]; then
+            echo "  risks:"
+            echo -e "$context_failures" | sed '/^$/d'
+        fi
+
+        echo ""
+        echo "done_when:"
+        echo "  - All success criteria met"
+        echo "  - Tests pass"
+        echo "  - No regressions introduced"
+
+    else
+        # Markdown format
+        cat << EOF
+# ${name}
+
+> Spec generated from Lore intent layer  
+> Goal ID: \`${goal_id}\`  
+> Status: **${status}** | Priority: **${priority}**
+EOF
+        [[ -n "$deadline" ]] && echo "> Deadline: ${deadline}"
+
+        if [[ -n "$description" && "$description" != "null" ]]; then
+            echo ""
+            echo "${description}"
+        fi
+
+        echo ""
+        echo "## Success Criteria"
+        echo ""
+        if [[ -n "$success_criteria" ]]; then
+            echo -e "$success_criteria" | sed '/^$/d'
+        else
+            echo "_No criteria defined_"
+        fi
+
+        if [[ -n "$missions_info" ]]; then
+            echo ""
+            echo "## Missions"
+            echo ""
+            echo -e "$missions_info" | sed '/^$/d'
+        fi
+
+        echo ""
+        echo "## Context"
+        echo ""
+        if [[ -n "$context_decisions" ]]; then
+            echo "### Related Decisions"
+            echo ""
+            echo -e "$context_decisions" | sed '/^$/d'
+        fi
+        if [[ -n "$context_failures" ]]; then
+            echo ""
+            echo "### Known Risks"
+            echo ""
+            echo -e "$context_failures" | sed '/^$/d'
+        fi
+
+        echo ""
+        echo "## Done When"
+        echo ""
+        echo "- All success criteria met"
+        echo "- Tests pass"
+        echo "- No regressions introduced"
+    fi
+}
+
+intent_export_main() {
+    if [[ $# -eq 0 ]]; then
+        echo -e "${RED}Error: Goal ID required${NC}" >&2
+        echo "Usage: lore intent export <goal-id> [--format yaml|markdown]" >&2
+        return 1
+    fi
+
+    export_spec "$@"
 }

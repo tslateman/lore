@@ -799,6 +799,13 @@ main() {
         # Intent (goals and missions)
         goal)       shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_goal_main "$@" ;;
         mission)    shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_mission_main "$@" ;;
+        intent)     shift; source "$LORE_DIR/intent/lib/intent.sh"
+                    case "${1:-}" in
+                        export) shift; intent_export_main "$@" ;;
+                        *)      echo -e "${RED}Unknown intent command: ${1:-}${NC}" >&2
+                                echo "Usage: lore intent export <goal-id> [--format yaml|markdown]" >&2
+                                exit 1 ;;
+                    esac ;;
 
         # Registry (project metadata)
         registry)   shift; source "$LORE_DIR/registry/lib/registry.sh"; registry_main "$@" ;;

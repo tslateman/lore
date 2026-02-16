@@ -3,7 +3,13 @@
  * Lore MCP Server
  *
  * Exposes Lore's knowledge base to AI agents via Model Context Protocol.
- * Six tools: search, context, related, remember, learn, resume.
+ * 
+ * Tools:
+ *   Knowledge: search, context, related
+ *   Capture: remember, learn
+ *   Session: resume
+ *   Intent: goals, spec
+ *   Analysis: failures, triggers, impact
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -311,6 +317,178 @@ server.tool(
       const err = error as { message: string };
       return {
         content: [{ type: "text" as const, text: `Resume failed: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// =============================================================================
+// Intent Tools - Goals and Specs
+// =============================================================================
+
+// Tool: lore_goals
+// List goals from intent layer
+server.tool(
+  "lore_goals",
+  "List goals from Lore's intent layer. Goals define strategic objectives with success criteria.",
+  {
+    status: z
+      .string()
+      .optional()
+      .describe("Filter by status: draft, active, blocked, completed, cancelled"),
+    priority: z
+      .string()
+      .optional()
+      .describe("Filter by priority: critical, high, medium, low"),
+  },
+  async ({ status, priority }) => {
+    const args = ["goal", "list"];
+    if (status) {
+      args.push("--status", status);
+    }
+    if (priority) {
+      args.push("--priority", priority);
+    }
+
+    try {
+      const output = runLore(args);
+      return {
+        content: [{ type: "text" as const, text: stripAnsi(output) }],
+      };
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return {
+        content: [{ type: "text" as const, text: `Failed to list goals: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Tool: lore_spec
+// Export a goal as a spec file for Claude Code
+server.tool(
+  "lore_spec",
+  "Export a goal as a spec file. Specs are contracts that define what to achieve, success criteria, context, and done conditions.",
+  {
+    goal_id: z.string().describe("Goal ID to export"),
+    format: z
+      .enum(["yaml", "markdown"])
+      .optional()
+      .describe("Output format (default: yaml)"),
+  },
+  async ({ goal_id, format }) => {
+    const args = ["intent", "export", goal_id];
+    if (format) {
+      args.push("--format", format);
+    }
+
+    try {
+      const output = runLore(args);
+      return {
+        content: [{ type: "text" as const, text: stripAnsi(output) }],
+      };
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return {
+        content: [{ type: "text" as const, text: `Failed to export spec: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// =============================================================================
+// Analysis Tools - Failures, Triggers, Impact
+// =============================================================================
+
+// Tool: lore_failures
+// Query failure reports
+server.tool(
+  "lore_failures",
+  "Query failure reports from Lore. Find recurring issues and blockers.",
+  {
+    error_type: z
+      .string()
+      .optional()
+      .describe("Filter by type: Timeout, NonZeroExit, UserDeny, ToolError, LogicError"),
+    mission: z.string().optional().describe("Filter by mission ID"),
+  },
+  async ({ error_type, mission }) => {
+    const args = ["failures"];
+    if (error_type) {
+      args.push("--type", error_type);
+    }
+    if (mission) {
+      args.push("--mission", mission);
+    }
+
+    try {
+      const output = runLore(args);
+      return {
+        content: [{ type: "text" as const, text: stripAnsi(output) }],
+      };
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return {
+        content: [{ type: "text" as const, text: `Failed to query failures: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Tool: lore_triggers
+// Error types hitting Rule of Three
+server.tool(
+  "lore_triggers",
+  "Find recurring failure types (Rule of Three). Surfaces systemic issues worth addressing.",
+  {
+    threshold: z
+      .number()
+      .optional()
+      .describe("Minimum occurrences to trigger (default: 3)"),
+  },
+  async ({ threshold }) => {
+    const args = ["triggers"];
+    if (threshold) {
+      args.push("--threshold", String(threshold));
+    }
+
+    try {
+      const output = runLore(args);
+      return {
+        content: [{ type: "text" as const, text: stripAnsi(output) }],
+      };
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return {
+        content: [{ type: "text" as const, text: `Failed to get triggers: ${err.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Tool: lore_impact
+// Check project dependencies and relationships
+server.tool(
+  "lore_impact",
+  "Impact analysis: check what depends on a project and its relationships.",
+  {
+    project: z.string().describe("Project name to analyze"),
+  },
+  async ({ project }) => {
+    try {
+      const output = runLore(["registry", "show", project]);
+      return {
+        content: [{ type: "text" as const, text: stripAnsi(output) }],
+      };
+    } catch (error: unknown) {
+      const err = error as { message: string };
+      return {
+        content: [{ type: "text" as const, text: `Impact analysis failed: ${err.message}` }],
         isError: true,
       };
     }
