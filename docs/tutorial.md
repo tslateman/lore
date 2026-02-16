@@ -172,7 +172,7 @@ Every session follows this pattern. The specific work varies; the lifecycle stay
 
 ## Next Steps
 
-- **Full command reference:** Run `lore --help` or see [README.md](../README.md)
+- **Full command reference:** Run `lore help` or see [README.md](../README.md)
 - **Architecture overview:** See [SYSTEM.md](../SYSTEM.md) for how components connect
 - **MCP integration:** See [README.md MCP section](../README.md#mcp-server) for AI agent setup
 - **Advanced search:** Try `--graph-depth 2` to follow knowledge graph relationships

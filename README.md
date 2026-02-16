@@ -81,7 +81,7 @@ lore search "retry logic" --mode semantic
 lore search "authentication" --graph-depth 2
 ```
 
-Run `lore --help` for the full command list. See the [tutorial](docs/tutorial.md) for a hands-on walkthrough of your first session.
+Run `lore help` for all commands, or `lore help <topic>` for details on capture, search, intent, registry, or components. See the [tutorial](docs/tutorial.md) for a hands-on walkthrough.
 
 ## Why Lore
 
