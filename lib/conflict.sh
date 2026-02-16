@@ -134,14 +134,14 @@ _check_fts5() {
 
     local results
     if [[ "$type" == "decision" ]]; then
-        results=$(sqlite3 "$SEARCH_DB" "SELECT id, decision FROM decisions WHERE decisions MATCH '$fts_query' LIMIT 20;" 2>/dev/null) || return 1
+        results=$(sqlite3 -separator $'\t' "$SEARCH_DB" "SELECT id, decision FROM decisions WHERE decisions MATCH '$fts_query' LIMIT 20;" 2>/dev/null) || return 1
     else
-        results=$(sqlite3 "$SEARCH_DB" "SELECT id, name || ' ' || solution FROM patterns WHERE patterns MATCH '$fts_query' LIMIT 20;" 2>/dev/null) || return 1
+        results=$(sqlite3 -separator $'\t' "$SEARCH_DB" "SELECT id, name || ' ' || solution FROM patterns WHERE patterns MATCH '$fts_query' LIMIT 20;" 2>/dev/null) || return 1
     fi
 
     [[ -z "$results" ]] && return 0
 
-    while IFS='|' read -r id existing_text; do
+    while IFS=$'\t' read -r id existing_text; do
         [[ -z "$id" ]] && continue
 
         local sim
@@ -162,7 +162,7 @@ _check_fts5() {
 lore_check_duplicate() {
     local type="$1"
     local content="$2"
-    local threshold=80  # 80% Jaccard similarity
+    local threshold=70  # 70% Jaccard similarity
 
     local matches=""
 
