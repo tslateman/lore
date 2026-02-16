@@ -383,8 +383,9 @@ registry_help() {
     echo "Usage:"
     echo "  lore registry show <project>      Show enriched project details"
     echo "  lore registry list                 List all projects"
-    echo "  lore registry context <project>    Assemble context for agent onboarding"
     echo "  lore registry validate             Check registry consistency"
+    echo ""
+    echo "Note: Use 'lore context <project>' for full context (includes registry + decisions + patterns + graph)"
 }
 
 registry_main() {

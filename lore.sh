@@ -89,7 +89,10 @@ show_help() {
     echo "  lore fail <type> <msg>   Quick failure capture (shortcut for capture --failure)"
     echo "  lore handoff <message>   Create handoff for next session"
     echo "  lore resume [session]    Resume from previous session"
-    echo "  lore search <query>      Search across all components (ranked if indexed)"
+    echo "  lore search <query>      Search across all components (keyword)"
+    echo "    --smart                Auto-select best mode (semantic if available)"
+    echo "    --semantic             Force semantic search (requires Ollama)"
+    echo "    --hybrid               Force hybrid search (keyword + semantic)"
     echo "    --graph-depth N        Follow graph edges (0-3, default 0)"
     echo "  lore index               Build/rebuild FTS5 search index"
     echo "  lore context <project>   Gather full context for a project"
@@ -112,7 +115,6 @@ show_help() {
     echo "Registry (Project Metadata):"
     echo "  lore registry show <project>      Show enriched project details"
     echo "  lore registry list                List all projects"
-    echo "  lore registry context <project>   Assemble context for onboarding"
     echo "  lore registry validate            Check registry consistency"
     echo ""
     echo "Philosophy:"
@@ -470,6 +472,7 @@ _search_grep() {
 cmd_search() {
     local query=""
     local graph_depth=0
+    local mode="fts"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -481,9 +484,21 @@ cmd_search() {
                 fi
                 shift 2
                 ;;
+            --smart)
+                mode="smart"
+                shift
+                ;;
+            --semantic)
+                mode="semantic"
+                shift
+                ;;
+            --hybrid)
+                mode="hybrid"
+                shift
+                ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}" >&2
-                echo "Usage: lore search <query> [--graph-depth 0-3]" >&2
+                echo "Usage: lore search <query> [--smart|--semantic|--hybrid] [--graph-depth 0-3]" >&2
                 return 1
                 ;;
             *)
@@ -495,19 +510,39 @@ cmd_search() {
 
     if [[ -z "$query" ]]; then
         echo -e "${RED}Error: Search query required${NC}" >&2
-        echo "Usage: lore search <query> [--graph-depth 0-3]" >&2
+        echo "Usage: lore search <query> [--smart|--semantic|--hybrid] [--graph-depth 0-3]" >&2
         return 1
     fi
 
     local project
     project=$(_derive_project)
 
+    # Smart mode: try hybrid if Ollama available, else fall back to FTS
+    if [[ "$mode" == "smart" ]]; then
+        if command -v ollama &>/dev/null && ollama list 2>/dev/null | grep -q nomic-embed; then
+            mode="hybrid"
+        else
+            mode="fts"
+        fi
+    fi
+
     if [[ -f "$SEARCH_DB" ]]; then
-        echo -e "${BOLD}Searching Lore (ranked)...${NC}"
+        echo -e "${BOLD}Searching Lore (${mode})...${NC}"
         [[ -n "$project" ]] && echo -e "${DIM}Project boost: ${project}${NC}"
         [[ "$graph_depth" -ge 1 ]] && echo -e "${DIM}Graph depth: ${graph_depth}${NC}"
         echo ""
-        _search_fts5 "$query" "$project" 10 "$graph_depth"
+
+        if [[ "$mode" == "fts" ]]; then
+            _search_fts5 "$query" "$project" 10 "$graph_depth"
+        else
+            "$LORE_DIR/lib/search-index.sh" search "$query" --mode "$mode" --project "$project" --limit 10
+            # Graph expansion for non-FTS modes
+            if [[ "$graph_depth" -ge 1 ]]; then
+                echo ""
+                echo -e "${BOLD}Graph expansion (depth ${graph_depth}):${NC}"
+                "$LORE_DIR/lib/search-index.sh" graph "$query" --depth "$graph_depth" --limit 5 2>/dev/null || true
+            fi
+        fi
     else
         echo -e "${BOLD}Searching Lore (grep fallback — run 'lore index' to enable ranked search)...${NC}"
         echo ""
@@ -532,26 +567,51 @@ cmd_context() {
         return 1
     fi
 
-    echo -e "${BOLD}Context for project: ${CYAN}${project}${NC}"
+    # Registry metadata (basics, deps, cluster, entry point)
+    # Outputs markdown format; errors suppressed if project not in mani
+    if "$LORE_DIR/registry/registry.sh" context "$project" 2>/dev/null; then
+        echo ""
+    else
+        # Fallback header if registry unavailable
+        echo -e "# ${project}"
+        echo ""
+    fi
+
+    # Recent decisions
+    echo "## Recent Decisions"
+    echo ""
+    local decisions
+    decisions=$("$LORE_DIR/journal/journal.sh" query "$project" --project "$project" 2>/dev/null) || true
+    if [[ -n "$decisions" ]]; then
+        echo "$decisions"
+    else
+        echo "(none)"
+    fi
     echo ""
 
-    echo -e "${BOLD}Decisions:${NC}"
-    "$LORE_DIR/journal/journal.sh" query "$project" --project "$project" 2>/dev/null || echo "  (no decisions)"
+    # Relevant patterns
+    echo "## Patterns"
+    echo ""
+    local patterns
+    patterns=$("$LORE_DIR/patterns/patterns.sh" suggest "$project" 2>/dev/null) || true
+    if [[ -n "$patterns" ]]; then
+        echo "$patterns"
+    else
+        echo "(none)"
+    fi
     echo ""
 
-    echo -e "${BOLD}Patterns:${NC}"
-    "$LORE_DIR/patterns/patterns.sh" suggest "$project" 2>/dev/null || echo "  (no patterns)"
+    # Graph relationships
+    echo "## Related Concepts"
     echo ""
-
-    echo -e "${BOLD}Graph:${NC}"
     local node_id
     node_id=$("$LORE_DIR/graph/graph.sh" list project 2>/dev/null \
         | awk -v p="$project" '{gsub(/\033\[[0-9;]*m/,"")} tolower($3) == tolower(p) { print $1 }')
 
     if [[ -n "$node_id" ]]; then
-        "$LORE_DIR/graph/graph.sh" related "$node_id" --hops 2 2>/dev/null || echo "  (no neighbors)"
+        "$LORE_DIR/graph/graph.sh" related "$node_id" --hops 2 2>/dev/null || echo "(no neighbors)"
     else
-        echo "  (project not in graph)"
+        echo "(project not in graph)"
     fi
 }
 

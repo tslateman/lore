@@ -219,8 +219,10 @@ lore mission list [--goal <id>] [--status pending]
 ```bash
 lore registry show <project>      # enriched project details
 lore registry list                # list all projects
-lore registry context <project>   # context bundle for agent onboarding
 lore registry validate            # check registry consistency
+
+# Full context (registry + decisions + patterns + graph)
+lore context <project>
 ```
 
 ## Integration by Project

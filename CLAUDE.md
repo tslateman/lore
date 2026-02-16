@@ -48,6 +48,15 @@ Eight components, one CLI. See `SYSTEM.md` for architecture, data flow, and the 
 
 See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags always include the source project name.
 
+## History
+
+Lore consolidated functionality from earlier projects:
+
+- **intent/** — Absorbed from Oracle (goal/mission tracking)
+- **transfer/** — Absorbed from Lineage (session handoff)
+
+These origins appear in component READMEs but are implementation history, not integration points.
+
 ## Data Formats
 
 - Decisions: JSON (see `journal/data/schema.json`)

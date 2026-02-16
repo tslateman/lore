@@ -4,7 +4,7 @@ Project metadata and context assembly for agent onboarding.
 
 ## Overview
 
-The registry enriches `mani.yaml` project entries with role, contract, dependency, and cluster information from four YAML data files. Its primary purpose is assembling context bundles that give agents everything they need to start working on a project.
+The registry enriches `mani.yaml` project entries with role, contract, dependency, and cluster information from four YAML data files. Its primary purpose is providing project metadata that `lore context` assembles into full context bundles.
 
 ## Quick Start
 
@@ -15,21 +15,22 @@ lore registry show flow
 # List all projects
 lore registry list
 
-# Assemble context for agent onboarding
-lore registry context flow
-
 # Check registry consistency
 lore registry validate
+
+# Full context (registry + decisions + patterns + graph)
+lore context flow
 ```
 
 ## CLI Commands
 
-| Command                           | Description                                        |
-| --------------------------------- | -------------------------------------------------- |
-| `lore registry show <project>`    | Enriched details (path, cluster, deps, contracts)  |
-| `lore registry list`              | List all projects from mani.yaml                   |
-| `lore registry context <project>` | Markdown context bundle for agents                 |
-| `lore registry validate`          | Check metadata/clusters/relationships against mani |
+| Command                        | Description                                        |
+| ------------------------------ | -------------------------------------------------- |
+| `lore registry show <project>` | Enriched details (path, cluster, deps, contracts)  |
+| `lore registry list`           | List all projects from mani.yaml                   |
+| `lore registry validate`       | Check metadata/clusters/relationships against mani |
+
+**Note**: Use `lore context <project>` for full context bundles (includes registry metadata + decisions + patterns + graph).
 
 ## Data Files
 
