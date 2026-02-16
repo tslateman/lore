@@ -89,6 +89,14 @@ cmd_init() {
     local session_id="session-$(date +%Y%m%d-%H%M%S)-$(openssl rand -hex 4 2>/dev/null || echo $$)"
     local session_file="${SESSIONS_DIR}/${session_id}.json"
 
+    # Detect project name from git or directory
+    local project_name=""
+    if git rev-parse --git-dir &>/dev/null; then
+        project_name=$(basename "$(git rev-parse --show-toplevel)")
+    else
+        project_name=$(basename "$PWD")
+    fi
+
     # Create initial session structure
     cat > "${session_file}" << EOF
 {
@@ -111,6 +119,7 @@ cmd_init() {
     "uncommitted": []
   },
   "context": {
+    "project": "${project_name}",
     "active_files": [],
     "recent_commands": [],
     "environment": {}

@@ -88,6 +88,17 @@ EOF
 }
 
 #######################################
+# Detect project name from git or directory
+#######################################
+detect_project() {
+    if git rev-parse --git-dir &>/dev/null; then
+        basename "$(git rev-parse --show-toplevel)"
+    else
+        basename "$PWD"
+    fi
+}
+
+#######################################
 # Link to related lore components
 #######################################
 find_related_entries() {
@@ -156,11 +167,12 @@ snapshot_session() {
     echo "Capturing snapshot for session: ${session_id}"
 
     # Capture current state
-    local git_state active_files environment related
+    local git_state active_files environment related project
     git_state=$(capture_git_state)
     active_files=$(capture_active_files)
     environment=$(capture_environment)
     related=$(find_related_entries)
+    project=$(detect_project)
 
     # Update session file with captured state
     local tmp_file
@@ -170,12 +182,14 @@ snapshot_session() {
        --argjson files "${active_files}" \
        --argjson env "${environment}" \
        --argjson related "${related}" \
+       --arg project "${project}" \
        --arg summary "${summary}" \
        --arg snapshot_time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
        '
        .git_state = $git |
        .context.active_files = $files |
        .context.environment = $env |
+       .context.project = $project |
        .related = $related |
        .last_snapshot = $snapshot_time |
        if $summary != "" then .summary = $summary else . end

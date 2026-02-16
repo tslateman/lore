@@ -202,19 +202,29 @@ resume_session() {
     fi
 
     # Suggest relevant patterns based on session context
-    local project
+    # Try multiple sources: project, summary, open threads
+    local project summary
     project=$(jq -r '.context.project // ""' "${session_file}" 2>/dev/null)
-    if [[ -n "${project}" ]]; then
-        suggest_patterns_for_context "${project}"
+    summary=$(jq -r '.summary // ""' "${session_file}" 2>/dev/null)
+
+    # Build context string from available session data
+    local context_parts=()
+    [[ -n "${project}" ]] && context_parts+=("${project}")
+    [[ -n "${summary}" ]] && context_parts+=("${summary}")
+
+    # Add open threads to context
+    local threads
+    threads=$(jq -r '.open_threads[]?' "${session_file}" 2>/dev/null | head -3)
+    if [[ -n "${threads}" ]]; then
+        while IFS= read -r thread; do
+            [[ -n "${thread}" ]] && context_parts+=("${thread}")
+        done <<< "${threads}"
     fi
 
-    # Also suggest based on open thread keywords (top 3)
-    local threads
-    threads=$(jq -r '.open_threads[]' "${session_file}" 2>/dev/null | head -3)
-    if [[ -n "${threads}" ]]; then
-        echo "${threads}" | while read -r thread; do
-            suggest_patterns_for_context "${thread}" 2
-        done
+    # Query patterns with combined context
+    if [[ ${#context_parts[@]} -gt 0 ]]; then
+        local combined_context="${context_parts[*]}"
+        suggest_patterns_for_context "${combined_context}" 5
     fi
 
     # Set as current session for continuation
