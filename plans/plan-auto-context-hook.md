@@ -1,6 +1,7 @@
 # Plan: Auto-Context Injection Hook
 
-Status: Proposed
+Status: Implemented
+Completed: 2026-02-13
 
 ## Problem
 

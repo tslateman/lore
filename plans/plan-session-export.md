@@ -1,6 +1,7 @@
 # Plan: Export Sessions to Markdown
 
-Status: Draft
+Status: Implemented
+Completed: 2026-02-15
 
 ## Problem
 
