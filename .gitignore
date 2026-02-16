@@ -12,5 +12,5 @@ journal/data/index/
 mcp/node_modules/
 mcp/build/
 
-# Perpetually dirty — overwritten by session activity
-transfer/data/sessions/session-example.json
+# Sessions are ephemeral working memory; durable artifacts go to journal/patterns
+transfer/data/sessions/session-*.json
