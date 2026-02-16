@@ -32,11 +32,13 @@ show_help() {
     echo "  registry  Project metadata and context"
     echo ""
     echo "Quick Commands:"
-    echo "  lore remember <text>     Quick capture to journal"
-    echo "  lore learn <pattern>     Quick pattern capture"
+    echo "  lore remember <text>     Quick capture to journal (--force to skip duplicate check)"
+    echo "  lore learn <pattern>     Quick pattern capture (--force to skip duplicate check)"
     echo "  lore handoff <message>   Create handoff for next session"
     echo "  lore resume [session]    Resume from previous session"
-    echo "  lore search <query>      Search across all components"
+    echo "  lore search <query>      Search across all components (ranked if indexed)"
+    echo "    --graph-depth N        Follow graph edges (0-3, default 0)"
+    echo "  lore index               Build/rebuild FTS5 search index"
     echo "  lore context <project>   Gather full context for a project"
     echo "  lore suggest <context>   Suggest relevant patterns"
     echo "  lore status              Show current session state"
@@ -70,11 +72,93 @@ show_help() {
 
 # Quick commands that span components
 cmd_remember() {
-    "$LORE_DIR/journal/journal.sh" record "$@"
+    local force=false
+    local args=()
+    local check_text=""
+    local skip_next=false
+    local pending_flag=""
+
+    for arg in "$@"; do
+        if [[ "$skip_next" == true ]]; then
+            skip_next=false
+            args+=("$arg")
+            # Include rationale in similarity check
+            [[ "$pending_flag" == "rationale" ]] && check_text="${check_text:+$check_text }$arg"
+            pending_flag=""
+            continue
+        fi
+        if [[ "$arg" == "--force" ]]; then
+            force=true
+        elif [[ "$arg" == "-r" || "$arg" == "--rationale" ]]; then
+            args+=("$arg")
+            skip_next=true
+            pending_flag="rationale"
+        elif [[ "$arg" =~ ^(-a|--alternatives|-t|--tags|--type|-f|--files)$ ]]; then
+            args+=("$arg")
+            skip_next=true
+            pending_flag=""
+        elif [[ "$arg" == -* ]]; then
+            args+=("$arg")
+        else
+            args+=("$arg")
+            check_text="${check_text:+$check_text }$arg"
+        fi
+    done
+
+    if [[ "$force" == false && -n "$check_text" ]]; then
+        source "$LORE_DIR/lib/conflict.sh"
+        if ! lore_check_duplicate "decision" "$check_text"; then
+            return 1
+        fi
+    fi
+
+    "$LORE_DIR/journal/journal.sh" record "${args[@]}"
 }
 
 cmd_learn() {
-    "$LORE_DIR/patterns/patterns.sh" capture "$@"
+    local force=false
+    local args=()
+    local check_text=""
+    local skip_next=false
+    local pending_flag=""
+
+    for arg in "$@"; do
+        if [[ "$skip_next" == true ]]; then
+            skip_next=false
+            args+=("$arg")
+            # Include context and solution in similarity check
+            if [[ "$pending_flag" == "context" || "$pending_flag" == "solution" ]]; then
+                check_text="${check_text:+$check_text }$arg"
+            fi
+            pending_flag=""
+            continue
+        fi
+        if [[ "$arg" == "--force" ]]; then
+            force=true
+        elif [[ "$arg" == "--context" || "$arg" == "--solution" ]]; then
+            args+=("$arg")
+            skip_next=true
+            pending_flag="${arg#--}"
+        elif [[ "$arg" =~ ^(--problem|--category|--origin|--example-bad|--example-good)$ ]]; then
+            args+=("$arg")
+            skip_next=true
+            pending_flag=""
+        elif [[ "$arg" == -* ]]; then
+            args+=("$arg")
+        else
+            args+=("$arg")
+            check_text="${check_text:+$check_text }$arg"
+        fi
+    done
+
+    if [[ "$force" == false && -n "$check_text" ]]; then
+        source "$LORE_DIR/lib/conflict.sh"
+        if ! lore_check_duplicate "pattern" "$check_text"; then
+            return 1
+        fi
+    fi
+
+    "$LORE_DIR/patterns/patterns.sh" capture "${args[@]}"
 }
 
 cmd_handoff() {
@@ -85,10 +169,137 @@ cmd_resume() {
     "$LORE_DIR/transfer/transfer.sh" resume "$@"
 }
 
-cmd_search() {
+SEARCH_DB="${LORE_SEARCH_DB:-$HOME/.lore/search.db}"
+
+# Derive current project from cwd
+_derive_project() {
+    local workspace_root
+    workspace_root="$(dirname "$LORE_DIR")"
+    local cwd
+    cwd="$(pwd)"
+    local project="${cwd#"$workspace_root/"}"
+    [[ "$project" == "$cwd" ]] && { echo ""; return; }
+    project="${project%%/*}"
+    echo "$project"
+}
+
+# Log access for reinforcement scoring
+_log_access() {
+    local db="$1" type="$2" id="$3"
+    sqlite3 "$db" \
+        "INSERT OR IGNORE INTO access_log (record_type, record_id, accessed_at) VALUES ('$(echo "$type" | sed "s/'/''/g")', '$(echo "$id" | sed "s/'/''/g")', datetime('now'));" \
+        2>/dev/null || true
+}
+
+# FTS5-based ranked search
+_search_fts5() {
     local query="$1"
-    echo -e "${BOLD}Searching across Lore...${NC}"
-    echo ""
+    local project="$2"
+    local limit="${3:-10}"
+
+    # Escape single quotes for SQL
+    local safe_query="${query//\'/\'\'}"
+    local safe_project="${project//\'/\'\'}"
+
+    local results
+    results=$(sqlite3 -separator $'\t' "$SEARCH_DB" <<SQL 2>/dev/null
+WITH ranked AS (
+    SELECT
+        'decision' as type,
+        id,
+        decision as content,
+        project,
+        timestamp,
+        importance,
+        rank * -1 as bm25_score
+    FROM decisions WHERE decisions MATCH '${safe_query}'
+    UNION ALL
+    SELECT
+        'pattern' as type,
+        id,
+        name || ': ' || solution as content,
+        'lore' as project,
+        timestamp,
+        CAST(confidence * 5 AS INT) as importance,
+        rank * -1 as bm25_score
+    FROM patterns WHERE patterns MATCH '${safe_query}'
+    UNION ALL
+    SELECT
+        'transfer' as type,
+        session_id as id,
+        handoff as content,
+        project,
+        timestamp,
+        3 as importance,
+        rank * -1 as bm25_score
+    FROM transfers WHERE transfers MATCH '${safe_query}'
+),
+frequency AS (
+    SELECT
+        record_type,
+        record_id,
+        COUNT(*) as access_count,
+        MAX(accessed_at) as last_access
+    FROM access_log
+    GROUP BY record_type, record_id
+)
+SELECT
+    r.type,
+    r.id,
+    SUBSTR(r.content, 1, 120),
+    r.project,
+    SUBSTR(r.timestamp, 1, 10),
+    ROUND(
+        r.bm25_score
+        * (1.0 / (1 + (julianday('now') - julianday(r.timestamp)) / 30))
+        * COALESCE(1.0 + (LOG(1 + f.access_count) * 0.15), 1.0)
+        * (1.0 + (r.importance / 5.0 * 0.2))
+        * COALESCE(1.0 + (0.1 * EXP(-(julianday('now') - julianday(f.last_access)) / 30)), 1.0)
+        * CASE WHEN r.project = '${safe_project}' THEN 1.5 ELSE 1.0 END
+    , 2) as final_score
+FROM ranked r
+LEFT JOIN frequency f ON r.type = f.record_type AND r.id = f.record_id
+ORDER BY final_score DESC
+LIMIT ${limit};
+SQL
+    ) || true
+
+    if [[ -z "$results" ]]; then
+        echo -e "  ${DIM}(no results)${NC}"
+        return
+    fi
+
+    local graph_depth="${4:-0}"
+
+    if [[ "$graph_depth" -ge 1 ]]; then
+        source "$LORE_DIR/lib/graph-traverse.sh"
+    fi
+
+    while IFS=$'\t' read -r type id content proj date score; do
+        echo -e "  ${GREEN}[${type}]${NC} ${content} ${DIM}(score: ${score}, proj: ${proj}, date: ${date})${NC}"
+        _log_access "$SEARCH_DB" "$type" "$id"
+
+        # Graph traversal for this result
+        if [[ "$graph_depth" -ge 1 ]]; then
+            local node_id
+            node_id=$(resolve_to_graph_id "$type" "$id" "$content" "$proj") || true
+            if [[ -n "$node_id" ]]; then
+                local graph_output
+                graph_output=$(graph_traverse "$node_id" "$graph_depth") || true
+                if [[ -n "$graph_output" ]]; then
+                    echo -e "    ${DIM}Graph:${NC}"
+                    while IFS= read -r gline; do
+                        echo -e "      ${CYAN}${gline}${NC}"
+                    done <<< "$graph_output"
+                fi
+            fi
+        fi
+    done <<< "$results"
+}
+
+# Grep-based fallback search (original behavior)
+_search_grep() {
+    local query="$1"
 
     echo -e "${CYAN}Journal:${NC}"
     "$LORE_DIR/journal/journal.sh" query "$query" 2>/dev/null || echo "  (no results)"
@@ -149,6 +360,54 @@ cmd_search() {
         fi
     done
     [[ "$found_registry" == false ]] && echo "  (no results)"
+}
+
+cmd_search() {
+    local query=""
+    local graph_depth=0
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --graph-depth)
+                graph_depth="$2"
+                if [[ "$graph_depth" -lt 0 || "$graph_depth" -gt 3 ]]; then
+                    echo -e "${RED}Error: --graph-depth must be 0-3${NC}" >&2
+                    return 1
+                fi
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Usage: lore search <query> [--graph-depth 0-3]" >&2
+                return 1
+                ;;
+            *)
+                query="$1"
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$query" ]]; then
+        echo -e "${RED}Error: Search query required${NC}" >&2
+        echo "Usage: lore search <query> [--graph-depth 0-3]" >&2
+        return 1
+    fi
+
+    local project
+    project=$(_derive_project)
+
+    if [[ -f "$SEARCH_DB" ]]; then
+        echo -e "${BOLD}Searching Lore (ranked)...${NC}"
+        [[ -n "$project" ]] && echo -e "${DIM}Project boost: ${project}${NC}"
+        [[ "$graph_depth" -ge 1 ]] && echo -e "${DIM}Graph depth: ${graph_depth}${NC}"
+        echo ""
+        _search_fts5 "$query" "$project" 10 "$graph_depth"
+    else
+        echo -e "${BOLD}Searching Lore (grep fallback — run 'lore index' to enable ranked search)...${NC}"
+        echo ""
+        _search_grep "$query"
+    fi
 }
 
 cmd_status() {
@@ -423,6 +682,7 @@ main() {
         # Top-level commands
         validate)   shift; source "$LORE_DIR/lib/validate.sh"; cmd_validate "$@" ;;
         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
+        index)      shift; bash "$LORE_DIR/lib/search-index.sh" "$@" ;;
 
         # Component dispatch
         journal)    shift; "$LORE_DIR/journal/journal.sh" "$@" ;;

@@ -254,7 +254,8 @@
       "relation": "relates_to",
       "weight": 1.0,
       "bidirectional": false,
-      "created_at": "2026-02-10T03:46:24Z"
+      "created_at": "2026-02-10T03:46:24Z",
+      "updated_at": "2026-02-16T03:27:07Z"
     },
     {
       "from": "file-01a06b80",

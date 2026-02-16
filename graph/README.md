@@ -79,15 +79,22 @@ Examples:
 
 Edge types:
 
-- `relates_to` - General relationship
-- `learned_from` - Knowledge derived from
-- `affects` - Has impact on
-- `supersedes` - Replaces or updates
-- `contradicts` - Conflicts with
-- `contains` - Parent/child relationship
-- `references` - Points to
-- `implements` - Realizes or fulfills
-- `depends_on` - Requires
+| Edge Type       | Meaning                                  |
+| --------------- | ---------------------------------------- |
+| `relates_to`    | General semantic relationship            |
+| `learned_from`  | Knowledge derived from experience        |
+| `affects`       | Has impact on                            |
+| `supersedes`    | Newer decision replaces older one        |
+| `contradicts`   | Pattern/decision conflicts with another  |
+| `contains`      | Parent/child relationship                |
+| `references`    | Points to                                |
+| `implements`    | Code realizes a concept                  |
+| `depends_on`    | Requires                                 |
+| `produces`      | Generates output consumed by another     |
+| `consumes`      | Takes input produced by another          |
+| `derived_from`  | Pattern learned from a specific decision |
+| `part_of`       | Component of a larger concept/initiative |
+| `summarized_by` | Consolidated into a higher-level summary |
 
 Examples:
 
@@ -96,6 +103,24 @@ Examples:
 ./graph.sh link lesson-123 session-456 --relation "learned_from"
 ./graph.sh link decision-a decision-b --relation "supersedes"
 ./graph.sh link concept-x concept-y --relation "relates_to" --bidirectional
+```
+
+### Connecting by Name
+
+The `connect` and `disconnect` commands accept node names instead of IDs:
+
+```bash
+# Connect two nodes by name
+./graph.sh connect "authentication" "JWT tokens" relates_to
+
+# Connect with a weight
+./graph.sh connect "bash safety" "Safe bash arithmetic" part_of --weight 0.8
+
+# Disconnect (removes the specific edge)
+./graph.sh disconnect "authentication" "JWT tokens" relates_to
+
+# Disconnect all edges between two nodes
+./graph.sh disconnect "authentication" "JWT tokens"
 ```
 
 ### Searching
@@ -305,6 +330,18 @@ The graph functionality is split into reusable libraries:
 ./graph.sh add lesson "Split auth into strategies"
 ./graph.sh link lesson-xyz session-abc --relation "learned_from"
 ```
+
+## Edge Type Guidelines
+
+- **contradicts** — Use when a pattern says "don't X" and a decision says "we
+  chose X." Flag for review.
+- **supersedes** — Mark older decisions as superseded when new ones override
+  them. Old decision stays in journal but ranks lower.
+- **derived_from** — Link patterns back to the decision/session where they
+  were learned.
+- **part_of** — Group related patterns under a hub concept (e.g., "bash safety").
+- **summarized_by** — When consolidating patterns, link originals to summary
+  with this edge. Original patterns drop to importance=1.
 
 ## Integration with Lore
 

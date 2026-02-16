@@ -34,6 +34,8 @@ USAGE:
 COMMANDS:
     add <type> <name> [--data '{}']     Add a node to the graph
     link <from> <to> --relation <type>  Create an edge between nodes
+    connect <from> <to> <relation>      Connect nodes by name or ID
+    disconnect <from> <to> [relation]   Remove edges between nodes
     query <search>                       Full-text search across nodes
     related <node> [--hops n]           Find related nodes
     path <from> <to>                    Find connection path between nodes
@@ -62,17 +64,20 @@ NODE TYPES:
     project     Software projects in the ecosystem
 
 EDGE TYPES:
-    relates_to      General relationship
-    learned_from    Knowledge derived from
+    relates_to      General semantic relationship
+    learned_from    Knowledge derived from experience
     affects         Has impact on
-    supersedes      Replaces or updates
-    contradicts     Conflicts with
+    supersedes      Newer decision replaces older one
+    contradicts     Pattern/decision conflicts with another
     contains        Parent/child relationship
     references      Points to
-    implements      Realizes or fulfills
+    implements      Code realizes a concept
     depends_on      Requires
     produces        Generates output consumed by another
     consumes        Takes input produced by another
+    derived_from    Pattern learned from a specific decision
+    part_of         Component of a larger concept/initiative
+    summarized_by   Consolidated into a higher-level summary
 
 EXAMPLES:
     # Add a concept
@@ -89,6 +94,12 @@ EXAMPLES:
 
     # Reverse-lookup a decision node to its journal entry
     graph.sh lookup decision-d7f00cf3
+
+    # Connect nodes by name (resolves to IDs automatically)
+    graph.sh connect "authentication" "JWT tokens" relates_to
+
+    # Disconnect nodes
+    graph.sh disconnect "authentication" "JWT tokens" relates_to
 
     # Visualize the graph
     graph.sh visualize | dot -Tpng -o graph.png
@@ -388,6 +399,141 @@ cmd_lookup() {
     echo "$result" | jq .
 }
 
+# Connect two nodes by name or ID (convenience wrapper)
+# Usage: lore graph connect <from> <to> <relation> [--weight N]
+cmd_connect() {
+    local from=""
+    local to=""
+    local relation=""
+    local weight="1.0"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --weight)
+                weight="$2"
+                shift 2
+                ;;
+            *)
+                if [[ -z "$from" ]]; then
+                    from="$1"
+                elif [[ -z "$to" ]]; then
+                    to="$1"
+                elif [[ -z "$relation" ]]; then
+                    relation="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$from" || -z "$to" || -z "$relation" ]]; then
+        echo -e "${RED}Error: from, to, and relation are required${NC}" >&2
+        echo "Usage: lore graph connect <from> <to> <relation> [--weight N]"
+        echo ""
+        echo "Arguments can be node IDs (e.g., concept-abc123) or node names."
+        echo "If a name matches multiple nodes, the first match is used."
+        return 1
+    fi
+
+    # Resolve names to IDs if needed
+    local from_id to_id
+    from_id=$(resolve_node_ref "$from")
+    to_id=$(resolve_node_ref "$to")
+
+    if [[ -z "$from_id" ]]; then
+        echo -e "${RED}Error: Node not found: $from${NC}" >&2
+        return 1
+    fi
+    if [[ -z "$to_id" ]]; then
+        echo -e "${RED}Error: Node not found: $to${NC}" >&2
+        return 1
+    fi
+
+    add_edge "$from_id" "$to_id" "$relation" "$weight" "false"
+    echo -e "${GREEN}Connected:${NC} $from_id -> $to_id [$relation]"
+}
+
+# Disconnect two nodes
+# Usage: lore graph disconnect <from> <to> [relation]
+cmd_disconnect() {
+    local from=""
+    local to=""
+    local relation=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            *)
+                if [[ -z "$from" ]]; then
+                    from="$1"
+                elif [[ -z "$to" ]]; then
+                    to="$1"
+                elif [[ -z "$relation" ]]; then
+                    relation="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$from" || -z "$to" ]]; then
+        echo -e "${RED}Error: from and to are required${NC}" >&2
+        echo "Usage: lore graph disconnect <from> <to> [relation]"
+        echo ""
+        echo "If relation is omitted, all edges between the two nodes are removed."
+        return 1
+    fi
+
+    # Resolve names to IDs if needed
+    local from_id to_id
+    from_id=$(resolve_node_ref "$from")
+    to_id=$(resolve_node_ref "$to")
+
+    if [[ -z "$from_id" ]]; then
+        echo -e "${RED}Error: Node not found: $from${NC}" >&2
+        return 1
+    fi
+    if [[ -z "$to_id" ]]; then
+        echo -e "${RED}Error: Node not found: $to${NC}" >&2
+        return 1
+    fi
+
+    delete_edge "$from_id" "$to_id" "$relation"
+    echo -e "${GREEN}Disconnected:${NC} $from_id -> $to_id${relation:+ [$relation]}"
+}
+
+# Resolve a node reference: if it looks like an ID (contains a dash with hex suffix), use it;
+# otherwise treat it as a name and find the first matching node.
+resolve_node_ref() {
+    local ref="$1"
+    init_graph
+
+    # Check if ref is an existing node ID
+    local existing
+    existing=$(jq -r --arg id "$ref" '.nodes[$id] // empty' "$GRAPH_FILE")
+    if [[ -n "$existing" ]]; then
+        echo "$ref"
+        return
+    fi
+
+    # Try to find by name
+    local found
+    found=$(jq -r --arg name "$ref" \
+        '.nodes | to_entries[] | select(.value.name == $name) | .key' \
+        "$GRAPH_FILE" | head -1)
+
+    if [[ -n "$found" ]]; then
+        echo "$found"
+        return
+    fi
+
+    # Try case-insensitive match
+    found=$(jq -r --arg name "$ref" \
+        '.nodes | to_entries[] | select(.value.name | ascii_downcase == ($name | ascii_downcase)) | .key' \
+        "$GRAPH_FILE" | head -1)
+
+    echo "$found"
+}
+
 # Delete a node
 cmd_delete() {
     if [[ $# -lt 1 ]]; then
@@ -565,6 +711,12 @@ main() {
             ;;
         lookup)
             cmd_lookup "$@"
+            ;;
+        connect)
+            cmd_connect "$@"
+            ;;
+        disconnect)
+            cmd_disconnect "$@"
             ;;
         delete|rm)
             cmd_delete "$@"
