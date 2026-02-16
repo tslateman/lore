@@ -92,3 +92,22 @@ make sync-all
 ```
 
 The `scripts/entire-yeoman.sh` script reads from the `entire/checkpoints/v1` branch and writes checkpoint metadata to the journal. A marker file prevents duplicate syncs.
+
+## Entire CLI Integration
+
+Lore integrates with [Entire CLI](https://docs.entire.io) for checkpoint/rollback capabilities:
+
+```bash
+# Resume a branch with Lore context injection
+lore entire-resume feature/my-branch
+
+# This:
+# 1. Queries Lore for patterns relevant to the branch
+# 2. Shows related decisions from the journal
+# 3. Runs `entire resume` to restore checkpoint state
+```
+
+The integration loop:
+1. **Capture**: `entire` checkpoints agent work on git push
+2. **Sync**: `make sync-entire` writes checkpoints to Lore journal
+3. **Resume**: `lore entire-resume <branch>` injects patterns before continuing

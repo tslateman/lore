@@ -76,6 +76,7 @@ Session:
   resume              Load context from previous session
   handoff <message>   Capture context for next session
   status              Show current session state
+  entire-resume <br>  Resume Entire branch with Lore context
 
 Capture:
   remember <text>     Record a decision (--rationale "why")
@@ -101,6 +102,7 @@ SESSION LIFECYCLE
   resume [session]        Load context from previous session (forks new session)
   handoff <message>       Capture context for next session
   status                  Show current session state
+  entire-resume <branch>  Resume Entire branch with Lore context injection
 
 CAPTURE
   remember <text>         Record a decision with rationale
@@ -1088,6 +1090,7 @@ main() {
         learn)      shift; cmd_learn "$@" ;;
         handoff)    shift; cmd_handoff "$@" ;;
         resume)     shift; cmd_resume "$@" ;;
+        entire-resume) shift; "$LORE_DIR/scripts/entire-resume-with-context.sh" "$@" ;;
         search)     shift; cmd_search "$@" ;;
         suggest)    shift; cmd_suggest "$@" ;;
         context)    shift; cmd_context "$@" ;;
