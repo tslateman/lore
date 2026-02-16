@@ -636,7 +636,7 @@ SQL
     fi
 
     while IFS=$'\t' read -r type id content proj date score; do
-        echo -e "  ${GREEN}[${type}]${NC} ${content} ${DIM}(score: ${score}, proj: ${proj}, date: ${date})${NC}"
+        echo -e "  ${GREEN}[${type}]${NC} ${DIM}${id}:${NC} ${content} ${DIM}(score: ${score}, proj: ${proj}, date: ${date})${NC}"
         _log_access "$SEARCH_DB" "$type" "$id"
 
         # Graph traversal for this result
