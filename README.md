@@ -2,101 +2,162 @@
 
 Explicit context management for multi-agent systems.
 
-## Setup
+## Installation
+
+### Requirements
+
+- **bash** 4.0+
+- **jq** - JSON processing
+- **yq** - YAML processing
+- **sqlite3** - Search index (included on macOS)
+
+Optional for semantic search:
+
+- **Ollama** with `nomic-embed-text` model
+- **Python 3** for vector similarity
+
+### Quick Install
 
 ```bash
+# Clone the repository
+git clone https://github.com/tslater/lore.git ~/dev/lore
+
+# Add to PATH (add to ~/.bashrc or ~/.zshrc)
 export PATH="$HOME/dev/lore:$PATH"
+
+# Verify installation
+lore --help
+```
+
+### Install Dependencies (macOS)
+
+```bash
+brew install jq yq
+
+# Optional: semantic search
+brew install ollama
+ollama pull nomic-embed-text
+```
+
+### Install Dependencies (Linux)
+
+```bash
+# Debian/Ubuntu
+sudo apt install jq sqlite3
+pip install yq
+
+# Or via snap
+sudo snap install yq
+
+# Optional: Ollama (see https://ollama.ai)
 ```
 
 ## Usage
 
 ```bash
+# Record a decision
 lore remember "Use JSONL for storage" \
   --rationale "Simpler than SQLite, append-only matches our use case"
 
+# Capture a learned pattern
 lore learn "Safe bash arithmetic" \
   --context "Incrementing variables with set -e" \
   --solution "Use x=\$((x + 1)) instead of ((x++))"
 
+# End a session with handoff notes
 lore handoff "Auth implementation 80% complete, need OAuth integration"
 
+# Resume previous session at start of new session
 lore resume
 
+# Search across all components
 lore search "authentication"
+
+# Semantic search (requires Ollama)
+lore search "retry logic" --mode semantic
+
+# Graph-enhanced search (follows relationships)
+lore search "authentication" --graph-depth 2
 ```
 
-See `lore --help` for the full command list.
+Run `lore --help` for the full command list.
 
 ## Why Lore
 
-MEMORY.md gives each agent implicit context -- loaded into the prompt, hoped to
-be relevant. Lore gives explicit context -- structured writes, typed queries,
-cross-project assembly. The difference matters when multiple agents need the
-same context, when context exceeds what fits in a system prompt, or when you
-need to query across time.
+MEMORY.md gives agents implicit context—loaded into the prompt, hoped to be relevant. Lore provides explicit context—structured writes, typed queries, cross-project assembly. This matters when:
 
-**Registry** is the proven core. It maps 24 projects with roles, contracts,
-cluster membership, and dependencies. `lore registry context neo` assembles an
-onboarding bundle no agent could build from scratch.
+- Multiple agents need the same context
+- Context exceeds what fits in a system prompt
+- You need to query across time ("What did we decide about auth?")
 
-**Transfer** provides session continuity. `lore resume` at session start loads
-the previous session's state -- what was done, what's next, what's blocked.
+### Search
 
-**Journal, patterns, inbox, intent, and graph** provide structured storage for
-decisions, lessons, observations, goals, and relationships. These components
-earn their keep at scale -- when the flat-file approach stops fitting in a
-prompt.
+Three retrieval phases, used together:
+
+1. **FTS5** - Keyword search with BM25 ranking
+2. **Semantic** - Vector embeddings find conceptually related content ("retry logic" → "exponential backoff")
+3. **Graph** - Traverse relationships to surface connected knowledge
+
+### Session Continuity
+
+`lore resume` at session start loads the previous session's state—what was done, what's next, what's blocked. `lore handoff` at session end captures context for the next agent.
+
+### Structured Storage
+
+Journal captures decisions with rationale. Patterns capture lessons learned. Graph connects concepts. These components earn their keep at scale—when flat files stop fitting in a prompt.
 
 ## Components
 
 | Component     | Purpose               | Key Question                           |
 | ------------- | --------------------- | -------------------------------------- |
-| **registry/** | Project metadata      | "What exists and how does it connect?" |
-| **transfer/** | Session succession    | "What's next?"                         |
 | **journal/**  | Decision capture      | "Why did we choose this?"              |
 | **patterns/** | Lessons learned       | "What did we learn?"                   |
-| **inbox/**    | Raw observations      | "What did we notice?"                  |
-| **intent/**   | Goals and missions    | "What are we trying to achieve?"       |
+| **transfer/** | Session succession    | "What's next?"                         |
 | **graph/**    | Knowledge connections | "What relates to this?"                |
+| **registry/** | Project metadata      | "What exists and how does it connect?" |
+| **intent/**   | Goals and missions    | "What are we trying to achieve?"       |
+| **inbox/**    | Raw observations      | "What did we notice?"                  |
 
-## Architecture
+## Data Storage
 
 ```
-~/dev/mani.yaml              # Source of truth for projects, paths, tags
+~/.lore/
+└── search.db          # FTS5 index, embeddings, graph cache
+
 lore/
-├── lore.sh                  # Main entry point
-├── lib/                     # Shared libraries (ingest, client base)
-├── failures/                # Failure tracking
-│   └── data/
-├── graph/                   # Memory Graph
-│   ├── graph.sh
-│   ├── lib/
-│   └── data/                # graph.json
-├── inbox/                   # Raw observations staging
-│   ├── lib/
-│   └── data/                # observations.jsonl
-├── intent/                  # Goals and missions
-│   ├── lib/
-│   └── data/                # goals/, missions/
-├── journal/                 # Decision Journal
-│   ├── journal.sh
-│   ├── lib/
-│   └── data/                # decisions.jsonl
-├── patterns/                # Pattern Learner
-│   ├── patterns.sh
-│   ├── lib/
-│   └── data/                # patterns.yaml
-├── registry/                # Project metadata and context
-│   ├── lib/
-│   └── data/                # metadata.yaml, clusters.yaml, etc.
-└── transfer/                # Context Transfer
-    ├── transfer.sh
-    ├── lib/
-    └── data/                # sessions/
+├── journal/data/      # decisions.jsonl
+├── patterns/data/     # patterns.yaml
+├── transfer/data/     # sessions/*.json
+├── graph/data/        # graph.json
+├── registry/data/     # metadata.yaml, clusters.yaml
+├── intent/data/       # goals/, missions/
+└── inbox/data/        # observations.jsonl
 ```
 
 ## Integration
 
-Other projects integrate via `lib/lore-client-base.sh` -- fail-silent wrappers
-that record decisions, patterns, and observations without blocking if lore is
-unavailable. See `LORE_CONTRACT.md` for the full write/read interface.
+Projects integrate via `lib/lore-client-base.sh`—fail-silent wrappers that record decisions and patterns without blocking if Lore is unavailable. See `LORE_CONTRACT.md` for the full interface.
+
+## MCP Server
+
+Lore exposes an MCP server for AI agents:
+
+```bash
+cd mcp && npm install && npm run build
+```
+
+Add to your Claude Code configuration:
+
+```json
+{
+  "mcpServers": {
+    "lore": {
+      "command": "node",
+      "args": ["/path/to/lore/mcp/build/index.js"],
+      "env": { "LORE_DIR": "/path/to/lore" }
+    }
+  }
+}
+```
+
+Tools exposed: `lore_search`, `lore_context`, `lore_related`, `lore_remember`, `lore_learn`, `lore_resume`
