@@ -5,11 +5,15 @@ Explicit context management for multi-agent systems.
 ## Quick Start
 
 ```bash
-# Record a decision
-lore remember "Use JSONL for storage" --rationale "Append-only, simple"
+# Record decisions, patterns, and failures with one command
+lore capture "Use JSONL for storage" --rationale "Append-only, simple"
+lore capture "Safe bash arithmetic" --solution 'Use x=$((x+1))' --context "set -e scripts"
+lore capture "Permission denied" --error-type ToolError
 
-# Capture a pattern
-lore learn "Safe bash arithmetic" --context "set -e scripts" --solution "Use x=\$((x+1))"
+# Or use shortcuts
+lore remember "Use JSONL for storage" --rationale "Append-only, simple"
+lore learn "Safe bash arithmetic" --solution 'Use x=$((x+1))'
+lore fail ToolError "Permission denied"
 
 # End a session (capture context for next time)
 lore handoff "Finished X, next steps: Y, blocked on Z"

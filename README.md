@@ -55,14 +55,15 @@ sudo snap install yq
 ## Usage
 
 ```bash
-# Record a decision
-lore remember "Use JSONL for storage" \
-  --rationale "Simpler than SQLite, append-only matches our use case"
+# Record decisions, patterns, and failures with one command
+lore capture "Use JSONL for storage" --rationale "Append-only, simple"
+lore capture "Safe bash arithmetic" --solution 'Use x=$((x+1))' --context "set -e scripts"
+lore capture "Permission denied" --error-type ToolError
 
-# Capture a learned pattern
-lore learn "Safe bash arithmetic" \
-  --context "Incrementing variables with set -e" \
-  --solution "Use x=\$((x + 1)) instead of ((x++))"
+# Or use shortcuts
+lore remember "Use JSONL for storage" --rationale "Append-only, simple"
+lore learn "Safe bash arithmetic" --solution 'Use x=$((x+1))'
+lore fail ToolError "Permission denied"
 
 # End a session with handoff notes
 lore handoff "Auth implementation 80% complete, need OAuth integration"

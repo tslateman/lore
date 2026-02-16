@@ -17,6 +17,54 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
+# Infer capture type from command-line flags
+# Returns: "decision", "pattern", or "failure"
+infer_capture_type() {
+    local has_decision_flags=false
+    local has_pattern_flags=false
+    local has_failure_flags=false
+    local explicit_type=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            # Explicit type overrides
+            --decision) explicit_type="decision"; shift ;;
+            --pattern) explicit_type="pattern"; shift ;;
+            --failure) explicit_type="failure"; shift ;;
+
+            # Decision-specific flags
+            --rationale|-r|--alternatives|-a|--outcome|--type|-f|--files)
+                has_decision_flags=true
+                shift 2 ;;
+
+            # Pattern-specific flags
+            --solution|--problem|--context|--category|--confidence|--origin)
+                has_pattern_flags=true
+                shift 2 ;;
+
+            # Failure-specific flags
+            --error-type|--tool|--mission|--step)
+                has_failure_flags=true
+                shift 2 ;;
+
+            # Skip other args
+            *) shift ;;
+        esac
+    done
+
+    # Explicit type wins
+    [[ -n "$explicit_type" ]] && { echo "$explicit_type"; return; }
+
+    # Infer from flags (failure > pattern > decision default)
+    if [[ "$has_failure_flags" == true ]]; then
+        echo "failure"
+    elif [[ "$has_pattern_flags" == true ]]; then
+        echo "pattern"
+    else
+        echo "decision"
+    fi
+}
+
 show_help() {
     echo "Lore - Memory That Compounds"
     echo ""
@@ -32,8 +80,13 @@ show_help() {
     echo "  registry  Project metadata and context"
     echo ""
     echo "Quick Commands:"
-    echo "  lore remember <text>     Quick capture to journal (--force to skip duplicate check)"
-    echo "  lore learn <pattern>     Quick pattern capture (--force to skip duplicate check)"
+    echo "  lore capture <text>      Universal capture (infers type from flags)"
+    echo "    --decision             Capture as decision (journal)"
+    echo "    --pattern              Capture as pattern (lessons learned)"
+    echo "    --failure              Capture as failure report"
+    echo "  lore remember <text>     Quick decision capture (shortcut for capture --decision)"
+    echo "  lore learn <pattern>     Quick pattern capture (shortcut for capture --pattern)"
+    echo "  lore fail <type> <msg>   Quick failure capture (shortcut for capture --failure)"
     echo "  lore handoff <message>   Create handoff for next session"
     echo "  lore resume [session]    Resume from previous session"
     echo "  lore search <query>      Search across all components (ranked if indexed)"
@@ -44,7 +97,6 @@ show_help() {
     echo "  lore status              Show current session state"
     echo "  lore observe <text>     Capture a raw observation to inbox"
     echo "  lore inbox [--status S] List inbox observations"
-    echo "  lore fail <type> <msg>  Log a failure report"
     echo "  lore failures [opts]    List failures (--type, --mission)"
     echo "  lore triggers           Show recurring failure types (Rule of Three)"
     echo "  lore validate            Run comprehensive registry checks"
@@ -159,6 +211,59 @@ cmd_learn() {
     fi
 
     "$LORE_DIR/patterns/patterns.sh" capture "${args[@]}"
+}
+
+# Unified capture command — routes to remember/learn/fail based on flags
+cmd_capture() {
+    local capture_type
+    capture_type=$(infer_capture_type "$@")
+
+    # Strip explicit type flags, pass everything else through
+    local args=()
+    for arg in "$@"; do
+        case "$arg" in
+            --decision|--pattern|--failure) continue ;;
+            *) args+=("$arg") ;;
+        esac
+    done
+
+    case "$capture_type" in
+        decision)
+            cmd_remember "${args[@]}"
+            ;;
+        pattern)
+            cmd_learn "${args[@]}"
+            ;;
+        failure)
+            # cmd_fail expects: <error_type> <message> [--tool T] [--mission M] [--step S]
+            # capture uses --error-type <type> as a named flag, so convert it to positional
+            local fail_args=()
+            local error_type=""
+            local skip_next=false
+            for arg in "${args[@]}"; do
+                if [[ "$skip_next" == true ]]; then
+                    skip_next=false
+                    error_type="$arg"
+                    continue
+                fi
+                if [[ "$arg" == "--error-type" ]]; then
+                    skip_next=true
+                    continue
+                fi
+                fail_args+=("$arg")
+            done
+            # Prepend error_type as first positional arg (cmd_fail expects it there)
+            if [[ -n "$error_type" ]]; then
+                cmd_fail "$error_type" "${fail_args[@]}"
+            else
+                cmd_fail "${fail_args[@]}"
+            fi
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown capture type: $capture_type${NC}" >&2
+            return 1
+            ;;
+    esac
 }
 
 cmd_handoff() {
@@ -665,6 +770,7 @@ main() {
 
     case "$1" in
         # Quick commands
+        capture)    shift; cmd_capture "$@" ;;
         remember)   shift; cmd_remember "$@" ;;
         learn)      shift; cmd_learn "$@" ;;
         handoff)    shift; cmd_handoff "$@" ;;
