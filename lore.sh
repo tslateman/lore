@@ -807,6 +807,9 @@ main() {
                                 exit 1 ;;
                     esac ;;
 
+        # Spec management (SDD integration)
+        spec)       shift; source "$LORE_DIR/intent/lib/spec.sh"; spec_main "$@" ;;
+
         # Registry (project metadata)
         registry)   shift; source "$LORE_DIR/registry/lib/registry.sh"; registry_main "$@" ;;
 

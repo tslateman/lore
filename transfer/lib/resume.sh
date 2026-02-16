@@ -6,10 +6,25 @@
 # Summarizes what happened in that session
 # Highlights unfinished work and open questions
 # Surfaces relevant patterns learned
+# Shows active spec context (if any)
 #
 
 # Resolve LORE_DIR for cross-component calls
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
+# Colors for output (match journal conventions)
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+# Disable colors if not a terminal
+if [[ ! -t 1 ]]; then
+    RED='' GREEN='' YELLOW='' BLUE='' CYAN='' NC='' BOLD=''
+fi
 
 #######################################
 # Suggest relevant patterns for a context string
@@ -30,6 +45,121 @@ suggest_patterns_for_context() {
         echo "--- Relevant Patterns ---"
         echo "${output}"
         echo ""
+    fi
+}
+
+#######################################
+# Display active spec context if present
+# Args: session_file path
+#######################################
+display_spec_context() {
+    local session_file="$1"
+    local goals_dir="${LORE_DIR}/intent/data/goals"
+    local journal_data="${LORE_DIR}/journal/data/decisions.jsonl"
+
+    # Check for spec context in session
+    local goal_id
+    goal_id=$(jq -r '.context.spec.goal_id // empty' "${session_file}" 2>/dev/null)
+    [[ -z "${goal_id}" ]] && return 0
+
+    # Load goal file
+    local goal_file="${goals_dir}/${goal_id}.yaml"
+    if [[ ! -f "${goal_file}" ]]; then
+        echo -e "${YELLOW}--- Active Spec (Warning) ---${NC}"
+        echo -e "  Goal ${CYAN}${goal_id}${NC} referenced but file not found"
+        echo -e "  (spec may have been deleted or moved)"
+        echo ""
+        return 0
+    fi
+
+    # Check for yq
+    if ! command -v yq &>/dev/null; then
+        echo -e "${YELLOW}--- Active Spec ---${NC}"
+        echo -e "  Goal: ${goal_id}"
+        echo -e "  (install yq for full spec details)"
+        echo ""
+        return 0
+    fi
+
+    # Extract spec info from session and goal file
+    local spec_name spec_branch spec_phase current_task
+    spec_name=$(jq -r '.context.spec.name // empty' "${session_file}" 2>/dev/null)
+    spec_branch=$(jq -r '.context.spec.branch // empty' "${session_file}" 2>/dev/null)
+    spec_phase=$(jq -r '.context.spec.phase // empty' "${session_file}" 2>/dev/null)
+    current_task=$(jq -r '.context.spec.current_task // empty' "${session_file}" 2>/dev/null)
+
+    # Fallback to goal file if session context is sparse
+    [[ -z "${spec_name}" ]] && spec_name=$(yq -r '.name // ""' "${goal_file}" 2>/dev/null)
+    [[ -z "${spec_phase}" ]] && spec_phase=$(yq -r '.lifecycle.phase // "unknown"' "${goal_file}" 2>/dev/null)
+    [[ -z "${spec_branch}" ]] && spec_branch=$(yq -r '.source.branch // ""' "${goal_file}" 2>/dev/null)
+
+    echo -e "${GREEN}--- Active Spec ---${NC}"
+    echo -e "  ${CYAN}Goal:${NC} ${goal_id}"
+    [[ -n "${spec_name}" ]] && echo -e "  ${CYAN}Name:${NC} ${spec_name}"
+    [[ -n "${spec_branch}" ]] && echo -e "  ${CYAN}Branch:${NC} ${spec_branch}"
+    [[ -n "${spec_phase}" ]] && echo -e "  ${CYAN}Phase:${NC} ${spec_phase}"
+    [[ -n "${current_task}" ]] && echo -e "  ${CYAN}Current Task:${NC} ${current_task}"
+    echo ""
+
+    # Display success criteria with status
+    local criteria_count
+    criteria_count=$(yq -r '.success_criteria | length' "${goal_file}" 2>/dev/null || echo 0)
+    if [[ "${criteria_count}" -gt 0 ]]; then
+        echo -e "  ${CYAN}Success Criteria:${NC}"
+
+        # Check for snapshot user_stories (SDD-style)
+        local has_snapshot
+        has_snapshot=$(yq -r '.source.snapshot.user_stories // null' "${goal_file}" 2>/dev/null)
+
+        if [[ "${has_snapshot}" != "null" && -n "${has_snapshot}" ]]; then
+            # SDD-style with user story IDs - convert to JSON for jq parsing
+            local stories_json
+            stories_json=$(yq -o=json '.source.snapshot.user_stories' "${goal_file}" 2>/dev/null)
+            echo "${stories_json}" | jq -r '.[] | "\(.id)|\(.title)|\(.priority // "")|\(.status // "pending")"' 2>/dev/null | \
+            while IFS='|' read -r us_id us_title us_priority us_status; do
+                local check_mark=" "
+                [[ "${us_status}" == "completed" ]] && check_mark="${GREEN}✓${NC}"
+                [[ "${us_status}" == "in_progress" ]] && check_mark="${YELLOW}→${NC}"
+                local priority_str=""
+                [[ -n "${us_priority}" ]] && priority_str=" (${us_priority})"
+                echo -e "    [${check_mark}] ${us_id}: ${us_title}${priority_str}"
+            done
+        else
+            # Standard success_criteria list (handles both string and object formats)
+            local criteria_json
+            criteria_json=$(yq -o=json '.success_criteria' "${goal_file}" 2>/dev/null)
+            echo "${criteria_json}" | jq -r '.[] | if type == "object" then "\(.description // .text // "unknown")||\(.status // "pending")" else "\(.)||pending" end' 2>/dev/null | \
+            while IFS='|' read -r criterion _ status; do
+                local check_mark=" "
+                [[ "${status}" == "completed" ]] && check_mark="${GREEN}✓${NC}"
+                [[ "${status}" == "in_progress" ]] && check_mark="${YELLOW}→${NC}"
+                # Truncate long criteria
+                [[ ${#criterion} -gt 60 ]] && criterion="${criterion:0:57}..."
+                echo -e "    [${check_mark}] ${criterion}"
+            done
+        fi
+        echo ""
+    fi
+
+    # Query journal for decisions tagged with this spec
+    if [[ -f "${journal_data}" ]]; then
+        local spec_tag="spec:${goal_id}"
+        local decisions
+        decisions=$(jq -s --arg tag "${spec_tag}" '
+            [.[] | select(.tags | any(. == $tag or startswith($tag)))]
+            | group_by(.id) | map(.[-1])
+            | sort_by(.timestamp) | reverse
+            | .[0:5]
+        ' "${journal_data}" 2>/dev/null)
+
+        local decision_count
+        decision_count=$(echo "${decisions}" | jq 'length' 2>/dev/null || echo 0)
+
+        if [[ "${decision_count}" -gt 0 ]]; then
+            echo -e "${GREEN}--- Decisions for This Spec ---${NC}"
+            echo "${decisions}" | jq -r '.[] | "  - \(.decision[0:60])\(if (.decision | length) > 60 then "..." else "" end)\(if .rationale then " — \(.rationale[0:40])\(if (.rationale | length) > 40 then "..." else "" end)" else "" end)"' 2>/dev/null
+            echo ""
+        fi
     fi
 }
 
@@ -71,6 +201,9 @@ resume_session() {
     echo ""
     echo "Summary: ${summary}"
     echo ""
+
+    # Show active spec context if present
+    display_spec_context "${session_file}"
 
     # What was accomplished
     echo "--- What Was Accomplished ---"
