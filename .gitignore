@@ -8,5 +8,9 @@ journal/data/index/
 # Tool-local data
 .entire/
 
+# MCP server build artifacts
+mcp/node_modules/
+mcp/build/
+
 # Perpetually dirty — overwritten by session activity
 transfer/data/sessions/session-example.json
