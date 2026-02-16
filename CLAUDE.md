@@ -69,3 +69,15 @@ See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags 
 ## Integration
 
 Other projects integrate via `lib/lore-client-base.sh` -- fail-silent wrappers that record decisions, patterns, and observations without blocking if lore is unavailable. See `LORE_CONTRACT.md` for the full write/read interface.
+
+## Syncing External Sources
+
+```bash
+# Sync Entire CLI checkpoints to journal
+make sync-entire
+
+# Sync all external sources
+make sync-all
+```
+
+The `scripts/entire-yeoman.sh` script reads from the `entire/checkpoints/v1` branch and writes checkpoint metadata to the journal. A marker file prevents duplicate syncs.
