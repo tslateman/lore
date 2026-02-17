@@ -116,7 +116,7 @@ Journal captures decisions with rationale. Patterns capture lessons learned. Gra
 | **transfer/** | Session succession    | "What's next?"                         |
 | **graph/**    | Knowledge connections | "What relates to this?"                |
 | **registry/** | Project metadata      | "What exists and how does it connect?" |
-| **intent/**   | Goals and missions    | "What are we trying to achieve?"       |
+| **intent/**   | Goals and specs       | "What are we trying to achieve?"       |
 | **inbox/**    | Raw observations      | "What did we notice?"                  |
 
 ## Data Storage
@@ -131,7 +131,7 @@ lore/
 ├── transfer/data/     # sessions/*.json
 ├── graph/data/        # graph.json
 ├── registry/data/     # metadata.yaml, clusters.yaml
-├── intent/data/       # goals/, missions/
+├── intent/data/       # goals/
 └── inbox/data/        # observations.jsonl
 ```
 
