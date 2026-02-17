@@ -129,12 +129,16 @@ QUERY
   failures [--type T]     List failures
   triggers                Show recurring failures (Rule of Three)
 
-INTENT (Goals & Missions)
+INTENT (Goals, Missions & Tasks)
   goal create <name>      Create a goal
   goal list [--status S]  List goals
   goal show <id>          Show goal details
   mission generate <id>   Generate missions from goal
   mission list            List missions
+  task create <title>     Create delegated task
+  task list [--status S]  List tasks
+  task claim <id>         Claim task for work
+  task complete <id>      Complete a task
 
 REGISTRY
   registry show <proj>    Show project details
@@ -259,6 +263,7 @@ show_help_intent() {
 INTENT COMMANDS
 
 Goals define what you're trying to achieve. Missions break goals into steps.
+Tasks enable delegation between agents.
 
 GOALS
   lore goal create "Implement user authentication"
@@ -271,6 +276,20 @@ GOALS
 MISSIONS
   lore mission generate <goal-id>   Generate missions from a goal
   lore mission list
+
+TASKS (Delegation)
+  lore task create "Fix auth bug" --description "..." --for backend-agent
+  lore task list [--status pending] [--for agent]
+  lore task show <task-id>
+  lore task claim <task-id>         Mark task as being worked on
+  lore task complete <task-id>      Complete with outcome
+
+  Status values: pending, claimed, completed, cancelled
+
+  Tasks differ from missions:
+  - Standalone (no required parent goal)
+  - Can be claimed by any agent
+  - Optimized for agent-to-agent delegation
 
 SPEC MANAGEMENT (SDD Integration)
   lore spec list                    List specs by status
@@ -356,7 +375,7 @@ cmd_help() {
         search|query|find)
             show_help_search
             ;;
-        intent|goal|goals|mission|missions|spec)
+        intent|goal|goals|mission|missions|spec|task|tasks)
             show_help_intent
             ;;
         registry|project|projects)
@@ -1112,9 +1131,10 @@ main() {
         patterns)   shift; "$LORE_DIR/patterns/patterns.sh" "$@" ;;
         transfer)   shift; "$LORE_DIR/transfer/transfer.sh" "$@" ;;
 
-        # Intent (goals and missions)
+        # Intent (goals, missions, tasks)
         goal)       shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_goal_main "$@" ;;
         mission)    shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_mission_main "$@" ;;
+        task)       shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_task_main "$@" ;;
         intent)     shift; source "$LORE_DIR/intent/lib/intent.sh"
                     case "${1:-}" in
                         export) shift; intent_export_main "$@" ;;

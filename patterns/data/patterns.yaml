@@ -3,6 +3,16 @@
 
 patterns:
 
+    - id: "pat-284634-f44725d7"
+      name: "Agent delegation via tasks"
+      context: "Multi-agent systems where one agent needs to hand off work to another"
+      problem: "Agents need structured way to create work items for other agents to discover and claim"
+      solution: "Tasks with pending/claimed/completed lifecycle. Creator sets title, description, context, priority, and optional target agent. Workers query for pending tasks, claim them, then complete with outcome."
+      category: "general"
+      origin: "session-2026-02-16"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-16T23:30:34Z"
     - id: "pat-270780-71839699"
       name: "Sovereign Bridge"
       context: "Integrating Lore with Claude Code or similar AI agents that manage their own task execution"
