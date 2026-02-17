@@ -504,10 +504,6 @@ outcome:
   session_id: null
   journal_entry: null
 
-mission_hints:
-  max_parallel: 3
-  preferred_team_size: 2
-  decomposition_strategy: sequential
 EOF
 
     echo -e "${GREEN}Imported spec as goal:${NC} $goal_id"

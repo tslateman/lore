@@ -25,8 +25,7 @@ lore learn "Safe bash arithmetic in set -e scripts" \
 ```bash
 # Must remember "lore fail" takes error-type first
 lore fail ToolError "Permission denied writing to /var/log" \
-  --tool Bash \
-  --mission "mis-abc123"
+  --tool Bash
 ```
 
 **Mental model:** Three verbs, must choose the right one upfront.
@@ -57,8 +56,7 @@ lore capture "Safe bash arithmetic in set -e scripts" \
 # Type inferred from --error-type
 lore capture "Permission denied writing to /var/log" \
   --error-type ToolError \
-  --tool Bash \
-  --mission "mis-abc123"
+  --tool Bash
 ```
 
 **Mental model:** One verb, type follows naturally from the flags you provide.

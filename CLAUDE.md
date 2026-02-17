@@ -74,7 +74,7 @@ See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags 
 
 Lore consolidated functionality from earlier projects (now deprecated/archived):
 
-- **intent/** — Absorbed from Oracle (goal/mission tracking)
+- **intent/** — Absorbed from Oracle (goal/task tracking)
 - **transfer/** — Absorbed from prior session system (session handoff, now a Lore component)
 
 These origins appear in component READMEs but are implementation history, not integration points.
@@ -86,7 +86,6 @@ These origins appear in component READMEs but are implementation history, not in
 - Patterns: YAML (patterns and anti_patterns lists)
 - Sessions: JSON (one file per session in `transfer/data/sessions/`)
 - Goals: YAML (one file per goal in `intent/data/goals/`)
-- Missions: YAML (one file per mission in `intent/data/missions/`)
 - Failures: JSONL (append-only in `failures/data/`)
 - Registry: YAML (`registry/data/metadata.yaml`, `clusters.yaml`, `relationships.yaml`, `contracts.yaml`)
 

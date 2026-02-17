@@ -35,7 +35,3 @@ notes: |
   Provides checkpoint/rewind that we considered building ourselves.
   Use manual-commit strategy to keep git history clean.
 
-mission_hints:
-  max_parallel: 2
-  preferred_team_size: 1
-  decomposition_strategy: sequential

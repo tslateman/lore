@@ -145,7 +145,7 @@ test_infer_failure_from_error_type() {
     local before
     before=$(file_size "$TMPDIR/failures/data/failures.jsonl")
 
-    # cmd_fail returns nonzero when --tool/--mission are empty (short-circuit eval bug)
+    # cmd_fail may return nonzero on empty optional flags (short-circuit eval bug)
     "$TMPDIR/lore.sh" capture "Test failure via error-type" --error-type ToolError || true
 
     assert_file_grew "failures.jsonl grew" "$TMPDIR/failures/data/failures.jsonl" "$before"
@@ -235,7 +235,7 @@ test_backward_compat_fail() {
     local before
     before=$(file_size "$TMPDIR/failures/data/failures.jsonl")
 
-    # cmd_fail returns nonzero when --tool/--mission are empty (short-circuit eval bug)
+    # cmd_fail may return nonzero on empty optional flags (short-circuit eval bug)
     "$TMPDIR/lore.sh" fail ToolError "Backward compat failure" || true
 
     assert_file_grew "failures.jsonl grew" "$TMPDIR/failures/data/failures.jsonl" "$before"

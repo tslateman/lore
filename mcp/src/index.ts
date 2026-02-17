@@ -10,7 +10,6 @@
  *   Session: resume
  *   Intent: goals, spec
  *   Spec Management: spec_list, spec_context, spec_assign, spec_progress, spec_complete
- *   Delegation: delegate, tasks, claim_task, complete_task
  *   Analysis: failures, triggers, impact
  */
 
@@ -569,203 +568,6 @@ server.tool(
 );
 
 // =============================================================================
-// Delegation Tools - Agent Task Coordination
-// =============================================================================
-
-// Tool: lore_delegate
-// Create a task for another agent
-server.tool(
-  "lore_delegate",
-  "Create a delegated task for another agent to pick up. Tasks enable structured handoff of work between agents.",
-  {
-    title: z.string().describe("Task title - clear, actionable description"),
-    description: z.string().optional().describe("Detailed task description"),
-    context: z.string().optional().describe("Background context the assignee needs"),
-    priority: z
-      .enum(["critical", "high", "medium", "low"])
-      .optional()
-      .describe("Task priority (default: medium)"),
-    for_agent: z.string().optional().describe("Target agent type (e.g., 'backend', 'frontend', 'reviewer')"),
-    goal_id: z.string().optional().describe("Related goal ID if task supports a goal"),
-    tags: z.string().optional().describe("Tags for categorization (comma-separated)"),
-  },
-  async ({ title, description, context, priority, for_agent, goal_id, tags }) => {
-    const args = ["task", "create", title];
-
-    if (description) {
-      args.push("--description", description);
-    }
-    if (context) {
-      args.push("--context", context);
-    }
-    if (priority) {
-      args.push("--priority", priority);
-    }
-    if (for_agent) {
-      args.push("--for", for_agent);
-    }
-    if (goal_id) {
-      args.push("--goal", goal_id);
-    }
-    if (tags) {
-      args.push("--tags", tags);
-    }
-
-    try {
-      const output = runLore(args);
-      return {
-        content: [{ type: "text" as const, text: stripAnsi(output) }],
-      };
-    } catch (error: unknown) {
-      const err = error as { message: string };
-      return {
-        content: [{ type: "text" as const, text: `Failed to create task: ${err.message}` }],
-        isError: true,
-      };
-    }
-  }
-);
-
-// Tool: lore_tasks
-// List available tasks
-server.tool(
-  "lore_tasks",
-  "List delegated tasks. Filter by status, priority, or target agent.",
-  {
-    status: z
-      .enum(["pending", "claimed", "completed", "cancelled"])
-      .optional()
-      .describe("Filter by task status"),
-    priority: z
-      .enum(["critical", "high", "medium", "low"])
-      .optional()
-      .describe("Filter by priority"),
-    for_agent: z.string().optional().describe("Filter by target agent type"),
-  },
-  async ({ status, priority, for_agent }) => {
-    const args = ["task", "list"];
-
-    if (status) {
-      args.push("--status", status);
-    }
-    if (priority) {
-      args.push("--priority", priority);
-    }
-    if (for_agent) {
-      args.push("--for", for_agent);
-    }
-
-    try {
-      const output = runLore(args);
-      return {
-        content: [{ type: "text" as const, text: stripAnsi(output) }],
-      };
-    } catch (error: unknown) {
-      const err = error as { message: string };
-      return {
-        content: [{ type: "text" as const, text: `Failed to list tasks: ${err.message}` }],
-        isError: true,
-      };
-    }
-  }
-);
-
-// Tool: lore_task_show
-// Show details for a specific task
-server.tool(
-  "lore_task_show",
-  "Get full details for a delegated task including description and context.",
-  {
-    task_id: z.string().describe("Task ID to view"),
-  },
-  async ({ task_id }) => {
-    const args = ["task", "show", task_id];
-
-    try {
-      const output = runLore(args);
-      return {
-        content: [{ type: "text" as const, text: stripAnsi(output) }],
-      };
-    } catch (error: unknown) {
-      const err = error as { message: string };
-      return {
-        content: [{ type: "text" as const, text: `Failed to show task: ${err.message}` }],
-        isError: true,
-      };
-    }
-  }
-);
-
-// Tool: lore_claim_task
-// Claim a task for this agent
-server.tool(
-  "lore_claim_task",
-  "Claim a delegated task. Signals 'I'm working on this' to other agents.",
-  {
-    task_id: z.string().describe("Task ID to claim"),
-    agent: z.string().optional().describe("Agent name claiming the task (default: session ID)"),
-  },
-  async ({ task_id, agent }) => {
-    const args = ["task", "claim", task_id];
-
-    if (agent) {
-      args.push("--agent", agent);
-    }
-
-    try {
-      const output = runLore(args);
-      return {
-        content: [{ type: "text" as const, text: stripAnsi(output) }],
-      };
-    } catch (error: unknown) {
-      const err = error as { message: string };
-      return {
-        content: [{ type: "text" as const, text: `Failed to claim task: ${err.message}` }],
-        isError: true,
-      };
-    }
-  }
-);
-
-// Tool: lore_complete_task
-// Complete a claimed task with outcome
-server.tool(
-  "lore_complete_task",
-  "Mark a task as complete with optional outcome notes. Can also cancel a task.",
-  {
-    task_id: z.string().describe("Task ID to complete"),
-    outcome: z.string().optional().describe("Summary of what was accomplished"),
-    status: z
-      .enum(["completed", "cancelled"])
-      .optional()
-      .describe("Final status (default: completed)"),
-  },
-  async ({ task_id, outcome, status }) => {
-    const args = ["task", "complete", task_id];
-
-    if (outcome) {
-      args.push("--outcome", outcome);
-    }
-    if (status) {
-      args.push("--status", status);
-    }
-
-    try {
-      const output = runLore(args);
-      return {
-        content: [{ type: "text" as const, text: stripAnsi(output) }],
-      };
-    } catch (error: unknown) {
-      const err = error as { message: string };
-      return {
-        content: [{ type: "text" as const, text: `Failed to complete task: ${err.message}` }],
-        isError: true,
-      };
-    }
-  }
-);
-
-// =============================================================================
 // Analysis Tools - Failures, Triggers, Impact
 // =============================================================================
 
@@ -779,15 +581,11 @@ server.tool(
       .string()
       .optional()
       .describe("Filter by type: Timeout, NonZeroExit, UserDeny, ToolError, LogicError"),
-    mission: z.string().optional().describe("Filter by mission ID"),
   },
-  async ({ error_type, mission }) => {
+  async ({ error_type }) => {
     const args = ["failures"];
     if (error_type) {
       args.push("--type", error_type);
-    }
-    if (mission) {
-      args.push("--mission", mission);
     }
 
     try {

@@ -33,13 +33,12 @@ validate_error_type() {
 }
 
 # Append a failure report to the journal
-# Args: error_type message [tool] [mission] [step]
+# Args: error_type message [tool] [step]
 failures_append() {
     local error_type="$1"
     local message="$2"
     local tool="${3:-}"
-    local mission="${4:-}"
-    local step="${5:-}"
+    local step="${4:-}"
 
     if [[ -z "$error_type" || -z "$message" ]]; then
         echo "Error: error_type and message required" >&2
@@ -63,7 +62,6 @@ failures_append() {
         --arg error_type "$error_type" \
         --arg error_message "$message" \
         --arg tool "$tool" \
-        --arg mission "$mission" \
         --arg step "$step" \
         '{
             id: $id,
@@ -72,7 +70,6 @@ failures_append() {
             error_message: $error_message
         }
         + (if $tool != "" then {tool: $tool} else {} end)
-        + (if $mission != "" then {mission: $mission} else {} end)
         + (if $step != "" then {step: ($step | tonumber? // $step)} else {} end)')
 
     echo "$record" >> "$FAILURES_FILE"
@@ -80,11 +77,10 @@ failures_append() {
     echo "$id"
 }
 
-# List failures, optionally filtered by error_type or mission
-# Args: [error_type] [mission]
+# List failures, optionally filtered by error_type
+# Args: [error_type]
 failures_list() {
     local filter_type="${1:-}"
-    local filter_mission="${2:-}"
 
     init_failures
 
@@ -96,13 +92,6 @@ failures_list() {
     local filter='.'
     if [[ -n "$filter_type" ]]; then
         filter="select(.error_type == \"$filter_type\")"
-    fi
-    if [[ -n "$filter_mission" ]]; then
-        if [[ "$filter" == "." ]]; then
-            filter="select(.mission == \"$filter_mission\")"
-        else
-            filter="$filter | select(.mission == \"$filter_mission\")"
-        fi
     fi
 
     jq -s "[.[] | $filter] | sort_by(.timestamp) | reverse" "$FAILURES_FILE"
@@ -130,29 +119,6 @@ failures_triggers() {
         })
         | map(select(.count >= $t))
         | sort_by(.count) | reverse
-    ' "$FAILURES_FILE"
-}
-
-# Show failure timeline for a mission
-# Args: mission
-failures_timeline() {
-    local mission="$1"
-
-    if [[ -z "$mission" ]]; then
-        echo "Error: Mission ID required" >&2
-        return 1
-    fi
-
-    init_failures
-
-    if [[ ! -s "$FAILURES_FILE" ]]; then
-        echo "[]"
-        return 0
-    fi
-
-    jq -s --arg m "$mission" '
-        [.[] | select(.mission == $m)]
-        | sort_by(.timestamp)
     ' "$FAILURES_FILE"
 }
 

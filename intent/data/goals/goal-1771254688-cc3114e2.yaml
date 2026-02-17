@@ -27,7 +27,3 @@ notes: |
   Part of the Feedback Loop initiative tracked in Council.
   Flow integration (phase-routed pattern injection) is in scope if needed.
 
-mission_hints:
-  max_parallel: 1
-  preferred_team_size: 1
-  decomposition_strategy: sequential

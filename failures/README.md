@@ -10,11 +10,10 @@ The failure journal captures tool errors, permission denials, timeouts, and logi
 
 ```bash
 # Log a failure
-lore fail NonZeroExit "prettier crashed on large table" --tool Bash --mission mission-abc
+lore fail NonZeroExit "prettier crashed on large table" --tool Bash
 
 # List failures
 lore failures --type ToolError
-lore failures --mission mission-abc
 
 # Show recurring failure types
 lore triggers
@@ -22,11 +21,11 @@ lore triggers
 
 ## CLI Commands
 
-| Command                                                          | Description                                                |
-| ---------------------------------------------------------------- | ---------------------------------------------------------- |
-| `lore fail <type> <message> [--tool T] [--mission M] [--step S]` | Log a failure report                                       |
-| `lore failures [--type T] [--mission M]`                         | List failures with optional filters                        |
-| `lore triggers [threshold]`                                      | Show error types recurring >= threshold times (default: 3) |
+| Command                                            | Description                                                |
+| -------------------------------------------------- | ---------------------------------------------------------- |
+| `lore fail <type> <message> [--tool T] [--step S]` | Log a failure report                                       |
+| `lore failures [--type T]`                         | List failures with optional filters                        |
+| `lore triggers [threshold]`                        | Show error types recurring >= threshold times (default: 3) |
 
 ## Error Types
 
@@ -43,22 +42,20 @@ Failures are stored in `data/failures.jsonl` (append-only JSONL):
   "error_type": "NonZeroExit",
   "error_message": "prettier crashed on large table",
   "tool": "Bash",
-  "mission": "mission-abc",
   "step": 3
 }
 ```
 
-Optional fields (`tool`, `mission`, `step`) are omitted when empty.
+Optional fields (`tool`, `step`) are omitted when empty.
 
 ## Key Functions (`lib/failures.sh`)
 
-| Function            | Description                                        |
-| ------------------- | -------------------------------------------------- |
-| `failures_append`   | Log a failure (type, message, tool, mission, step) |
-| `failures_list`     | List failures, filterable by type/mission          |
-| `failures_triggers` | Error types recurring >= threshold times           |
-| `failures_timeline` | Chronological failures for a mission               |
-| `failures_stats`    | Count failures by error type                       |
+| Function            | Description                               |
+| ------------------- | ----------------------------------------- |
+| `failures_append`   | Log a failure (type, message, tool, step) |
+| `failures_list`     | List failures, filterable by type         |
+| `failures_triggers` | Error types recurring >= threshold times  |
+| `failures_stats`    | Count failures by error type              |
 
 ## Dependencies
 

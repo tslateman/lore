@@ -6,16 +6,16 @@ Lore is the shared memory backbone for the orchestration stack. It accepts struc
 
 ## Components
 
-| Component | Accepts                   | Returns                              | Storage                           |
-| --------- | ------------------------- | ------------------------------------ | --------------------------------- |
-| journal   | decisions with rationale  | decision records, related decisions  | `journal/data/decisions.jsonl`    |
-| graph     | nodes and edges           | subgraphs, traversals                | `graph/data/graph.json`           |
-| patterns  | lessons and anti-patterns | matched patterns, suggestions        | `patterns/data/patterns.yaml`     |
-| transfer  | session snapshots         | session state, handoff notes         | `transfer/data/sessions/`         |
-| inbox     | raw observations          | observation records                  | `inbox/data/observations.jsonl`   |
-| intent    | goals with criteria       | goal records, missions               | `intent/data/goals/`, `missions/` |
-| registry  | project metadata          | project details, context bundles     | `registry/data/*.yaml`            |
-| failures  | failure reports (JSONL)   | failure records, triggers, timelines | `failures/data/failures.jsonl`    |
+| Component | Accepts                   | Returns                              | Storage                         |
+| --------- | ------------------------- | ------------------------------------ | ------------------------------- |
+| journal   | decisions with rationale  | decision records, related decisions  | `journal/data/decisions.jsonl`  |
+| graph     | nodes and edges           | subgraphs, traversals                | `graph/data/graph.json`         |
+| patterns  | lessons and anti-patterns | matched patterns, suggestions        | `patterns/data/patterns.yaml`   |
+| transfer  | session snapshots         | session state, handoff notes         | `transfer/data/sessions/`       |
+| inbox     | raw observations          | observation records                  | `inbox/data/observations.jsonl` |
+| intent    | goals with criteria       | goal records                         | `intent/data/goals/`            |
+| registry  | project metadata          | project details, context bundles     | `registry/data/*.yaml`          |
+| failures  | failure reports (JSONL)   | failure records, triggers, timelines | `failures/data/failures.jsonl`  |
 
 ## Write Interface
 
@@ -137,7 +137,7 @@ lore goal create "<goal name>" \
   --deadline "YYYY-MM-DD"
 ```
 
-Goals are stored as individual YAML files in `intent/data/goals/`. Edit the YAML directly to add success criteria, tags, and mission hints.
+Goals are stored as individual YAML files in `intent/data/goals/`. Edit the YAML directly to add success criteria and tags.
 
 **Goal schema** (YAML):
 
@@ -157,14 +157,6 @@ depends_on: []
 projects: []
 tags: []
 ```
-
-### Generate Missions (intent)
-
-```bash
-lore mission generate <goal-id>
-```
-
-Decomposes a goal into one mission per success criterion, stored as YAML in `intent/data/missions/`.
 
 ## Read Interface
 
@@ -206,12 +198,11 @@ lore resume              # latest session
 lore resume <session-id> # specific session
 ```
 
-### Query Goals and Missions (intent)
+### Query Goals (intent)
 
 ```bash
 lore goal list [--status active] [--priority high]
 lore goal show <goal-id>
-lore mission list [--goal <id>] [--status pending]
 ```
 
 ### Query Registry (registry)
@@ -229,7 +220,7 @@ lore context <project>
 
 ### Team Decisions
 
-When a team completes a mission or makes a significant decision:
+When a team makes a significant decision:
 
 ```bash
 lore remember "Team alpha chose Redis over Memcached for session cache" \
@@ -300,7 +291,6 @@ patterns/data/patterns.yaml       # Pattern and anti-pattern library
 transfer/data/sessions/           # Session snapshots (one JSON per session)
 inbox/data/observations.jsonl     # Raw observation staging area
 intent/data/goals/                # Goal YAML files (one per goal)
-intent/data/missions/             # Mission YAML files (one per mission)
 registry/data/metadata.yaml       # Project roles, contracts, components
 registry/data/clusters.yaml       # Cluster definitions and data flow
 registry/data/relationships.yaml  # Cross-project dependencies

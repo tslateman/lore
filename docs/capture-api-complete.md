@@ -33,7 +33,7 @@ A unified `lore capture` command that infers type (decision/pattern/failure) fro
 # Inference from flags
 --rationale, --alternatives, --outcome  → decision
 --solution, --problem, --context        → pattern
---error-type, --tool, --mission         → failure
+--error-type, --tool, --step            → failure
 
 # Explicit override
 --decision, --pattern, --failure        → forced type
@@ -92,7 +92,7 @@ lore fail ToolError "Permission denied"
 
 1. **cmd_fail exit code bug** (pre-existing)
    - `cmd_fail` returns exit code 1 even on success
-   - Cause: last command is conditional `[[ -n "$mission" ]] && echo`
+   - Cause: last command is conditional echo for optional fields
    - Impact: minimal (record is created successfully)
    - Workaround: tests use `|| true`
 

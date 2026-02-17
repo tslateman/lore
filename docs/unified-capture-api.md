@@ -45,7 +45,7 @@ lore capture "Permission denied" --failure --error-type ToolError
 ## Type Inference Rules
 
 1. **Failure-specific flags** → `failures/`
-   - `--error-type`, `--tool`, `--mission`, `--step`
+   - `--error-type`, `--tool`, `--step`
 
 2. **Pattern-specific flags** → `patterns/`
    - `--solution`, `--problem`, `--context`, `--category`, `--confidence`
@@ -111,7 +111,6 @@ lore capture "Grep pipeline gotcha" \
 # Failure report
 lore capture "Agent timeout in transfer step" \
   --error-type Timeout \
-  --mission "mis-abc123" \
   --step 3
 
 # Search finds all three

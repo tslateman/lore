@@ -27,7 +27,7 @@ infer_capture_type() {
                 has_pattern_flags=true
                 shift 2 ;;
 
-            --error-type|--tool|--mission|--step)
+            --error-type|--tool|--step)
                 has_failure_flags=true
                 [[ "$1" =~ ^- ]] && shift 2 || shift ;;
 

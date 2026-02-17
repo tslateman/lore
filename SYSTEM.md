@@ -63,7 +63,7 @@ Each component answers one question. Together they form institutional memory.
 | `patterns/` | What did we learn?        | YAML   | Any project via CLI          |
 | `transfer/` | What's next?              | JSON   | Session handoff              |
 | `inbox/`    | What did we notice?       | JSONL  | Observations from any source |
-| `intent/`   | What are we trying to do? | YAML   | Goals, mission decomp        |
+| `intent/`   | What are we trying to do? | YAML   | Goals, specs                 |
 | `failures/` | What went wrong?          | JSONL  | Any project via CLI          |
 | `registry/` | What exists?              | YAML   | Project metadata             |
 
@@ -85,7 +85,7 @@ component/
 
 JSONL for append-only logs (journal, inbox, failures). JSON for structured
 documents (graph, sessions). YAML for human-maintained registries (patterns,
-goals, missions, metadata).
+goals, metadata).
 
 ## Contracts
 

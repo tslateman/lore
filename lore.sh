@@ -43,7 +43,7 @@ infer_capture_type() {
                 shift 2 ;;
 
             # Failure-specific flags
-            --error-type|--tool|--mission|--step)
+            --error-type|--tool|--step)
                 has_failure_flags=true
                 shift 2 ;;
 
@@ -129,16 +129,10 @@ QUERY
   failures [--type T]     List failures
   triggers                Show recurring failures (Rule of Three)
 
-INTENT (Goals, Missions & Tasks)
+INTENT (Goals)
   goal create <name>      Create a goal
   goal list [--status S]  List goals
   goal show <id>          Show goal details
-  mission generate <id>   Generate missions from goal
-  mission list            List missions
-  task create <title>     Create delegated task
-  task list [--status S]  List tasks
-  task claim <id>         Claim task for work
-  task complete <id>      Complete a task
 
 REGISTRY
   registry show <proj>    Show project details
@@ -156,7 +150,7 @@ COMPONENTS (direct access)
   graph <cmd>             Knowledge graph
   transfer <cmd>          Session management
   inbox <cmd>             Observation staging
-  intent <cmd>            Goals and missions
+  intent <cmd>            Goals and specs
 
 Run 'lore help <topic>' for detailed help on:
   capture, search, intent, registry, components
@@ -205,7 +199,6 @@ FAILURES (fail)
 
   Options:
     --tool <name>               Tool that failed
-    --mission <id>              Related mission ID
     --step <desc>               Step in workflow
 
 OBSERVATIONS (observe)
@@ -262,8 +255,7 @@ show_help_intent() {
     cat << 'EOF'
 INTENT COMMANDS
 
-Goals define what you're trying to achieve. Missions break goals into steps.
-Tasks enable delegation between agents.
+Goals define what you're trying to achieve.
 
 GOALS
   lore goal create "Implement user authentication"
@@ -272,24 +264,6 @@ GOALS
   lore goal show <goal-id>
 
   Status values: draft, active, blocked, completed, cancelled
-
-MISSIONS
-  lore mission generate <goal-id>   Generate missions from a goal
-  lore mission list
-
-TASKS (Delegation)
-  lore task create "Fix auth bug" --description "..." --for backend-agent
-  lore task list [--status pending] [--for agent]
-  lore task show <task-id>
-  lore task claim <task-id>         Mark task as being worked on
-  lore task complete <task-id>      Complete with outcome
-
-  Status values: pending, claimed, completed, cancelled
-
-  Tasks differ from missions:
-  - Standalone (no required parent goal)
-  - Can be claimed by any agent
-  - Optimized for agent-to-agent delegation
 
 SPEC MANAGEMENT (SDD Integration)
   lore spec list                    List specs by status
@@ -340,7 +314,7 @@ Lore has eight components. Each answers one question.
   transfer/   "What's next?"                Session handoff and resume
   graph/      "What relates to this?"       Knowledge graph
   inbox/      "What did we notice?"         Raw observation staging
-  intent/     "What are we trying to do?"   Goals and missions
+  intent/     "What are we trying to do?"   Goals and specs
   failures/   "What went wrong?"            Failure reports
   registry/   "What exists?"                Project metadata
 
@@ -350,14 +324,14 @@ DIRECT ACCESS
   lore transfer <command>           Session management
   lore graph <command>              Knowledge graph
   lore inbox <command>              Inbox management
-  lore intent <command>             Goals and missions
+  lore intent <command>             Goals and specs
 
 Run 'lore <component> --help' for component-specific help.
 
 DATA FORMATS
   JSONL    journal, inbox, failures (append-only logs)
   JSON     graph, sessions (structured documents)
-  YAML     patterns, goals, missions, registry (human-editable)
+  YAML     patterns, goals, registry (human-editable)
 EOF
 }
 
@@ -375,7 +349,7 @@ cmd_help() {
         search|query|find)
             show_help_search
             ;;
-        intent|goal|goals|mission|missions|spec|task|tasks)
+        intent|goal|goals|spec)
             show_help_intent
             ;;
         registry|project|projects)
@@ -390,7 +364,7 @@ cmd_help() {
             echo "Available topics:"
             echo "  capture     Decisions, patterns, failures, observations"
             echo "  search      Search modes and options"
-            echo "  intent      Goals, missions, specs"
+            echo "  intent      Goals, specs"
             echo "  registry    Project metadata"
             echo "  components  Direct component access"
             return 1
@@ -519,7 +493,7 @@ cmd_capture() {
             cmd_learn "${args[@]}"
             ;;
         failure)
-            # cmd_fail expects: <error_type> <message> [--tool T] [--mission M] [--step S]
+            # cmd_fail expects: <error_type> <message> [--tool T] [--step S]
             # capture uses --error-type <type> as a named flag, so convert it to positional
             local fail_args=()
             local error_type=""
@@ -903,17 +877,12 @@ cmd_fail() {
     local error_type=""
     local message=""
     local tool=""
-    local mission=""
     local step=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --tool|-t)
                 tool="$2"
-                shift 2
-                ;;
-            --mission|-m)
-                mission="$2"
                 shift 2
                 ;;
             --step|-s)
@@ -939,35 +908,29 @@ cmd_fail() {
 
     if [[ -z "$error_type" || -z "$message" ]]; then
         echo -e "${RED}Error: error_type and message required${NC}" >&2
-        echo "Usage: lore fail <error_type> <message> [--tool T] [--mission M] [--step S]" >&2
+        echo "Usage: lore fail <error_type> <message> [--tool T] [--step S]" >&2
         echo "Types: UserDeny HardDeny NonZeroExit Timeout ToolError LogicError" >&2
         return 1
     fi
 
     local id
-    id=$(failures_append "$error_type" "$message" "$tool" "$mission" "$step")
+    id=$(failures_append "$error_type" "$message" "$tool" "$step")
 
     echo -e "${GREEN}Logged:${NC} ${BOLD}$id${NC}"
     echo -e "  ${CYAN}Type:${NC} $error_type"
     echo -e "  ${CYAN}Message:${NC} $message"
     [[ -n "$tool" ]] && echo -e "  ${CYAN}Tool:${NC} $tool"
-    [[ -n "$mission" ]] && echo -e "  ${CYAN}Mission:${NC} $mission"
 }
 
 cmd_failures() {
     source "$LORE_DIR/failures/lib/failures.sh"
 
     local filter_type=""
-    local filter_mission=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --type)
                 filter_type="$2"
-                shift 2
-                ;;
-            --mission)
-                filter_mission="$2"
                 shift 2
                 ;;
             -*)
@@ -982,7 +945,7 @@ cmd_failures() {
     done
 
     local results
-    results=$(failures_list "$filter_type" "$filter_mission")
+    results=$(failures_list "$filter_type")
 
     local count
     count=$(echo "$results" | jq 'length')
@@ -1139,10 +1102,8 @@ main() {
         patterns)   shift; "$LORE_DIR/patterns/patterns.sh" "$@" ;;
         transfer)   shift; "$LORE_DIR/transfer/transfer.sh" "$@" ;;
 
-        # Intent (goals, missions, tasks)
+        # Intent (goals)
         goal)       shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_goal_main "$@" ;;
-        mission)    shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_mission_main "$@" ;;
-        task)       shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_task_main "$@" ;;
         intent)     shift; source "$LORE_DIR/intent/lib/intent.sh"
                     case "${1:-}" in
                         export) shift; intent_export_main "$@" ;;
