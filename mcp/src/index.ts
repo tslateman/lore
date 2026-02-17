@@ -76,12 +76,19 @@ server.tool(
       .optional()
       .describe("Follow graph edges (0-3, default 0)"),
     limit: z.number().optional().describe("Max results (default 10)"),
+    compact: z.boolean().optional().describe(
+      "Return compact index (ID + title + score) instead of full content"
+    ),
   },
-  async ({ query, project, graph_depth, limit }) => {
+  async ({ query, project, graph_depth, limit, compact }) => {
     const args = ["search", query];
 
     if (graph_depth && graph_depth > 0) {
       args.push("--graph-depth", String(graph_depth));
+    }
+
+    if (compact) {
+      args.push("--compact");
     }
 
     // Set working directory for project boosting

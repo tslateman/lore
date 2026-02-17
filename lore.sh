@@ -627,12 +627,23 @@ LIMIT ${limit};
 SQL
     ) || true
 
+    local graph_depth="${4:-0}"
+    local compact="${5:-false}"
+
     if [[ -z "$results" ]]; then
-        echo -e "  ${DIM}(no results)${NC}"
+        [[ "$compact" != true ]] && echo -e "  ${DIM}(no results)${NC}"
         return
     fi
 
-    local graph_depth="${4:-0}"
+    if [[ "$compact" == true ]]; then
+        while IFS=$'\t' read -r type id content proj date score; do
+            local title="${content:0:40}"
+            printf "  [%-8s] %-16s | %-40s | %-8s | %s | %s\n" \
+                "$type" "$id" "$title" "$proj" "$date" "$score"
+            _log_access "$SEARCH_DB" "$type" "$id"
+        done <<< "$results"
+        return
+    fi
 
     if [[ "$graph_depth" -ge 1 ]]; then
         source "$LORE_DIR/lib/graph-traverse.sh"
@@ -729,6 +740,7 @@ cmd_search() {
     local query=""
     local graph_depth=0
     local mode="fts"
+    local compact=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -752,9 +764,13 @@ cmd_search() {
                 mode="hybrid"
                 shift
                 ;;
+            --compact)
+                compact=true
+                shift
+                ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}" >&2
-                echo "Usage: lore search <query> [--smart|--semantic|--hybrid] [--graph-depth 0-3]" >&2
+                echo "Usage: lore search <query> [--compact] [--smart|--semantic|--hybrid] [--graph-depth 0-3]" >&2
                 return 1
                 ;;
             *)
@@ -766,7 +782,7 @@ cmd_search() {
 
     if [[ -z "$query" ]]; then
         echo -e "${RED}Error: Search query required${NC}" >&2
-        echo "Usage: lore search <query> [--smart|--semantic|--hybrid] [--graph-depth 0-3]" >&2
+        echo "Usage: lore search <query> [--compact] [--smart|--semantic|--hybrid] [--graph-depth 0-3]" >&2
         return 1
     fi
 
@@ -783,13 +799,15 @@ cmd_search() {
     fi
 
     if [[ -f "$SEARCH_DB" ]]; then
-        echo -e "${BOLD}Searching Lore (${mode})...${NC}"
-        [[ -n "$project" ]] && echo -e "${DIM}Project boost: ${project}${NC}"
-        [[ "$graph_depth" -ge 1 ]] && echo -e "${DIM}Graph depth: ${graph_depth}${NC}"
-        echo ""
+        if [[ "$compact" != true ]]; then
+            echo -e "${BOLD}Searching Lore (${mode})...${NC}"
+            [[ -n "$project" ]] && echo -e "${DIM}Project boost: ${project}${NC}"
+            [[ "$graph_depth" -ge 1 ]] && echo -e "${DIM}Graph depth: ${graph_depth}${NC}"
+            echo ""
+        fi
 
         if [[ "$mode" == "fts" ]]; then
-            _search_fts5 "$query" "$project" 10 "$graph_depth"
+            _search_fts5 "$query" "$project" 10 "$graph_depth" "$compact"
         else
             "$LORE_DIR/lib/search-index.sh" search "$query" --mode "$mode" --project "$project" --limit 10
             # Graph expansion for non-FTS modes

@@ -13,7 +13,8 @@ LORE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PATTERNS_FILE="$LORE_ROOT/patterns/data/patterns.yaml"
 JOURNAL_FILE="$LORE_ROOT/journal/data/decisions.jsonl"
 SESSIONS_DIR="$LORE_ROOT/transfer/data/sessions"
-BUDGET=1500
+BUDGET=2000
+SEARCH_DB="${HOME}/.lore/search.db"
 
 input=$(cat)
 cwd=$(echo "$input" | jq -r '.cwd // ""')
@@ -60,6 +61,56 @@ for word in $(echo "$prompt" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '
     kw_count=$((kw_count + 1))
     [[ $kw_count -ge 8 ]] && break
 done
+
+# --- Compact FTS5 Path (progressive disclosure) ---
+# When search.db exists, use compact one-line-per-result format.
+# Agents fetch full details on demand via lore_search / lore_context MCP tools.
+if [[ -f "$SEARCH_DB" ]] && [[ ${#keywords[@]} -gt 0 ]]; then
+    keywords_joined=""
+    for kw in "${keywords[@]}"; do
+        [[ -n "$keywords_joined" ]] && keywords_joined+=" OR "
+        keywords_joined+="$kw"
+    done
+
+    compact_results=$("$LORE_ROOT/lore.sh" search "$keywords_joined" \
+        --compact 2>/dev/null) || true
+
+    if [[ -n "$compact_results" ]]; then
+        item_count=$(echo "$compact_results" | wc -l | tr -d ' ')
+
+        output="--- lore context (compact index, $item_count items) ---"$'\n'
+        output+="Use lore_search or lore_context MCP tools to fetch full details for any ID."$'\n'
+        output+=$'\n'
+        output+="$compact_results"$'\n'
+        output+="--- end lore context ---"
+
+        used=${#output}
+        echo "lore: injected $item_count items ($used chars, compact) for project '$project'" >&2
+
+        jq -n \
+            --arg ctx "$output" \
+            --argjson injected "$item_count" \
+            --argjson used "$used" \
+            --argjson budget "$BUDGET" \
+            --arg project "$project" \
+            '{
+                hookSpecificOutput: {
+                    additionalContext: $ctx,
+                    metadata: {
+                        source: "lore",
+                        items_injected: $injected,
+                        budget_used: $used,
+                        budget_total: $budget,
+                        project: $project,
+                        mode: "compact"
+                    }
+                }
+            }'
+        exit 0
+    fi
+fi
+
+# --- Fallback: Verbose Query Path (when no SEARCH_DB) ---
 
 # --- Scored Matches Collection ---
 # Arrays to hold matches with scores for later sorting
