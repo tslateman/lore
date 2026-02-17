@@ -265,6 +265,26 @@
       },
       "created_at": "2026-02-17T03:10:43Z",
       "updated_at": "2026-02-17T03:10:43Z"
+    },
+    "decision-49126fa1": {
+      "type": "decision",
+      "name": "dec-76341abe",
+      "data": {
+        "journal_id": "dec-76341abe",
+        "decision": "Team leads read Lore before spawning agents and invoke lore-scribe once after completion"
+      },
+      "created_at": "2026-02-17T03:22:22Z",
+      "updated_at": "2026-02-17T03:22:22Z"
+    },
+    "file-38aa94e1": {
+      "type": "file",
+      "name": "~/.claude/CLAUDE.md",
+      "data": {
+        "path": "~/.claude/CLAUDE.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-17T03:22:22Z",
+      "updated_at": "2026-02-17T03:22:22Z"
     }
   },
   "edges": [
@@ -404,6 +424,14 @@
       "weight": 1.0,
       "bidirectional": false,
       "created_at": "2026-02-17T03:10:43Z"
+    },
+    {
+      "from": "decision-49126fa1",
+      "to": "file-38aa94e1",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T03:22:22Z"
     }
   ]
 }
