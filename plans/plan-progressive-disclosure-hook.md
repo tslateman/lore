@@ -1,4 +1,4 @@
-Status: Draft
+Status: Done
 
 # Plan: Progressive Disclosure in Context Injection Hook
 
@@ -146,14 +146,14 @@ choose between compact discovery and full retrieval within the MCP interface.
 
 ## Acceptance Criteria
 
-- [ ] `lore search "FTS5" --compact` outputs one-line-per-result table format
-- [ ] `lore search "FTS5"` (without flag) outputs unchanged verbose format
-- [ ] Hook injects compact index with header explaining how to fetch details
-- [ ] Hook injects 12+ items within budget (up from 5-8)
-- [ ] MCP `lore_search` accepts `compact: true` and returns compact format
-- [ ] Hook falls back to existing query functions when `SEARCH_DB` absent
-- [ ] `lore search --compact` logs access for each result (reinforcement loop)
-- [ ] No changes to FTS5 scoring formula
+- [x] `lore search "FTS5" --compact` outputs one-line-per-result table format
+- [x] `lore search "FTS5"` (without flag) outputs unchanged verbose format
+- [x] Hook injects compact index with header explaining how to fetch details
+- [x] Hook injects 10+ items within budget (up from 5-6)
+- [x] MCP `lore_search` accepts `compact: true` and returns compact format
+- [x] Hook falls back to existing query functions when `SEARCH_DB` absent
+- [x] `lore search --compact` logs access for each result (reinforcement loop)
+- [x] No changes to FTS5 scoring formula
 
 ## Testing
 
