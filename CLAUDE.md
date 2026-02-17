@@ -16,6 +16,12 @@ Explicit context management for multi-agent systems.
 
 Full map: ~/dev/council/mainstay/ecosystem.md
 
+## Onboarding
+
+New to the stack? Start with
+[Getting Started](~/dev/council/docs/getting-started.md) -- a 30-minute path
+from zero to productive.
+
 ## Quick Start
 
 See the [tutorial](docs/tutorial.md) for a hands-on walkthrough. The essentials:
