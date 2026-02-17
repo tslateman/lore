@@ -1,1 +1,2 @@
 {"id":"fail-51bec204","timestamp":"2026-02-16T14:09:49Z","error_type":"Timeout","error_message":"Test failure inference"}
+{"id":"fail-ef968f9d","timestamp":"2026-02-17T06:20:30Z","error_type":"ToolError","error_message":"test"}

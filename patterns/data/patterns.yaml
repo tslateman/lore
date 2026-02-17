@@ -3,6 +3,26 @@
 
 patterns:
 
+    - id: "pat-309430-e9ebf2a5"
+      name: "Mirror is the gap between declared priority and actual work"
+      context: ""
+      problem: "Feedback loop initiative names Mirror as critical path, but 2 of 107 commits went to Mirror in 72 hours"
+      solution: "Track commit distribution as a signal for actual priorities vs stated priorities. If a declared priority gets zero feature commits across multiple sessions, either reprioritize or acknowledge the drift."
+      category: "general"
+      origin: "session-2026-02-16"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-17T06:23:50Z"
+    - id: "pat-309425-b3253516"
+      name: "Build-simplify-document cycle"
+      context: ""
+      problem: "Feature work expands scope, unused layers accumulate"
+      solution: "Oscillate: build features, then compress (remove unused layers), then document for newcomers. Compression cycles should get more aggressive over time."
+      category: "general"
+      origin: "session-2026-02-16"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-17T06:23:45Z"
     - id: "pat-302555-9eb470b6"
       name: "Pressure-test framing against actual code before naming an architecture"
       context: "When documentation or planning names an architecture (e.g., 'task execution stack', 'orchestration layer') and the name will drive decisions about scope, ownership, or archival"
