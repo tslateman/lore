@@ -440,7 +440,12 @@ cmd_remember() {
         fi
     fi
 
-    "$LORE_DIR/journal/journal.sh" record "${args[@]}"
+    # Pass --force through to journal.sh so store-level guard is also bypassed
+    if [[ "$force" == true ]]; then
+        "$LORE_DIR/journal/journal.sh" record "${args[@]}" --force
+    else
+        "$LORE_DIR/journal/journal.sh" record "${args[@]}"
+    fi
 }
 
 cmd_learn() {

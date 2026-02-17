@@ -25,10 +25,94 @@ init_store() {
     touch "$DECISIONS_FILE"
 }
 
+# Word-based Jaccard similarity between two strings.
+# Returns integer percentage (0-100).
+_store_jaccard() {
+    local text_a="$1"
+    local text_b="$2"
+
+    # Normalize: lowercase, strip punctuation, split to sorted unique words
+    local words_a words_b
+    words_a=$(echo "$text_a" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u)
+    words_b=$(echo "$text_b" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u)
+
+    local intersection union
+    intersection=$(comm -12 <(echo "$words_a") <(echo "$words_b") | wc -l | tr -d ' ')
+    union=$(comm <(echo "$words_a") <(echo "$words_b") | sort -u | wc -l | tr -d ' ')
+
+    if [[ "$union" -eq 0 ]]; then
+        echo 0
+        return
+    fi
+
+    echo $(( intersection * 100 / union ))
+}
+
+# Check if a decision is a near-duplicate of recent entries in the JSONL file.
+# Compares the decision field text against the last N entries using Jaccard similarity.
+# Usage: check_duplicate <decision_json>
+# Returns 0 if unique (safe to write), 1 if duplicate (skip write).
+# Prints matching entry ID to stderr on duplicate.
+check_duplicate() {
+    local decision_json="$1"
+    local threshold=80
+    local lookback=20
+
+    [[ -f "$DECISIONS_FILE" ]] || return 0
+    [[ -s "$DECISIONS_FILE" ]] || return 0
+
+    local new_text
+    new_text=$(echo "$decision_json" | jq -r '.decision // ""')
+
+    # Short texts produce unreliable Jaccard scores; skip guard
+    local word_count
+    word_count=$(echo "$new_text" | wc -w | tr -d ' ')
+    if [[ "$word_count" -lt 3 ]]; then
+        return 0
+    fi
+
+    # Read the last N lines and deduplicate by ID (keep latest)
+    local recent
+    recent=$(tail -n "$lookback" "$DECISIONS_FILE" 2>/dev/null) || return 0
+    [[ -z "$recent" ]] && return 0
+
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+
+        local existing_id existing_text
+        existing_id=$(echo "$line" | jq -r '.id // ""' 2>/dev/null) || continue
+        existing_text=$(echo "$line" | jq -r '.decision // ""' 2>/dev/null) || continue
+
+        [[ -z "$existing_text" ]] && continue
+
+        local sim
+        sim=$(_store_jaccard "$new_text" "$existing_text")
+
+        if [[ "$sim" -ge "$threshold" ]]; then
+            echo "Duplicate skipped (${sim}% similar to ${existing_id}): ${new_text:0:80}" >&2
+            return 1
+        fi
+    done <<< "$recent"
+
+    return 0
+}
+
 # Append a decision to the store
 store_decision() {
     local decision_json="$1"
+    local force="${2:-}"
     init_store
+
+    # Guard: skip write if near-duplicate exists in recent entries
+    if [[ "$force" != "--force" ]]; then
+        if ! check_duplicate "$decision_json"; then
+            # Return the new record's ID (duplicate warning already printed to stderr)
+            local id
+            id=$(echo "$decision_json" | jq -r '.id')
+            echo "$id"
+            return 0
+        fi
+    fi
 
     # Append to JSONL file
     echo "$decision_json" >> "$DECISIONS_FILE"

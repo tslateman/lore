@@ -51,6 +51,7 @@ COMMANDS:
     clusters                            Find clusters of related nodes
     stats                               Show graph statistics
 
+    sync                                Sync journal decisions to graph nodes
     import <file>                       Import nodes/edges from JSON
     export [format]                     Export graph (json, dot, mermaid)
 
@@ -738,6 +739,9 @@ main() {
             ;;
         export)
             cmd_export "$@"
+            ;;
+        sync)
+            bash "${SCRIPT_DIR}/sync.sh" "$@"
             ;;
         help|--help|-h)
             usage

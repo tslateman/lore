@@ -50,6 +50,7 @@ ${BOLD}RECORD OPTIONS:${NC}
     --tags, -t "tag1,tag2"    Tags for categorization
     --type TYPE               Decision type (architecture, implementation, etc.)
     --files, -f "f1,f2"       Files affected by this decision
+    --force                   Skip duplicate check
 
 ${BOLD}LIST OPTIONS:${NC}
     --recent N                Show N most recent decisions (default: 10)
@@ -105,6 +106,7 @@ cmd_record() {
     local tags=""
     local explicit_type=""
     local files=""
+    local force=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -128,6 +130,10 @@ cmd_record() {
             -f|--files)
                 files="$2"
                 shift 2
+                ;;
+            --force)
+                force=true
+                shift
                 ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}" >&2
@@ -163,9 +169,13 @@ cmd_record() {
     local record
     record=$(create_decision_record "$decision" "$rationale" "$alternatives" "$tags" "$explicit_type")
 
-    # Store it
+    # Store it (pass --force to bypass deduplication guard)
     local id
-    id=$(store_decision "$record")
+    if [[ "$force" == true ]]; then
+        id=$(store_decision "$record" --force)
+    else
+        id=$(store_decision "$record")
+    fi
 
     # Link to files if specified
     if [[ -n "$files" ]]; then

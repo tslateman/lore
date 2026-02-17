@@ -3,6 +3,16 @@
 
 patterns:
 
+    - id: "pat-302555-9eb470b6"
+      name: "Pressure-test framing against actual code before naming an architecture"
+      context: "When documentation or planning names an architecture (e.g., 'task execution stack', 'orchestration layer') and the name will drive decisions about scope, ownership, or archival"
+      problem: "Aspirational names obscure what code actually does. Flow+Bach were called a 'task execution' system — neither executed anything. The mismatch caused misplaced ownership, redundant tooling discussions, and delayed archival."
+      solution: "Read the actual skill files, commands, and source before accepting the framing. Ask: what does this code literally do? Match the name to the behavior, not to the intent. Cross-reference Lore decisions and ecosystem ADRs for wider context. Rename or correct the framing before it calcifies into more docs."
+      category: "architecture"
+      origin: "session-2026-02-16"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-17T04:29:15Z"
     - id: "pat-297835-595da55b"
       name: "Initiative analysis to fix to execute pipeline"
       context: "Executing an initiative file that was written before the work began and may contain factual errors or missing scope"

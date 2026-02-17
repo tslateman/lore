@@ -285,6 +285,726 @@
       },
       "created_at": "2026-02-17T03:22:22Z",
       "updated_at": "2026-02-17T03:22:22Z"
+    },
+    "decision-25a1f696": {
+      "type": "decision",
+      "name": "dec-e1edb51a",
+      "data": {
+        "journal_id": "dec-e1edb51a",
+        "decision": "Archive Flow and Bach from cli — orchestration concepts move to Neo, Go CLI is scaffolding only"
+      },
+      "created_at": "2026-02-17T04:28:53Z",
+      "updated_at": "2026-02-17T04:28:53Z"
+    },
+    "file-2420eba1": {
+      "type": "file",
+      "name": "flow/",
+      "data": {
+        "path": "flow/",
+        "language": "flow"
+      },
+      "created_at": "2026-02-17T04:28:53Z",
+      "updated_at": "2026-02-17T04:28:53Z"
+    },
+    "file-d86835ee": {
+      "type": "file",
+      "name": "bach/",
+      "data": {
+        "path": "bach/",
+        "language": "bach"
+      },
+      "created_at": "2026-02-17T04:28:53Z",
+      "updated_at": "2026-02-17T04:28:53Z"
+    },
+    "file-04c6e90f": {
+      "type": "file",
+      "name": "README.md",
+      "data": {
+        "path": "README.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-17T04:28:54Z",
+      "updated_at": "2026-02-17T04:28:54Z"
+    },
+    "file-c26ae7c6": {
+      "type": "file",
+      "name": "cli-landscape.md",
+      "data": {
+        "path": "cli-landscape.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-17T04:28:54Z",
+      "updated_at": "2026-02-17T04:28:54Z"
+    },
+    "file-1bf455b3": {
+      "type": "file",
+      "name": "architecture.md",
+      "data": {
+        "path": "architecture.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-17T04:28:54Z",
+      "updated_at": "2026-02-17T04:28:54Z"
+    },
+    "file-94d9a081": {
+      "type": "file",
+      "name": "tutorial.md",
+      "data": {
+        "path": "tutorial.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-17T04:28:54Z",
+      "updated_at": "2026-02-17T04:28:54Z"
+    },
+    "file-f07b7383": {
+      "type": "file",
+      "name": "glossary.md",
+      "data": {
+        "path": "glossary.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-17T04:28:54Z",
+      "updated_at": "2026-02-17T04:28:54Z"
+    },
+    "decision-b79b1174": {
+      "type": "decision",
+      "name": "dec-c6fb1dc2",
+      "data": {
+        "journal_id": "dec-c6fb1dc2",
+        "decision": "Archive cq (Python code quality analysis) — deprioritized, not superseded"
+      },
+      "created_at": "2026-02-17T04:29:01Z",
+      "updated_at": "2026-02-17T04:29:01Z"
+    },
+    "file-2c4708ac": {
+      "type": "file",
+      "name": "cq/",
+      "data": {
+        "path": "cq/",
+        "language": "cq"
+      },
+      "created_at": "2026-02-17T04:29:01Z",
+      "updated_at": "2026-02-17T04:29:01Z"
+    },
+    "decision-0b1ee18b": {
+      "type": "decision",
+      "name": "dec-c6f367d1",
+      "data": {
+        "journal_id": "dec-c6f367d1",
+        "decision": "cli repo frames itself as 'Tools and plugins for Claude Code', not an orchestration stack"
+      },
+      "created_at": "2026-02-17T04:29:06Z",
+      "updated_at": "2026-02-17T04:29:06Z"
+    },
+    "file-b6791165": {
+      "type": "file",
+      "name": "Makefile",
+      "data": {
+        "path": "Makefile",
+        "language": "Makefile"
+      },
+      "created_at": "2026-02-17T04:29:06Z",
+      "updated_at": "2026-02-17T04:29:06Z"
+    },
+    "file-d8b1e428": {
+      "type": "file",
+      "name": ".github/workflows/",
+      "data": {
+        "path": ".github/workflows/",
+        "language": "workflows"
+      },
+      "created_at": "2026-02-17T04:29:06Z",
+      "updated_at": "2026-02-17T04:29:06Z"
+    },
+    "file-764977a9": {
+      "type": "file",
+      "name": "docs/archive/",
+      "data": {
+        "path": "docs/archive/",
+        "language": "archive"
+      },
+      "created_at": "2026-02-17T04:29:06Z",
+      "updated_at": "2026-02-17T04:29:06Z"
+    },
+    "decision-a1d3caae": {
+      "type": "decision",
+      "name": "dec-09a964a5",
+      "data": {
+        "journal_id": "dec-09a964a5",
+        "decision": "Implement Phase 3 graph-enhanced recall with BFS traversal and edge-weighted scoring"
+      },
+      "created_at": "2026-02-16T05:31:01Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-5e5bb66f": {
+      "type": "decision",
+      "name": "dec-b6421f25",
+      "data": {
+        "journal_id": "dec-b6421f25",
+        "decision": "ADR: Sessions"
+      },
+      "created_at": "2026-02-14T17:47:27Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-86f3aa05": {
+      "type": "decision",
+      "name": "dec-d8d670e6",
+      "data": {
+        "journal_id": "dec-d8d670e6",
+        "decision": "Implement Phase 2 vector embeddings using Ollama nomic-embed-text model"
+      },
+      "created_at": "2026-02-16T05:19:44Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-cff92136": {
+      "type": "decision",
+      "name": "dec-1fe94443",
+      "data": {
+        "journal_id": "dec-1fe94443",
+        "decision": "ADR: Ecosystem"
+      },
+      "created_at": "2026-02-15T02:40:30Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-b4b600eb": {
+      "type": "decision",
+      "name": "dec-4cfb676c",
+      "data": {
+        "journal_id": "dec-4cfb676c",
+        "decision": "Archive Ralph -- Claude Code agent teams supersede custom loop orchestration"
+      },
+      "created_at": "2026-02-13T05:48:03Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-872dfabc": {
+      "type": "decision",
+      "name": "dec-861f8e18",
+      "data": {
+        "journal_id": "dec-861f8e18",
+        "decision": "ADR: Dev Directory Navigation Tooling"
+      },
+      "created_at": "2026-02-14T17:47:27Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-242f3ea9": {
+      "type": "decision",
+      "name": "dec-69a21d5b",
+      "data": {
+        "journal_id": "dec-69a21d5b",
+        "decision": "ADR: Risk"
+      },
+      "created_at": "2026-02-10T07:30:38Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-0b236cb5": {
+      "type": "decision",
+      "name": "dec-9347e073",
+      "data": {
+        "journal_id": "dec-9347e073",
+        "decision": "ADR: Disagreement Cheat Sheet"
+      },
+      "created_at": "2026-02-10T07:30:38Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-1d57b6de": {
+      "type": "decision",
+      "name": "dec-b36bc7af",
+      "data": {
+        "journal_id": "dec-b36bc7af",
+        "decision": "ADR: Influence Without Authority Cheat Sheet"
+      },
+      "created_at": "2026-02-10T07:30:37Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-0cfba840": {
+      "type": "decision",
+      "name": "dec-5a3bd125",
+      "data": {
+        "journal_id": "dec-5a3bd125",
+        "decision": "Add indexing layer for faster queries"
+      },
+      "created_at": "2026-02-10T03:48:04Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-91aa3421": {
+      "type": "decision",
+      "name": "dec-01d3cc88",
+      "data": {
+        "journal_id": "dec-01d3cc88",
+        "decision": "ADR: Pipeline"
+      },
+      "created_at": "2026-02-13T14:21:21Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-461990de": {
+      "type": "decision",
+      "name": "dec-4ae06cad",
+      "data": {
+        "journal_id": "dec-4ae06cad",
+        "decision": "ADR: IC Career Advancement Cheat Sheet"
+      },
+      "created_at": "2026-02-10T07:30:37Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-0a0f5696": {
+      "type": "decision",
+      "name": "dec-dc9f7bcf",
+      "data": {
+        "journal_id": "dec-dc9f7bcf",
+        "decision": "ADR: Making Invisible Work Visible Cheat Sheet"
+      },
+      "created_at": "2026-02-10T07:30:37Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-6f2fc708": {
+      "type": "decision",
+      "name": "dec-0fa1ce9f",
+      "data": {
+        "journal_id": "dec-0fa1ce9f",
+        "decision": "ADR: Operations"
+      },
+      "created_at": "2026-02-14T17:47:27Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-24179632": {
+      "type": "decision",
+      "name": "dec-33c759f9",
+      "data": {
+        "journal_id": "dec-33c759f9",
+        "decision": "Fleet management strategy: start with visibility (Praxis), graduate to automated provisioning (Morpheus Lite) only when "
+      },
+      "created_at": "2026-02-16T20:34:26Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-a85922fb": {
+      "type": "decision",
+      "name": "dec-9e9b7abc",
+      "data": {
+        "journal_id": "dec-9e9b7abc",
+        "decision": "ADR: Exploration"
+      },
+      "created_at": "2026-02-14T17:47:27Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-0cc5d417": {
+      "type": "decision",
+      "name": "dec-196f31ab",
+      "data": {
+        "journal_id": "dec-196f31ab",
+        "decision": "Geordi buildout: Foundation phase first (split monolith, add caching, tests) before adding new features"
+      },
+      "created_at": "2026-02-16T21:17:02Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-d355af66": {
+      "type": "file",
+      "name": "server.py",
+      "data": {
+        "path": "server.py",
+        "language": "py"
+      },
+      "created_at": "2026-02-16T21:17:02Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-232f433e": {
+      "type": "decision",
+      "name": "dec-65cf3aad",
+      "data": {
+        "journal_id": "dec-65cf3aad",
+        "decision": "Entire checkpoint 699508ff13: 1 session(s) on main, files: LINEAGE_CONTRACT.md, LORE_CONTRACT.md, lineage.sh, mani.yaml"
+      },
+      "created_at": "2026-02-16T16:42:53Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-20b19b91": {
+      "type": "file",
+      "name": "LINEAGE_CONTRACT.md",
+      "data": {
+        "path": "LINEAGE_CONTRACT.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-16T16:42:53Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-f7d91704": {
+      "type": "file",
+      "name": "lineage.sh",
+      "data": {
+        "path": "lineage.sh",
+        "language": "sh"
+      },
+      "created_at": "2026-02-16T16:42:53Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-2f8bec54": {
+      "type": "file",
+      "name": "LORE_CONTRACT.md",
+      "data": {
+        "path": "LORE_CONTRACT.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-16T16:42:53Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-34ffd3db": {
+      "type": "file",
+      "name": "mani.yaml",
+      "data": {
+        "path": "mani.yaml",
+        "language": "yaml"
+      },
+      "created_at": "2026-02-16T16:42:53Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-3af9975d": {
+      "type": "decision",
+      "name": "dec-ec65361e",
+      "data": {
+        "journal_id": "dec-ec65361e",
+        "decision": "ADR: Config"
+      },
+      "created_at": "2026-02-15T02:40:29Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-8b2cebec": {
+      "type": "decision",
+      "name": "dec-31a8b7ed",
+      "data": {
+        "journal_id": "dec-31a8b7ed",
+        "decision": "ADR: Critique"
+      },
+      "created_at": "2026-02-13T14:11:39Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-12781b9c": {
+      "type": "decision",
+      "name": "dec-fb3a0bdf",
+      "data": {
+        "journal_id": "dec-fb3a0bdf",
+        "decision": "ADR: Loop"
+      },
+      "created_at": "2026-02-11T05:04:38Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-dd45849b": {
+      "type": "decision",
+      "name": "dec-0b54765d",
+      "data": {
+        "journal_id": "dec-0b54765d",
+        "decision": "ADR: Yeoman"
+      },
+      "created_at": "2026-02-13T17:05:49Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-fd67e938": {
+      "type": "decision",
+      "name": "dec-a77a583f",
+      "data": {
+        "journal_id": "dec-a77a583f",
+        "decision": "Implement entire-resume wrapper for Lore context injection"
+      },
+      "created_at": "2026-02-16T23:03:00Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-daec4c33": {
+      "type": "decision",
+      "name": "dec-ce57f71f",
+      "data": {
+        "journal_id": "dec-ce57f71f",
+        "decision": "ADR: Flow SDK Migration"
+      },
+      "created_at": "2026-02-14T17:47:27Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-01ef03c8": {
+      "type": "decision",
+      "name": "dec-764ce8f2",
+      "data": {
+        "journal_id": "dec-764ce8f2",
+        "decision": "Decompose agent teams by deliverable type, not by target project"
+      },
+      "created_at": "2026-02-17T03:10:22Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-db537d80": {
+      "type": "decision",
+      "name": "dec-6e3a04ab",
+      "data": {
+        "journal_id": "dec-6e3a04ab",
+        "decision": "Use inline format"
+      },
+      "created_at": "2026-02-10T03:49:12Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-8d16f6de": {
+      "type": "decision",
+      "name": "dec-41560b9d",
+      "data": {
+        "journal_id": "dec-41560b9d",
+        "decision": "Built Lineage system"
+      },
+      "created_at": "2026-02-10T03:51:28Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-f117665f": {
+      "type": "decision",
+      "name": "dec-5741815d",
+      "data": {
+        "journal_id": "dec-5741815d",
+        "decision": "Use JSONL for decision storage"
+      },
+      "created_at": "2026-02-10T03:48:04Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-413c05c5": {
+      "type": "decision",
+      "name": "dec-041f8803",
+      "data": {
+        "journal_id": "dec-041f8803",
+        "decision": "ADR: Config (duplicate — superseded by dec-ec65361e)"
+      },
+      "created_at": "2026-02-13T17:05:49Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-c9420b2c": {
+      "type": "decision",
+      "name": "dec-e344a0f8",
+      "data": {
+        "journal_id": "dec-e344a0f8",
+        "decision": "ADR: Transfer"
+      },
+      "created_at": "2026-02-13T17:05:49Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-200e7ea1": {
+      "type": "decision",
+      "name": "dec-8b914576",
+      "data": {
+        "journal_id": "dec-8b914576",
+        "decision": "Adopt Sovereign Bridge architecture for Claude Code integration"
+      },
+      "created_at": "2026-02-16T19:39:37Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-1dc4f3cb": {
+      "type": "decision",
+      "name": "dec-d0391f8a",
+      "data": {
+        "journal_id": "dec-d0391f8a",
+        "decision": "ADR: Dev Directory Navigation Tooling"
+      },
+      "created_at": "2026-02-12T15:07:08Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-2dc02e9c": {
+      "type": "decision",
+      "name": "dec-91504739",
+      "data": {
+        "journal_id": "dec-91504739",
+        "decision": "ADR: Worker"
+      },
+      "created_at": "2026-02-13T14:11:58Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-ae34fa63": {
+      "type": "decision",
+      "name": "dec-d106c4d7",
+      "data": {
+        "journal_id": "dec-d106c4d7",
+        "decision": "ADR: Flow SDK Migration"
+      },
+      "created_at": "2026-02-13T15:13:38Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-0b872cf6": {
+      "type": "decision",
+      "name": "dec-a96328e3",
+      "data": {
+        "journal_id": "dec-a96328e3",
+        "decision": "ADR: Exploration"
+      },
+      "created_at": "2026-02-13T17:05:50Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-743dd34e": {
+      "type": "decision",
+      "name": "dec-2d0c56d9",
+      "data": {
+        "journal_id": "dec-2d0c56d9",
+        "decision": "ADR: Decision-Making Cheat Sheet"
+      },
+      "created_at": "2026-02-10T07:30:37Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-dbf7f7f0": {
+      "type": "decision",
+      "name": "dec-bd74c8db",
+      "data": {
+        "journal_id": "dec-bd74c8db",
+        "decision": "ADR: Building Lineage"
+      },
+      "created_at": "2026-02-10T07:30:38Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-03a03cd2": {
+      "type": "decision",
+      "name": "dec-dd0960fb",
+      "data": {
+        "journal_id": "dec-dd0960fb",
+        "decision": "Agent Definitions initiative: formalize agent roles with explicit capabilities, constraints, and readiness criteria in L"
+      },
+      "created_at": "2026-02-17T02:16:37Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-c80a0a40": {
+      "type": "decision",
+      "name": "dec-45095743",
+      "data": {
+        "journal_id": "dec-45095743",
+        "decision": "ADR: Dev Directory Navigation Tooling"
+      },
+      "created_at": "2026-02-10T07:49:05Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-00e4dc80": {
+      "type": "decision",
+      "name": "dec-59749c70",
+      "data": {
+        "journal_id": "dec-59749c70",
+        "decision": "Goal created: Test yq fix"
+      },
+      "created_at": "2026-02-10T13:47:06Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-9acc4ce1": {
+      "type": "decision",
+      "name": "dec-8b89950f",
+      "data": {
+        "journal_id": "dec-8b89950f",
+        "decision": "Documentation/Onboarding initiative: standardize doc structure across projects, create cross-project onboarding guide, m"
+      },
+      "created_at": "2026-02-17T02:04:46Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-6a337145": {
+      "type": "file",
+      "name": "CONTRIBUTING.md",
+      "data": {
+        "path": "CONTRIBUTING.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-17T02:04:46Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-fffedee8": {
+      "type": "decision",
+      "name": "dec-52af8c9b",
+      "data": {
+        "journal_id": "dec-52af8c9b",
+        "decision": "ADR: Documentation"
+      },
+      "created_at": "2026-02-13T17:05:49Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-e443a429": {
+      "type": "decision",
+      "name": "dec-321eaa31",
+      "data": {
+        "journal_id": "dec-321eaa31",
+        "decision": "ADR: Critique (duplicate — corrected in dec-31a8b7ed)"
+      },
+      "created_at": "2026-02-13T15:13:38Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-0240a9f4": {
+      "type": "decision",
+      "name": "dec-56153ab9",
+      "data": {
+        "journal_id": "dec-56153ab9",
+        "decision": "Use lib/store.sh for storage logic"
+      },
+      "created_at": "2026-02-10T03:48:04Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-86fb3bc3": {
+      "type": "file",
+      "name": "/workspace/lineage/journal/lib/store.sh",
+      "data": {
+        "path": "/workspace/lineage/journal/lib/store.sh",
+        "language": "sh"
+      },
+      "created_at": "2026-02-10T03:48:04Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-6696bddc": {
+      "type": "file",
+      "name": "journal/lib/store.sh",
+      "data": {
+        "path": "journal/lib/store.sh",
+        "language": "sh"
+      },
+      "created_at": "2026-02-10T03:48:04Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "file-ebc69e72": {
+      "type": "file",
+      "name": "lib/store.sh",
+      "data": {
+        "path": "lib/store.sh",
+        "language": "sh"
+      },
+      "created_at": "2026-02-10T03:48:04Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-f66e755e": {
+      "type": "decision",
+      "name": "dec-00aefaff",
+      "data": {
+        "journal_id": "dec-00aefaff",
+        "decision": "Tasks use YAML files under intent/data/tasks/ rather than append-only JSONL"
+      },
+      "created_at": "2026-02-16T23:30:28Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-0e284f89": {
+      "type": "decision",
+      "name": "dec-7419a028",
+      "data": {
+        "journal_id": "dec-7419a028",
+        "decision": "Goal created: Fix awk multiline bug in Lineage patterns capture"
+      },
+      "created_at": "2026-02-10T06:30:37Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-583eddf6": {
+      "type": "decision",
+      "name": "dec-efb724e6",
+      "data": {
+        "journal_id": "dec-efb724e6",
+        "decision": "Fork-on-resume: resume creates new session inheriting context from parent"
+      },
+      "created_at": "2026-02-16T20:18:53Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-63d6367d": {
+      "type": "decision",
+      "name": "dec-8bed49fc",
+      "data": {
+        "journal_id": "dec-8bed49fc",
+        "decision": "ADR: State"
+      },
+      "created_at": "2026-02-11T05:49:12Z",
+      "updated_at": "2026-02-17T04:34:37Z"
+    },
+    "decision-809c5ae2": {
+      "type": "decision",
+      "name": "dec-1a671c16",
+      "data": {
+        "journal_id": "dec-1a671c16",
+        "decision": "ADR: Architecture"
+      },
+      "created_at": "2026-02-10T07:30:38Z",
+      "updated_at": "2026-02-17T04:34:37Z"
     }
   },
   "edges": [
@@ -432,6 +1152,262 @@
       "weight": 1.0,
       "bidirectional": false,
       "created_at": "2026-02-17T03:22:22Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "file-2420eba1",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:28:53Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "file-d86835ee",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:28:54Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "file-04c6e90f",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:28:54Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "file-c26ae7c6",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:28:54Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "file-1bf455b3",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:28:54Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "file-94d9a081",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:28:54Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "file-f07b7383",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:28:54Z"
+    },
+    {
+      "from": "decision-b79b1174",
+      "to": "file-2c4708ac",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:29:01Z"
+    },
+    {
+      "from": "decision-0b1ee18b",
+      "to": "file-04c6e90f",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:29:06Z"
+    },
+    {
+      "from": "decision-0b1ee18b",
+      "to": "file-c26ae7c6",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:29:06Z"
+    },
+    {
+      "from": "decision-0b1ee18b",
+      "to": "file-b6791165",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:29:06Z"
+    },
+    {
+      "from": "decision-0b1ee18b",
+      "to": "file-d8b1e428",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:29:06Z"
+    },
+    {
+      "from": "decision-0b1ee18b",
+      "to": "file-764977a9",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T04:29:06Z"
+    },
+    {
+      "from": "decision-0b1ee18b",
+      "to": "decision-25a1f696",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-17T04:29:06Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "decision-0b1ee18b",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-17T04:29:06Z"
+    },
+    {
+      "from": "decision-0240a9f4",
+      "to": "decision-f117665f",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-10T03:48:04Z"
+    },
+    {
+      "from": "decision-0240a9f4",
+      "to": "file-6696bddc",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T03:48:04Z"
+    },
+    {
+      "from": "decision-0240a9f4",
+      "to": "file-86fb3bc3",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T03:48:04Z"
+    },
+    {
+      "from": "decision-0240a9f4",
+      "to": "file-ebc69e72",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-10T03:48:04Z"
+    },
+    {
+      "from": "decision-0cc5d417",
+      "to": "file-d355af66",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-16T21:17:02Z"
+    },
+    {
+      "from": "decision-232f433e",
+      "to": "file-20b19b91",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-16T16:42:53Z"
+    },
+    {
+      "from": "decision-232f433e",
+      "to": "file-2f8bec54",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-16T16:42:53Z"
+    },
+    {
+      "from": "decision-232f433e",
+      "to": "file-34ffd3db",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-16T16:42:53Z"
+    },
+    {
+      "from": "decision-232f433e",
+      "to": "file-f7d91704",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-16T16:42:53Z"
+    },
+    {
+      "from": "decision-2dc02e9c",
+      "to": "decision-91aa3421",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-13T14:11:58Z"
+    },
+    {
+      "from": "decision-413c05c5",
+      "to": "decision-3af9975d",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-13T17:05:49Z"
+    },
+    {
+      "from": "decision-5e5bb66f",
+      "to": "decision-c9420b2c",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-14T17:47:27Z"
+    },
+    {
+      "from": "decision-91aa3421",
+      "to": "decision-2dc02e9c",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-13T14:21:21Z"
+    },
+    {
+      "from": "decision-9acc4ce1",
+      "to": "file-6a337145",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "created_at": "2026-02-17T02:04:46Z"
+    },
+    {
+      "from": "decision-c9420b2c",
+      "to": "decision-5e5bb66f",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-13T17:05:49Z"
+    },
+    {
+      "from": "decision-e443a429",
+      "to": "decision-8b2cebec",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-13T15:13:38Z"
+    },
+    {
+      "from": "decision-f117665f",
+      "to": "decision-0240a9f4",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "created_at": "2026-02-10T03:48:04Z"
     }
   ]
 }
