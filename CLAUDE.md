@@ -2,6 +2,20 @@
 
 Explicit context management for multi-agent systems.
 
+## Ecosystem
+
+> **You are here: Lore** -- Data pillar
+
+| Project  | Pillar   | Role                        |
+| -------- | -------- | --------------------------- |
+| **Lore** | Data     | Memory, registry, intent    |
+| Mirror   | Data     | Judgment capture & patterns |
+| Neo      | Control  | Teams, missions, delegation |
+| Bach     | Action   | Stateless workers           |
+| Council  | Advisory | Cross-project decisions     |
+
+Full map: ~/dev/council/mainstay/ecosystem.md
+
 ## Quick Start
 
 See the [tutorial](docs/tutorial.md) for a hands-on walkthrough. The essentials:
@@ -108,6 +122,7 @@ lore entire-resume feature/my-branch
 ```
 
 The integration loop:
+
 1. **Capture**: `entire` checkpoints agent work on git push
 2. **Sync**: `make sync-entire` writes checkpoints to Lore journal
 3. **Resume**: `lore entire-resume <branch>` injects patterns before continuing

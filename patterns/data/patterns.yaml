@@ -3,6 +3,26 @@
 
 patterns:
 
+    - id: "pat-297835-595da55b"
+      name: "Initiative analysis to fix to execute pipeline"
+      context: "Executing an initiative file that was written before the work began and may contain factual errors or missing scope"
+      problem: "Executing a stale or incorrect initiative produces wrong deliverables. Mid-execution corrections are more expensive than pre-execution corrections."
+      solution: "Three-phase pipeline: (1) analyze the initiative file for factual errors and structural gaps, (2) fix the initiative with targeted edits, (3) execute with an agent team. Do not skip to execution."
+      category: "general"
+      origin: "session-2026-02-16"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-17T03:10:35Z"
+    - id: "pat-297828-1dd17159"
+      name: "Research agents before execution agents"
+      context: "Multi-agent documentation initiative spanning 6 projects with unknown on-disk state"
+      problem: "Execution agents discovering mid-work surprises (missing repos, stale docs, conflicting initiatives) cause partial outputs and rework across the whole team."
+      solution: "Run cheap parallel research agents first to verify which projects exist, check doc state, and detect initiative overlap. Commit to the execution plan only after research completes."
+      category: "general"
+      origin: "session-2026-02-16"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-17T03:10:28Z"
     - id: "pat-284634-f44725d7"
       name: "Agent delegation via tasks"
       context: "Multi-agent systems where one agent needs to hand off work to another"
