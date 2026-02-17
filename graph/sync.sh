@@ -35,205 +35,166 @@ if [[ ! -f "$GRAPH_FILE" ]]; then
     exit 1
 fi
 
-# Generate a node ID matching the existing pattern: type-<8char hash of name>
-_node_id() {
-    local type="$1"
-    local name="$2"
-    echo "${type}-$(echo -n "${name}" | md5sum | cut -c1-8)"
-}
-
-# Truncate text to N chars
-_truncate() {
-    local text="$1"
-    local max="${2:-120}"
-    if [[ "${#text}" -gt "$max" ]]; then
-        echo "${text:0:$max}"
-    else
-        echo "$text"
-    fi
-}
-
 now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-# --- Step 1: Deduplicate decisions by ID (keep last occurrence, most complete) ---
-# Build a map of unique decision IDs -> full JSON line
-declare -A decision_map
-while IFS= read -r line; do
-    [[ -z "$line" ]] && continue
-    dec_id=$(echo "$line" | jq -r '.id // empty' 2>/dev/null) || continue
-    [[ -z "$dec_id" ]] && continue
-    decision_map["$dec_id"]="$line"
-done < "$DECISIONS_FILE"
+# --- Step 1: Extract all names that need md5 hashing ---
+# jq can't compute md5, so pre-compute in bash and pass as a lookup table.
+names_to_hash=$(jq -rs '
+    group_by(.id) | map(.[-1]) |
+    (map("decision\t" + .id)) +
+    ([.[].entities[]? // empty] | unique | map("file\t" + .)) +
+    ([.[].related_decisions[]? // empty] | unique | map("decision\t" + .))
+    | unique | .[]
+' "$DECISIONS_FILE") || true
 
-echo -e "${DIM}Found ${#decision_map[@]} unique decisions in journal${NC}"
+# Build JSON hash lookup: {"decision:dec-xxx": "decision-ab12cd34", "file:foo.sh": "file-ef56gh78"}
+hash_entries=()
+while IFS=$'\t' read -r type name; do
+    [[ -z "$name" ]] && continue
+    hash=$(echo -n "$name" | md5sum | cut -c1-8)
+    # Escape for JSON
+    escaped_name=$(printf '%s' "$name" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    hash_entries+=("\"${type}:${escaped_name}\":\"${type}-${hash}\"")
+done <<< "$names_to_hash"
 
-# --- Step 2: Collect existing journal_id values from graph ---
-existing_journal_ids=$(jq -r '
-    [.nodes | to_entries[] | select(.value.data.journal_id != null) | .value.data.journal_id] | .[]
-' "$GRAPH_FILE") || true
+hash_json="{$(IFS=,; echo "${hash_entries[*]}")}"
 
-declare -A existing_ids
-while IFS= read -r eid; do
-    [[ -z "$eid" ]] && continue
-    existing_ids["$eid"]=1
-done <<< "$existing_journal_ids"
-
-echo -e "${DIM}Found ${#existing_ids[@]} decision nodes already in graph${NC}"
-
-# --- Step 3: Build new nodes and edges to merge ---
-new_decision_nodes=0
-new_file_nodes=0
-new_edges=0
-
-# We'll build a single jq filter that adds all new nodes and edges at once
-# to avoid repeated file I/O. Collect additions as JSON.
+# --- Step 2: Single jq pass — deduplicate, diff against graph, build additions ---
 additions_file="$(mktemp)"
 trap 'rm -f "$additions_file"' EXIT
 
-echo '{"nodes":{},"edges":[]}' > "$additions_file"
+jq -n \
+    --slurpfile graph "$GRAPH_FILE" \
+    --argjson hashes "$hash_json" \
+    --arg now "$now" \
+    --rawfile decisions_raw "$DECISIONS_FILE" '
 
-# Track file nodes we create in this run to avoid duplicates
-declare -A created_file_nodes
+    # Parse JSONL and deduplicate by .id (keep last occurrence)
+    def dedup_decisions:
+        [splits("\n") | select(length > 0) | fromjson] |
+        group_by(.id) | map(.[-1]);
 
-for dec_id in "${!decision_map[@]}"; do
-    # Skip if already in graph
-    if [[ -n "${existing_ids[$dec_id]:-}" ]]; then
-        continue
-    fi
+    # Lookup pre-computed node ID
+    def node_id(type; name): $hashes[(type + ":" + name)] // (type + "-unknown");
 
-    line="${decision_map[$dec_id]}"
+    ($decisions_raw | dedup_decisions) as $decisions |
+    $graph[0] as $graph |
 
-    # Extract fields
-    decision_text=$(echo "$line" | jq -r '.decision // ""')
-    timestamp=$(echo "$line" | jq -r '.timestamp // ""')
-    entities_json=$(echo "$line" | jq -c '.entities // []')
-    related_json=$(echo "$line" | jq -c '.related_decisions // []')
+    # Existing journal_ids in graph
+    [$graph.nodes | to_entries[] | .value.data.journal_id // empty] as $existing_ids |
 
-    truncated=$(_truncate "$decision_text" 120)
+    # Existing file node keys in graph
+    [$graph.nodes | keys[]] as $existing_node_keys |
 
-    # Node key: decision-<hash of dec_id>
-    node_key=$(_node_id "decision" "$dec_id")
+    # Filter to new decisions only
+    [$decisions[] | select(.id as $id | $existing_ids | index($id) | not)] as $new_decisions |
 
-    # Use decision timestamp or now
-    created="${timestamp:-$now}"
+    # Build additions
+    reduce $new_decisions[] as $dec (
+        {nodes: {}, edges: [], file_nodes_created: {}};
 
-    # Add decision node
-    jq --arg key "$node_key" \
-       --arg name "$dec_id" \
-       --arg journal_id "$dec_id" \
-       --arg decision "$truncated" \
-       --arg created "$created" \
-       --arg updated "$now" \
-       '.nodes[$key] = {
-           type: "decision",
-           name: $name,
-           data: { journal_id: $journal_id, decision: $decision },
-           created_at: $created,
-           updated_at: $updated
-       }' "$additions_file" > "${additions_file}.tmp" && mv "${additions_file}.tmp" "$additions_file"
+        ($dec.id) as $dec_id |
+        node_id("decision"; $dec_id) as $node_key |
+        ($dec.timestamp // $now) as $created |
+        ($dec.decision // "")[0:120] as $truncated |
 
-    new_decision_nodes=$((new_decision_nodes + 1))
+        # Add decision node
+        .nodes[$node_key] = {
+            type: "decision",
+            name: $dec_id,
+            data: { journal_id: $dec_id, decision: $truncated },
+            created_at: $created,
+            updated_at: $now
+        } |
 
-    # --- Create file nodes and reference edges for entities ---
-    entity_count=$(echo "$entities_json" | jq 'length')
-    if [[ "$entity_count" -gt 0 ]]; then
-        for i in $(seq 0 $((entity_count - 1))); do
-            entity=$(echo "$entities_json" | jq -r ".[$i]")
-            [[ -z "$entity" || "$entity" == "null" ]] && continue
+        # Add file nodes and reference edges for entities
+        reduce ($dec.entities // [])[] as $entity (
+            .;
+            node_id("file"; $entity) as $file_key |
+            ($entity | split(".") | last) as $ext |
 
-            file_key=$(_node_id "file" "$entity")
+            # Create file node if not in graph or already created
+            (if ($existing_node_keys | index($file_key) | not) and (.file_nodes_created[$file_key] | not) then
+                .nodes[$file_key] = {
+                    type: "file",
+                    name: $entity,
+                    data: { path: $entity, language: $ext },
+                    created_at: $created,
+                    updated_at: $now
+                } |
+                .file_nodes_created[$file_key] = true
+            else . end) |
 
-            # Create file node if not already created (this run or existing)
-            existing_file_node=$(jq -r --arg key "$file_key" '.nodes[$key] // empty' "$GRAPH_FILE" 2>/dev/null) || true
-            if [[ -z "$existing_file_node" && -z "${created_file_nodes[$file_key]:-}" ]]; then
-                # Infer language from extension
-                local_ext="${entity##*.}"
-                if [[ "$local_ext" == "$entity" ]]; then
-                    # No extension (likely a directory)
-                    local_ext="${entity##*/}"
-                fi
+            # Add reference edge
+            .edges += [{
+                from: $node_key,
+                to: $file_key,
+                relation: "references",
+                weight: 1.0,
+                bidirectional: false,
+                created_at: $created
+            }]
+        ) |
 
-                jq --arg key "$file_key" \
-                   --arg name "$entity" \
-                   --arg path "$entity" \
-                   --arg lang "$local_ext" \
-                   --arg created "$created" \
-                   --arg updated "$now" \
-                   '.nodes[$key] = {
-                       type: "file",
-                       name: $name,
-                       data: { path: $path, language: $lang },
-                       created_at: $created,
-                       updated_at: $updated
-                   }' "$additions_file" > "${additions_file}.tmp" && mv "${additions_file}.tmp" "$additions_file"
+        # Add relates_to edges for related_decisions
+        reduce ($dec.related_decisions // [])[] as $related_id (
+            .;
+            node_id("decision"; $related_id) as $related_key |
+            .edges += [{
+                from: $node_key,
+                to: $related_key,
+                relation: "relates_to",
+                weight: 1.0,
+                bidirectional: true,
+                created_at: $created
+            }]
+        )
+    ) |
 
-                created_file_nodes["$file_key"]=1
-                new_file_nodes=$((new_file_nodes + 1))
-            fi
+    # Deduplicate edges (same from/to/relation)
+    .edges = [.edges | group_by(.from + .to + .relation) | .[] | .[0]] |
 
-            # Add references edge: decision -> file
-            jq --arg from "$node_key" \
-               --arg to "$file_key" \
-               --arg created "$created" \
-               '.edges += [{
-                   from: $from,
-                   to: $to,
-                   relation: "references",
-                   weight: 1.0,
-                   bidirectional: false,
-                   created_at: $created
-               }]' "$additions_file" > "${additions_file}.tmp" && mv "${additions_file}.tmp" "$additions_file"
+    # Count results
+    {
+        nodes: .nodes,
+        edges: .edges,
+        stats: {
+            new_decision_nodes: ([.nodes | to_entries[] | select(.value.type == "decision")] | length),
+            new_file_nodes: ([.nodes | to_entries[] | select(.value.type == "file")] | length),
+            new_edges: (.edges | length)
+        }
+    }
+' > "$additions_file"
 
-            new_edges=$((new_edges + 1))
-        done
-    fi
+# Extract stats
+new_decision_nodes=$(jq '.stats.new_decision_nodes' "$additions_file")
+new_file_nodes=$(jq '.stats.new_file_nodes' "$additions_file")
+new_edges=$(jq '.stats.new_edges' "$additions_file")
 
-    # --- Create related_to edges for related_decisions ---
-    related_count=$(echo "$related_json" | jq 'length')
-    if [[ "$related_count" -gt 0 ]]; then
-        for i in $(seq 0 $((related_count - 1))); do
-            related_id=$(echo "$related_json" | jq -r ".[$i]")
-            [[ -z "$related_id" || "$related_id" == "null" ]] && continue
+unique_decisions=$(jq -s 'group_by(.id) | length' "$DECISIONS_FILE")
+existing_nodes=$(jq '[.nodes | to_entries[] | select(.value.data.journal_id)] | length' "$GRAPH_FILE")
 
-            related_key=$(_node_id "decision" "$related_id")
+echo -e "${DIM}Found ${unique_decisions} unique decisions in journal${NC}"
+echo -e "${DIM}Found ${existing_nodes} decision nodes already in graph${NC}"
 
-            # Add related_to edge (the target node may be created later in this run
-            # or may already exist; we add the edge regardless and let the graph
-            # handle dangling references gracefully)
-            jq --arg from "$node_key" \
-               --arg to "$related_key" \
-               --arg created "$created" \
-               '.edges += [{
-                   from: $from,
-                   to: $to,
-                   relation: "relates_to",
-                   weight: 1.0,
-                   bidirectional: true,
-                   created_at: $created
-               }]' "$additions_file" > "${additions_file}.tmp" && mv "${additions_file}.tmp" "$additions_file"
-
-            new_edges=$((new_edges + 1))
-        done
-    fi
-done
-
-# --- Step 4: Merge additions into graph ---
+# --- Step 3: Merge additions into graph ---
 if [[ "$new_decision_nodes" -gt 0 || "$new_file_nodes" -gt 0 ]]; then
-    # Deduplicate edges in additions (same from/to/relation)
-    jq '.edges = [.edges | group_by(.from + .to + .relation) | .[] | .[0]]' \
-        "$additions_file" > "${additions_file}.tmp" && mv "${additions_file}.tmp" "$additions_file"
-
-    # Recount edges after dedup
-    new_edges=$(jq '.edges | length' "$additions_file")
-
-    # Also deduplicate file nodes that already exist in graph
-    # (file nodes from additions whose key already exists in graph.json)
     jq -s '
         .[0] as $graph | .[1] as $additions |
         $graph |
         .nodes = (.nodes + $additions.nodes) |
         .edges = (.edges + $additions.edges)
-    ' "$GRAPH_FILE" "$additions_file" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+    ' "$GRAPH_FILE" <(jq '{nodes, edges}' "$additions_file") > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
 fi
 
+# --- Step 4: Dedup edges in graph (catches pre-existing duplicates) ---
+before_edges=$(jq '.edges | length' "$GRAPH_FILE")
+jq '.edges = [.edges | group_by(.from + .to + .relation) | .[] | .[0]]' \
+    "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+after_edges=$(jq '.edges | length' "$GRAPH_FILE")
+deduped_edges=$((before_edges - after_edges))
+
 echo -e "${GREEN}Synced ${new_decision_nodes} new decision nodes, ${new_file_nodes} new file nodes, ${new_edges} new edges${NC}"
+if [[ "$deduped_edges" -gt 0 ]]; then
+    echo -e "${YELLOW}Removed ${deduped_edges} duplicate edge(s)${NC}"
+fi

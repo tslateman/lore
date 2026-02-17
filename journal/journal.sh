@@ -42,6 +42,7 @@ ${BOLD}COMMANDS:${NC}
     list                  List decisions
     link <id1> <id2>      Link two related decisions
     stats                 Show decision statistics
+    compact               Remove duplicate entries (keep latest)
     export                Export decisions or graph
 
 ${BOLD}RECORD OPTIONS:${NC}
