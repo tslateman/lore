@@ -446,6 +446,9 @@ cmd_remember() {
     else
         "$LORE_DIR/journal/journal.sh" record "${args[@]}"
     fi
+
+    # Sync decision to graph (background, fail-silent)
+    "$LORE_DIR/graph/sync.sh" &>/dev/null &
 }
 
 cmd_learn() {

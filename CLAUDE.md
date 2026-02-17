@@ -72,10 +72,10 @@ See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags 
 
 ## History
 
-Lore consolidated functionality from earlier projects:
+Lore consolidated functionality from earlier projects (now deprecated/archived):
 
 - **intent/** — Absorbed from Oracle (goal/mission tracking)
-- **transfer/** — Absorbed from Lineage (session handoff)
+- **transfer/** — Absorbed from prior session system (session handoff, now a Lore component)
 
 These origins appear in component READMEs but are implementation history, not integration points.
 

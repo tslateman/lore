@@ -23,7 +23,7 @@ log_search_failure() {
     local query="$1"
     local expected="$2"  # What should have been found
     local actual="$3"    # What was found (or "nothing")
-    
+
     echo "$(date -Iseconds)|${query}|${expected}|${actual}" \
         >> "${LORE_DIR}/failures/data/search-failures.log"
 }
@@ -110,13 +110,13 @@ generate_embedding() {
 
 ```sql
 WITH fts_results AS (
-    SELECT 
+    SELECT
         'decision' as type,
         id,
         decision as content,
         rank * -1 as score,
         'fts' as source
-    FROM decisions 
+    FROM decisions
     WHERE decisions MATCH ?
     LIMIT 20
 ),
@@ -136,7 +136,7 @@ merged AS (
     UNION ALL
     SELECT * FROM vec_results
 )
-SELECT 
+SELECT
     type,
     id,
     -- Reciprocal Rank Fusion
@@ -157,7 +157,7 @@ Embedding generation runs during `lore search --rebuild`:
 ```bash
 rebuild_index() {
     # ... existing FTS5 indexing ...
-    
+
     # Phase 2: Generate embeddings
     if phase2_enabled; then
         echo "Generating embeddings..."
@@ -166,7 +166,7 @@ rebuild_index() {
             id=$(echo "${record}" | jq -r '.id')
             content=$(echo "${record}" | jq -r '.decision + " " + .rationale')
             embedding=$(generate_embedding "${content}")
-            
+
             sqlite3 "${DB}" "INSERT INTO embeddings VALUES ('decision', '${id}', '${embedding}')"
         done < <(jq -c '.' "${LORE_DIR}/journal/data/decisions.jsonl")
     fi
@@ -200,3 +200,7 @@ echo "phase2_enabled=false" >> "${LORE_DIR}/.config"
 # Drop embeddings table
 sqlite3 "${HOME}/.lore/search.db" "DROP TABLE IF EXISTS embeddings"
 ```
+
+## Outcome
+
+Implemented using Option B (Ollama local embeddings). `lib/search-index.sh` creates an `embeddings` table (768-dimensional, nomic-embed-text model) and the `load_embeddings()` function generates embeddings at index rebuild time. The trigger threshold (3 FTS5 failures) was not implemented as a gate; embeddings are generated whenever Ollama is available during `--rebuild`. The rollback mechanism via config flag was not implemented.

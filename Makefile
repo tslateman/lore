@@ -1,4 +1,4 @@
-.PHONY: sync-entire sync-graph sync-all
+.PHONY: sync-entire sync-graph sync-all check-mcp build-mcp check
 
 # Sync Entire CLI checkpoints to Lore journal
 sync-entire:
@@ -10,3 +10,19 @@ sync-graph:
 
 # Sync all external sources
 sync-all: sync-entire sync-graph
+
+# Check MCP server build freshness
+check-mcp:
+	@if [ mcp/src/index.ts -nt mcp/build/index.js ]; then \
+		echo "MCP build is stale (src newer than build). Run: make build-mcp"; \
+		exit 1; \
+	else \
+		echo "MCP build is up to date"; \
+	fi
+
+# Build MCP server
+build-mcp:
+	cd mcp && PATH="/Users/tslater/.nvm/versions/node/v24.1.0/bin:$$PATH" npm run build
+
+# Check all build freshness
+check: check-mcp

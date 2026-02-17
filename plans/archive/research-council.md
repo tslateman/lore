@@ -1,5 +1,9 @@
 Status: Complete (consumed by api-architecture.md)
 
+## Outcome
+
+Research consumed. This document drove the unified API architecture design (`api-architecture.md`, since removed or superseded). The Council ADR structure, initiative format, Marshal hook patterns, and cred-broker subsystem descriptions fed directly into that design work. The research itself remains accurate as of the date written, though several referenced initiatives (orchestration, Morpheus) and subsystems (cred-broker, git-proxy) have since been archived as Neo replaced the orchestration layer.
+
 # Council Research Document
 
 Comprehensive analysis of ~/dev/council for unified API design across Lineage, Lore, and Council.

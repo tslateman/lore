@@ -33,19 +33,19 @@ esac
 search_sessions() {
     local query="$1"
     local limit="${2:-10}"
-    
+
     if [[ ! -f "${HOME}/.lore/search.db" ]]; then
         echo "Search index not built. Run: lore search --rebuild" >&2
         return 1
     fi
-    
+
     sqlite3 "${HOME}/.lore/search.db" <<EOF
-SELECT 
+SELECT
     session_id,
     substr(handoff, 1, 100) || '...' as preview,
     timestamp,
     bm25(transfers) as score
-FROM transfers 
+FROM transfers
 WHERE transfers MATCH '${query}'
 ORDER BY score
 LIMIT ${limit};
@@ -61,7 +61,7 @@ If FTS5 index is stale or missing, fall back to grep over session files:
 search_sessions_fallback() {
     local query="$1"
     local sessions_dir="${LORE_DIR}/transfer/data/sessions"
-    
+
     grep -l -i "${query}" "${sessions_dir}"/*.json 2>/dev/null | while read -r file; do
         local id summary
         id=$(jq -r '.id' "${file}")
@@ -95,3 +95,7 @@ transfer.sh search "authentication"
 # Search with limit
 transfer.sh search "refactor" 5
 ```
+
+## Outcome
+
+Implemented as planned. `transfer/lib/search.sh` exists and `transfer.sh search` queries session content via the FTS5 index in `~/.lore/search.db`. The grep fallback for unindexed content is also present. The unified `lore search` command also searches sessions, making `transfer.sh search` a convenience alias for users who navigate by session.

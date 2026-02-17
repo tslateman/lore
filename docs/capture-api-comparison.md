@@ -76,7 +76,7 @@ lore capture "Permission denied writing to /var/log" \
 | **Ambiguous case**     | Must choose: `lore remember` or `lore learn`?                          | `lore capture "..." --decision` (explicit)                                   |
 | **Skip dup check**     | `lore remember "..." --force`                                          | `lore capture "..." --force`                                                 |
 | **With project tags**  | `lore remember "..." --tags "lore,journal"`                            | `lore capture "..." --tags "lore,journal"`                                   |
-| **From external tool** | `lineage_record_decision "..."`<br>(calls `lore remember` internally)  | `lineage_record_decision "..."`<br>(calls `lore capture --decision`)         |
+| **From external tool** | `lore_record_decision "..."`<br>(calls `lore remember` internally)     | `lore_record_decision "..."`<br>(calls `lore capture --decision`)            |
 
 ## What Changes?
 

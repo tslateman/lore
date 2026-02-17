@@ -102,3 +102,7 @@ lineage_handoff "Test: seats=[critic,marshal] initiatives=[feedback-loop]"
 # Verify it landed:
 ~/dev/lineage/lineage.sh resume
 ```
+
+## Outcome
+
+Superseded. Lineage was absorbed into Lore before this plan was executed. The handoff functionality is now `lore handoff` (`transfer/lib/handoff.sh`), and the convention to call it at session end is documented in `CLAUDE.md`. The Council pre-commit hook integration proposed here was never implemented for Council specifically; Lore's own handoff is invoked manually by agents.

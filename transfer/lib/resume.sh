@@ -463,6 +463,9 @@ resume_session() {
     echo "  Inherited ${threads_count} open threads."
     echo "  Use 'lore snapshot' to save progress."
     echo "=============================================="
+
+    # Rebuild search index in background (fail-silent)
+    bash "${LORE_DIR}/lib/search-index.sh" &>/dev/null &
 }
 
 #######################################
@@ -531,6 +534,9 @@ resume_latest() {
         local project_name
         project_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
         suggest_patterns_for_context "${project_name}"
+
+        # Rebuild search index in background even with no session (fail-silent)
+        bash "${LORE_DIR}/lib/search-index.sh" &>/dev/null &
         return 0
     fi
 

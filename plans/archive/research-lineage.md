@@ -1,5 +1,9 @@
 Status: Complete (consumed by api-architecture.md)
 
+## Outcome
+
+Research consumed. This document provided the comprehensive inventory of Lineage's CLI surface, data schemas, and library functions that informed the unified API design. Lineage was subsequently renamed to Lore and absorbed additional components (intent, transfer) during the monarch-to-lore rename. The data schemas, query capabilities, and gap analysis documented here remain largely accurate, though the project name and some paths changed (e.g., `lineage.sh` is now `lore.sh`).
+
 # Lineage Codebase Research
 
 Comprehensive analysis of every CLI command, data schema, library function, query capability, and integration point. This document drives API design decisions.

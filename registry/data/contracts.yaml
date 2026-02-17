@@ -14,8 +14,8 @@ contracts:
     location: cli/flow/SIGNAL_CONTRACT.md
     status: defined
   task:
-    interface: Flow to Bach
-    location: cli/bach/TASK_CONTRACT.md
+    interface: Neo to Bach
+    location: neo/TASK_CONTRACT.md
     status: defined
   container:
     interface: Neo to aoe
@@ -25,7 +25,6 @@ contracts:
     interface: All to Lore
     location: lore/LORE_CONTRACT.md
     status: defined
-  entire_bridge:
-    interface: Entire to Lore
-    location: lore/contracts/ENTIRE_BRIDGE_CONTRACT.md
-    status: proposed
+
+# Archived contracts (historical reference only):
+# - entire_bridge: Entire to Lore (archived, see _archive/lore-old/contracts/ENTIRE_BRIDGE_CONTRACT.md)

@@ -248,3 +248,7 @@ resume` instruction in CLAUDE.md becomes redundant. Remove it then.
 | Irrelevant context      | No results = no injection; project scoping filters noise    |
 | Budget too small        | 1,500 chars fits 3-5 results; increase if needed            |
 | Budget too large        | Crowds working memory; start small, expand if starved       |
+
+## Outcome
+
+Implemented as planned. `hooks/inject-context.sh` exists and is registered as the `UserPromptSubmit` hook in `~/.claude/settings.json`. The script derives project from `cwd`, queries patterns, journal, and transfer, and injects up to 1,500 characters of context into the prompt window. The hook uses grep-based queries rather than the FTS5 search index (noted as a known gap in project memory: "Hook and search index disconnected").

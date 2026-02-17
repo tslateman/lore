@@ -33,15 +33,15 @@ esac
 export_session() {
     local session_id="${1:-}"
     local format="${2:-markdown}"
-    
+
     local session_file
     session_file=$(find_session "${session_id}")
-    
+
     if [[ -z "${session_file}" ]]; then
         echo "Session not found: ${session_id}" >&2
         return 1
     fi
-    
+
     case "${format}" in
         markdown|md) export_markdown "${session_file}" ;;
         json)        cat "${session_file}" ;;
@@ -55,13 +55,13 @@ export_session() {
 ```bash
 export_markdown() {
     local file="$1"
-    
+
     local id summary started ended
     id=$(jq -r '.id' "${file}")
     summary=$(jq -r '.summary // "No summary"' "${file}")
     started=$(jq -r '.started_at' "${file}")
     ended=$(jq -r '.ended_at // "In progress"' "${file}")
-    
+
     cat <<EOF
 # Session: ${id}
 
@@ -119,7 +119,7 @@ EOF
 export_all() {
     local output_dir="${1:-.}"
     local sessions_dir="${LORE_DIR}/transfer/data/sessions"
-    
+
     for file in "${sessions_dir}"/*.json; do
         local id
         id=$(jq -r '.id' "${file}")
@@ -153,3 +153,7 @@ transfer.sh export "$(cat ~/.lore/.current_session)"
 # Verify markdown renders correctly
 transfer.sh export session-example | head -50
 ```
+
+## Outcome
+
+Implemented as planned. `transfer/lib/export.sh` exists and `transfer.sh export` renders sessions as markdown, covering all major session fields (summary, goals, decisions, patterns, open threads, handoff, git state). The `--all` flag for bulk export was not implemented; the command exports one session at a time.

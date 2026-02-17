@@ -1,5 +1,9 @@
 Status: Complete (consumed by api-architecture.md)
 
+## Outcome
+
+Research consumed. This document catalogued Lore's registry format, validation pipeline, context system, and relationship model before the project merged with Lineage. The five-YAML registry structure (mani.yaml, metadata.yaml, clusters.yaml, relationships.yaml, contracts.yaml) described here remains the current architecture. Several findings in section 12 (Neo mission discovery gap, Mirror bridge, graph growth) are still open threads captured in MEMORY.md.
+
 # Lore Research Document
 
 Deep research for unified API design covering Lineage, Lore, and Council.

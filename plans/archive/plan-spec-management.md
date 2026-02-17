@@ -15,19 +15,19 @@ workflow where specifications become the source of truth:
 ```
 
 Lore's role: **memory layer for SDD**. Not a replacement for spec-kit, but the
-system that tracks *which specs are in flight, who's working on them, what they
-decided, and what happened*. Specs are ephemeral artifacts in feature branches;
+system that tracks _which specs are in flight, who's working on them, what they
+decided, and what happened_. Specs are ephemeral artifacts in feature branches;
 Lore captures the durable knowledge that survives after the branch merges.
 
 ### SDD Lifecycle vs Lore's Role
 
-| SDD Phase    | Artifact            | Lore's Role                                |
-| ------------ | ------------------- | ------------------------------------------ |
-| **Specify**  | `spec.md`           | Import as goal, track in intent layer      |
-| **Plan**     | `plan.md`           | Capture technical decisions to journal     |
-| **Tasks**    | `tasks.md`          | Track assignment, progress via sessions    |
-| **Implement**| Code                | Capture outcome when done                  |
-| *Post-merge* | *Artifacts deleted* | **Lore retains**: decisions, patterns, failures |
+| SDD Phase     | Artifact            | Lore's Role                                     |
+| ------------- | ------------------- | ----------------------------------------------- |
+| **Specify**   | `spec.md`           | Import as goal, track in intent layer           |
+| **Plan**      | `plan.md`           | Capture technical decisions to journal          |
+| **Tasks**     | `tasks.md`          | Track assignment, progress via sessions         |
+| **Implement** | Code                | Capture outcome when done                       |
+| _Post-merge_  | _Artifacts deleted_ | **Lore retains**: decisions, patterns, failures |
 
 ### Gaps in Current Implementation
 
@@ -52,11 +52,12 @@ Lore captures the durable knowledge that survives after the branch merges.
                            [Failures]
 ```
 
-**Key insight from SDD**: Specifications are the *stable what*, implementation
-is the *flexible how*. Lore captures both:
-- Intent layer: the stable *what* (goals, success criteria)
-- Journal: the *why* behind technical choices (decisions from plan.md)
-- Transfer: the *who* and *when* (session context, progress)
+**Key insight from SDD**: Specifications are the _stable what_, implementation
+is the _flexible how_. Lore captures both:
+
+- Intent layer: the stable _what_ (goals, success criteria)
+- Journal: the _why_ behind technical choices (decisions from plan.md)
+- Transfer: the _who_ and _when_ (session context, progress)
 
 ### Spec Storage: Snapshot, Not Reference
 
@@ -65,10 +66,12 @@ deleted, those files disappear. Lore must **snapshot key content at import
 time** to preserve context for future sessions.
 
 **What to store:**
+
 - Structured data Lore needs (title, user stories, acceptance criteria)
 - Original path as a hint (may not exist later)
 
 **What NOT to store:**
+
 - Full spec.md prose (too large, changes frequently)
 - Implementation details from plan.md (captured as journal decisions instead)
 
@@ -88,7 +91,7 @@ description: |
 success_criteria:
   - description: "User Story 1: Send messages"
     priority: P1
-    status: pending  # pending → in_progress → completed
+    status: pending # pending → in_progress → completed
     acceptance:
       - "Given connected, When send message, Then appears in 500ms"
   - description: "User Story 2: Message history"
@@ -97,11 +100,11 @@ success_criteria:
 
 # SDD-specific fields
 source:
-  type: "spec-kit"                    # or "manual", "imported"
-  path: "specs/003-chat/spec.md"      # Original location (hint, may not exist)
+  type: "spec-kit" # or "manual", "imported"
+  path: "specs/003-chat/spec.md" # Original location (hint, may not exist)
   branch: "003-chat-system"
   imported_at: "2026-02-16T10:00:00Z"
-  
+
   # Snapshot of key content at import time (survives branch deletion)
   snapshot:
     title: "Feature: Real-time chat"
@@ -120,13 +123,13 @@ source:
 
 # Lifecycle tracking
 lifecycle:
-  phase: "specify"           # specify → plan → tasks → implement → complete
+  phase: "specify" # specify → plan → tasks → implement → complete
   assigned_session: null
   assigned_at: null
-  plan_decisions: []         # References to journal entries from plan.md
-  
+  plan_decisions: [] # References to journal entries from plan.md
+
 outcome:
-  status: null               # completed | failed | abandoned
+  status: null # completed | failed | abandoned
   completed_at: null
   session_id: null
   journal_entry: null
@@ -165,6 +168,7 @@ lore spec import specs/003-chat/
 ```
 
 **Behavior:**
+
 - Parse spec.md for title, user scenarios, acceptance criteria
 - **Snapshot** structured data into `source.snapshot` (survives branch deletion)
 - Map user scenarios to `success_criteria` with priorities
@@ -182,6 +186,7 @@ lore spec assign goal-xxx
 ```
 
 **Behavior:**
+
 - Update goal: `lifecycle.assigned_session`, `lifecycle.assigned_at`
 - Update goal: `lifecycle.phase = "implement"` (or current phase)
 - Update session: add `context.spec` block
@@ -212,6 +217,7 @@ lore spec complete goal-xxx --status failed --notes "Blocked by dependency X"
 ```
 
 **Behavior:**
+
 - Update goal: `outcome.status`, `outcome.completed_at`, `outcome.session_id`
 - Write journal entry with outcome, link to goal
 - Update session: clear `context.spec`
@@ -226,6 +232,7 @@ lore spec capture-decisions specs/003-chat/plan.md goal-xxx
 ```
 
 **Behavior:**
+
 - Parse plan.md for key decisions (technology choices, architecture, tradeoffs)
 - Write each as journal entry with `tags: spec:goal-xxx,plan-decision`
 - Update goal: add references to `lifecycle.plan_decisions[]`
@@ -242,7 +249,7 @@ lore resume
 # Branch: 003-chat-system
 # Phase: tasks
 # Current Task: T012 [US1] Create Message model
-# 
+#
 # Success Criteria:
 #   [✓] US1: Send messages (P1)
 #   [ ] US2: Message history (P2)
@@ -267,8 +274,8 @@ When resuming a session with an assigned spec, show related journal entries:
   name: "lore_spec_list",
   description: "List specs by phase or assignment status",
   inputSchema: {
-    filter: { 
-      type: "string", 
+    filter: {
+      type: "string",
       enum: ["active", "assigned", "unassigned", "completed"],
       description: "Filter specs by status"
     }
@@ -340,17 +347,18 @@ When resuming a session with an assigned spec, show related journal entries:
 
 ## Files to Create/Modify
 
-| File                     | Action | Change                                        |
-| ------------------------ | ------ | --------------------------------------------- |
-| `intent/lib/spec.sh`     | Create | New spec subcommand library                   |
-| `intent/intent.sh`       | Modify | Wire `spec` subcommand                        |
-| `lore.sh`                | Modify | Add `lore spec` command routing               |
-| `transfer/lib/resume.sh` | Modify | Show active spec context                      |
-| `mcp/src/index.ts`       | Modify | Add 5 new MCP tools                           |
+| File                     | Action | Change                          |
+| ------------------------ | ------ | ------------------------------- |
+| `intent/lib/spec.sh`     | Create | New spec subcommand library     |
+| `intent/intent.sh`       | Modify | Wire `spec` subcommand          |
+| `lore.sh`                | Modify | Add `lore spec` command routing |
+| `transfer/lib/resume.sh` | Modify | Show active spec context        |
+| `mcp/src/index.ts`       | Modify | Add 5 new MCP tools             |
 
 ## Acceptance Criteria
 
 ### Phase 1: Core Commands
+
 - [ ] `lore spec import <spec.md>` creates goal with success_criteria mapped
 - [ ] `lore spec import <spec-dir>` handles full spec directory
 - [ ] `lore spec assign <goal-id>` binds to session, updates both
@@ -359,10 +367,12 @@ When resuming a session with an assigned spec, show related journal entries:
 - [ ] `lore spec capture-decisions` extracts plan.md → journal
 
 ### Phase 2: Resume Enhancement
+
 - [ ] `lore resume` shows active spec with phase and progress
 - [ ] `lore resume` shows related decisions for active spec
 
 ### Phase 3: MCP Tools
+
 - [ ] All 5 MCP tools functional
 - [ ] Agent can list, assign, progress, complete specs via MCP
 
@@ -403,13 +413,13 @@ lore search "goal-xxx"
 
 ## Dependencies
 
-| Dependency          | Status   | Notes                         |
-| ------------------- | -------- | ----------------------------- |
-| Intent layer        | Complete | Goals, missions, export       |
-| Transfer layer      | Complete | Sessions, resume              |
-| MCP server          | Complete | lore_spec exists              |
-| yq                  | Required | YAML processing               |
-| spec-kit (optional) | External | Not required, but integrates  |
+| Dependency          | Status   | Notes                        |
+| ------------------- | -------- | ---------------------------- |
+| Intent layer        | Complete | Goals, missions, export      |
+| Transfer layer      | Complete | Sessions, resume             |
+| MCP server          | Complete | lore_spec exists             |
+| yq                  | Required | YAML processing              |
+| spec-kit (optional) | External | Not required, but integrates |
 
 ## Future Work (Out of Scope)
 
@@ -418,3 +428,7 @@ lore search "goal-xxx"
 3. **Multi-agent specs** — One spec decomposed across multiple sessions
 4. **Spec templates** — `lore spec init` to create spec-kit structure
 5. **Constitution support** — Store project constitution in Lore, reference in specs
+
+## Outcome
+
+Implemented in full across all three phases. `intent/lib/spec.sh` contains `spec_import`, `spec_assign`, `spec_progress`, and `spec_complete`. All five MCP tools (`lore_spec_list`, `lore_spec_context`, `lore_spec_assign`, `lore_spec_progress`, `lore_spec_complete`) exist in `mcp/src/index.ts`. The `lore resume` enhancement to show active spec context was also implemented. The `lore spec capture-decisions` command was not explicitly exposed in the CLI help, though the import flow captures plan decisions at import time.

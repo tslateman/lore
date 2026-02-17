@@ -31,6 +31,7 @@ Directory structure on `entire/checkpoints/v1` branch:
 ```
 
 **Session metadata** (`<hash>/<checkpoint_id>/metadata.json`):
+
 - `checkpoint_id`: "7f699508ff13"
 - `branch`: "main"
 - `files_touched`: ["file1.md", "file2.sh"]
@@ -38,6 +39,7 @@ Directory structure on `entire/checkpoints/v1` branch:
 - `token_usage`: { input_tokens, output_tokens, ... }
 
 **Checkpoint metadata** (`<hash>/<checkpoint_id>/0/metadata.json`):
+
 - `checkpoint_id`: "7f699508ff13"
 - `session_id`: "08a76340-7adb-4b8e-abc6-81eb6964ed03"
 - `created_at`: "2026-02-15T03:10:35.321939Z"
@@ -83,24 +85,24 @@ git ls-tree -r --name-only entire/checkpoints/v1 | grep '/0/metadata.json$' | wh
     # Extract checkpoint directory (e.g., "7f/699508ff13/0")
     checkpoint_dir=$(dirname "$metadata_path")
     session_dir=$(dirname "$checkpoint_dir")
-    
+
     # Read checkpoint metadata
     checkpoint_meta=$(git show "entire/checkpoints/v1:${metadata_path}" 2>/dev/null) || continue
-    
+
     checkpoint_id=$(echo "$checkpoint_meta" | jq -r '.checkpoint_id // ""')
     session_id=$(echo "$checkpoint_meta" | jq -r '.session_id // ""')
     created_at=$(echo "$checkpoint_meta" | jq -r '.created_at // ""')
     branch=$(echo "$checkpoint_meta" | jq -r '.branch // "unknown"')
     agent=$(echo "$checkpoint_meta" | jq -r '.agent // "unknown"')
     files_touched=$(echo "$checkpoint_meta" | jq -r '.files_touched | join(", ")' 2>/dev/null || echo "")
-    
+
     # Skip if already synced (compare checkpoint_id)
     if [[ -n "${last_synced}" ]]; then
         if grep -qxF "${checkpoint_id}" "${MARKER_FILE}" 2>/dev/null; then
             continue
         fi
     fi
-    
+
     # Try to get context summary from context.md
     context_path="${checkpoint_dir}/context.md"
     summary=""
@@ -110,15 +112,15 @@ git ls-tree -r --name-only entire/checkpoints/v1 | grep '/0/metadata.json$' | wh
             sed -n '/^### Prompt 1/,/^### Prompt 2/p' | head -5 | tail -4 | tr '\n' ' ' | cut -c1-100)
     fi
     [[ -z "$summary" ]] && summary="Checkpoint ${checkpoint_id} on ${branch}"
-    
+
     # Build tags
     tags="entire,checkpoint:${checkpoint_id},branch:${branch},agent:${agent}"
     [[ -n "${session_id}" ]] && tags="${tags},session:${session_id}"
-    
+
     # Build rationale from files touched
     rationale="Files: ${files_touched:-none}"
     [[ -n "${created_at}" ]] && rationale="${rationale}. Created: ${created_at}"
-    
+
     # Sync to Lore journal
     "${LORE_DIR}/lore.sh" remember "${summary}" \
         --rationale "${rationale}" \
@@ -127,7 +129,7 @@ git ls-tree -r --name-only entire/checkpoints/v1 | grep '/0/metadata.json$' | wh
         echo "Warning: Failed to sync checkpoint ${checkpoint_id}, continuing..."
         continue
     }
-    
+
     echo "Synced: ${checkpoint_id} (session: ${session_id:-unknown})"
     synced=$((synced + 1))
     echo "${checkpoint_id}" >> "${MARKER_FILE}"
@@ -204,9 +206,13 @@ cat .entire-sync-marker
 
 ## Dependencies
 
-| Dependency             | Status    | Notes                   |
-| ---------------------- | --------- | ----------------------- |
-| Entire CLI installed   | Complete  | Already installed       |
-| Entire enabled in repo | Complete  | Branch exists           |
-| jq                     | Available | Standard tool           |
-| Mirror yeoman as model | Complete  | Pattern proven          |
+| Dependency             | Status    | Notes             |
+| ---------------------- | --------- | ----------------- |
+| Entire CLI installed   | Complete  | Already installed |
+| Entire enabled in repo | Complete  | Branch exists     |
+| jq                     | Available | Standard tool     |
+| Mirror yeoman as model | Complete  | Pattern proven    |
+
+## Outcome
+
+Implemented as planned. `scripts/entire-yeoman.sh` exists, reads from the `entire/checkpoints/v1` branch, writes checkpoint metadata to the journal, and uses `.entire-sync-marker` to prevent duplicate syncs. The `Makefile` adds both `sync-entire` and `sync-all` targets. The script landed in `scripts/` rather than in `hooks/` as some references suggested.

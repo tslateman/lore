@@ -65,19 +65,14 @@ trap 'rm -f "$additions_file"' EXIT
 
 jq -n \
     --slurpfile graph "$GRAPH_FILE" \
+    --slurpfile decisions <(jq -s 'group_by(.id) | map(.[-1])' "$DECISIONS_FILE") \
     --argjson hashes "$hash_json" \
-    --arg now "$now" \
-    --rawfile decisions_raw "$DECISIONS_FILE" '
-
-    # Parse JSONL and deduplicate by .id (keep last occurrence)
-    def dedup_decisions:
-        [splits("\n") | select(length > 0) | fromjson] |
-        group_by(.id) | map(.[-1]);
+    --arg now "$now" '
 
     # Lookup pre-computed node ID
     def node_id(type; name): $hashes[(type + ":" + name)] // (type + "-unknown");
 
-    ($decisions_raw | dedup_decisions) as $decisions |
+    $decisions[0] as $decisions |
     $graph[0] as $graph |
 
     # Existing journal_ids in graph
@@ -188,11 +183,15 @@ if [[ "$new_decision_nodes" -gt 0 || "$new_file_nodes" -gt 0 ]]; then
 fi
 
 # --- Step 4: Dedup edges in graph (catches pre-existing duplicates) ---
-before_edges=$(jq '.edges | length' "$GRAPH_FILE")
-jq '.edges = [.edges | group_by(.from + .to + .relation) | .[] | .[0]]' \
-    "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
-after_edges=$(jq '.edges | length' "$GRAPH_FILE")
-deduped_edges=$((before_edges - after_edges))
+dup_count=$(jq '[.edges | group_by(.from + .to + .relation) | .[] | select(length > 1)] | length' "$GRAPH_FILE")
+deduped_edges=0
+if [[ "$dup_count" -gt 0 ]]; then
+    before_edges=$(jq '.edges | length' "$GRAPH_FILE")
+    jq '.edges = [.edges | group_by(.from + .to + .relation) | .[] | .[0]]' \
+        "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+    after_edges=$(jq '.edges | length' "$GRAPH_FILE")
+    deduped_edges=$((before_edges - after_edges))
+fi
 
 echo -e "${GREEN}Synced ${new_decision_nodes} new decision nodes, ${new_file_nodes} new file nodes, ${new_edges} new edges${NC}"
 if [[ "$deduped_edges" -gt 0 ]]; then

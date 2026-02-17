@@ -349,34 +349,41 @@ rebuild_indexes() {
     rm -rf "$INDEX_DIR"
     mkdir -p "$INDEX_DIR"
 
-    while IFS= read -r line; do
-        local id timestamp type
-        id=$(echo "$line" | jq -r '.id')
-        timestamp=$(echo "$line" | jq -r '.timestamp')
-        type=$(echo "$line" | jq -r '.type // "other"')
-
+    # Single jq pass: extract id, date_key, type, entities (comma-separated), tags (comma-separated)
+    # Output format: id<TAB>date_key<TAB>type<TAB>entities<TAB>tags
+    jq -r '
+        [.id, (.timestamp | split("T")[0]), (.type // "other"),
+         (.entities | join(",")), (.tags | join(","))]
+        | @tsv
+    ' "$DECISIONS_FILE" | while IFS=$'\t' read -r id date_key type entities tags; do
         # Date index
-        local date_key
-        date_key=$(echo "$timestamp" | cut -d'T' -f1)
-        echo "$id" >> "${INDEX_DIR}/date_${date_key}.idx"
+        [[ -n "$date_key" ]] && echo "$id" >> "${INDEX_DIR}/date_${date_key}.idx"
 
         # Type index
-        echo "$id" >> "${INDEX_DIR}/type_${type}.idx"
+        [[ -n "$type" ]] && echo "$id" >> "${INDEX_DIR}/type_${type}.idx"
 
-        # Entity index
-        echo "$line" | jq -r '.entities[]?' | while read -r entity; do
-            local safe_entity
-            safe_entity=$(echo "$entity" | sed 's/[^a-zA-Z0-9._-]/_/g')
-            echo "$id" >> "${INDEX_DIR}/entity_${safe_entity}.idx"
-        done
+        # Entity index (split comma-separated list and sanitize)
+        if [[ -n "$entities" ]] && [[ "$entities" != "" ]]; then
+            IFS=',' read -ra entity_array <<< "$entities"
+            for entity in "${entity_array[@]}"; do
+                [[ -z "$entity" ]] && continue
+                local safe_entity
+                safe_entity=$(echo "$entity" | sed 's/[^a-zA-Z0-9._-]/_/g')
+                [[ -n "$safe_entity" ]] && echo "$id" >> "${INDEX_DIR}/entity_${safe_entity}.idx"
+            done
+        fi
 
-        # Tag index
-        echo "$line" | jq -r '.tags[]?' | while read -r tag; do
-            local safe_tag
-            safe_tag=$(echo "$tag" | sed 's/[^a-zA-Z0-9._-]/_/g')
-            echo "$id" >> "${INDEX_DIR}/tag_${safe_tag}.idx"
-        done
-    done < "$DECISIONS_FILE"
+        # Tag index (split comma-separated list and sanitize)
+        if [[ -n "$tags" ]] && [[ "$tags" != "" ]]; then
+            IFS=',' read -ra tag_array <<< "$tags"
+            for tag in "${tag_array[@]}"; do
+                [[ -z "$tag" ]] && continue
+                local safe_tag
+                safe_tag=$(echo "$tag" | sed 's/[^a-zA-Z0-9._-]/_/g')
+                [[ -n "$safe_tag" ]] && echo "$id" >> "${INDEX_DIR}/tag_${safe_tag}.idx"
+            done
+        fi
+    done
 
     echo "Indexes rebuilt"
 }

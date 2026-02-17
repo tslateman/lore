@@ -45,23 +45,23 @@ expand_with_graph() {
     local result_ids="$1"
     local depth="${2:-1}"
     local edge_filter="${3:-all}"
-    
+
     local expanded=()
-    
+
     for id in ${result_ids}; do
         # Get related nodes from graph
         local related
         related=$("${LORE_DIR}/graph/graph.sh" related "${id}" --hops "${depth}" --json)
-        
+
         # Filter by edge type if specified
         if [[ "${edge_filter}" != "all" ]]; then
             related=$(echo "${related}" | jq --arg filter "${edge_filter}" \
                 '[.[] | select(.edge_type | test($filter))]')
         fi
-        
+
         expanded+=("${related}")
     done
-    
+
     echo "${expanded[@]}" | jq -s 'add | unique_by(.id)'
 }
 ```
@@ -110,23 +110,23 @@ declare -A EDGE_WEIGHTS=(
 search() {
     local query="$1"
     local graph_depth="${GRAPH_DEPTH:-0}"  # Default: no graph expansion
-    
+
     # Phase 1+2: FTS5 + vector search
     local initial_results
     initial_results=$(search_ranked "${query}")
-    
+
     if [[ "${graph_depth}" -gt 0 ]]; then
         # Phase 3: Graph expansion
         local result_ids
         result_ids=$(echo "${initial_results}" | jq -r '.[].id')
-        
+
         local expanded
         expanded=$(expand_with_graph "${result_ids}" "${graph_depth}")
-        
+
         # Merge and re-rank
         initial_results=$(merge_results "${initial_results}" "${expanded}")
     fi
-    
+
     echo "${initial_results}"
 }
 ```
@@ -149,14 +149,17 @@ lore search "authentication"
 Query: "JWT tokens"
 
 **Direct matches (depth 0):**
+
 - `decision-abc`: "Use JWT for stateless auth"
 
 **Depth 1 expansion:**
+
 - `pattern-def`: "Validate JWT signature before claims" (derived_from decision-abc)
 - `file-auth.py`: implements decision-abc
 - `lesson-ghi`: "JWT expiry must be short" (learned_from decision-abc)
 
 **Depth 2 expansion:**
+
 - `concept-auth`: authentication (file-auth.py implements this)
 - `session-xyz`: where lesson-ghi was learned
 
@@ -206,3 +209,7 @@ export LORE_GRAPH_DEPTH=0
 # Or in config
 echo "graph_depth=0" >> "${LORE_DIR}/.config"
 ```
+
+## Outcome
+
+Implemented as planned. `lib/search-index.sh` contains `expand_with_graph()` and `graph_traverse()` functions, and `lore search` accepts `--graph-depth N` (0-3). The implementation lives in the search index library (`lib/graph-traverse.sh` and `lib/search-index.sh`) rather than in a standalone `lib/search-graph.sh` as the plan proposed. Score decay by hop distance is implemented. Edge type weighting was not added as a named config table.

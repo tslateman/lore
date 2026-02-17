@@ -1,6 +1,7 @@
 # Plan: Journal Dedup Completion and Graph Sync Hardening
 
-Status: Active (2026-02-16)
+Status: Implemented
+Completed: 2026-02-16
 
 ## Context
 
@@ -61,7 +62,7 @@ new 80% Jaccard guard may block checkpoint entries with similar summaries
 ### Changes
 
 - Read `entire-yeoman.sh` summary format: `"Entire checkpoint <id>: N
-  session(s) on <branch>, files: <list>"`. The checkpoint ID varies per
+session(s) on <branch>, files: <list>"`. The checkpoint ID varies per
   entry, so Jaccard similarity between two checkpoints should be low
   unless file lists are identical.
 - Test: create two mock checkpoint summaries with overlapping file lists
@@ -85,7 +86,7 @@ adding an edge, then syncing again can produce duplicates.
 - In the merge step (lines 231-236), after concatenating edges, add a
   dedup pass: group by `from + to + relation`, keep the first occurrence
 - This is a one-line jq addition to the merge filter:
-  
+
   ```
   .edges = [.edges | group_by(.from + .to + .relation) | .[] | .[0]]
   ```

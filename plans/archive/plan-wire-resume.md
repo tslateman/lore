@@ -113,3 +113,7 @@ cd ~/dev/council && ~/dev/lineage/lineage.sh resume
 # Verify pattern output
 ./lineage.sh resume 2>&1 | grep -A5 "Relevant Patterns"
 ```
+
+## Outcome
+
+Superseded. Lineage was absorbed into Lore before this plan was executed. The equivalent `lore resume` command was built with pattern suggestions included from the start: `transfer/lib/resume.sh` calls `suggest_patterns_for_context()` after rendering session context. The `~/.claude/CLAUDE.md` session-start convention (`lore resume`) was implemented as specified.

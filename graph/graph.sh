@@ -558,6 +558,11 @@ cmd_orphans() {
 
     echo -e "${YELLOW}Orphaned Nodes (no connections):${NC}"
     echo "$orphans" | jq -r '.[] | "  \(.id) [\(.type)] \(.name)"'
+
+    local count
+    count=$(echo "$orphans" | jq 'length')
+    echo ""
+    echo -e "${CYAN}Total: $count orphaned node(s)${NC}"
 }
 
 # Find hub nodes

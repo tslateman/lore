@@ -47,14 +47,14 @@ When `add_decision()` is called, also create a journal entry. Store the decision
 add_decision() {
     local decision="$1"
     local rationale="${2:-}"
-    
+
     # Create journal entry
     local dec_id
     dec_id=$("${LORE_DIR}/journal/journal.sh" record "${decision}" \
         --rationale "${rationale}" \
         --session "${SESSION_ID}" \
         --quiet)
-    
+
     # Store ID in session (not plain text)
     jq --arg id "${dec_id}" '.related.journal_entries += [$id]' \
         "${SESSION_FILE}" > "${SESSION_FILE}.tmp" \
@@ -72,7 +72,7 @@ show_decisions() {
     local session_id="$1"
     local entries
     entries=$(jq -r '.related.journal_entries[]' "${SESSION_FILE}")
-    
+
     if [[ -n "${entries}" ]]; then
         echo "--- Decisions Made ---"
         for dec_id in ${entries}; do
@@ -90,7 +90,7 @@ Key decisions from handoff become journal entries with `type: handoff`.
 # transfer/lib/handoff.sh (modified)
 create_handoff() {
     # ... existing logic ...
-    
+
     # Record handoff as a journal entry
     "${LORE_DIR}/journal/journal.sh" record \
         "Session handoff: ${message}" \
@@ -119,3 +119,7 @@ journal.sh list --session "$(cat ~/.lore/.current_session)"
 # Resume should show full decision content
 transfer.sh resume
 ```
+
+## Outcome
+
+Implemented as planned. `transfer/lib/snapshot.sh`'s `add_decision()` calls `journal.sh record` and stores the resulting decision ID in `related.journal_entries`. The session file at `~/.lore/.current_session` provides the shared session ID that journal entries inherit. `transfer/lib/resume.sh` shows related journal entries on resume. The handoff-to-journal step was partially implemented: `add_decision()` journals decisions on snapshot, but the standalone `handoff` command does not create a separate journal entry.
