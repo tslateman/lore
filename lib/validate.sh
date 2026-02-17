@@ -247,6 +247,74 @@ check_required_tags() {
     if [[ "$ok" == true ]]; then _pass "all projects have type: and status: tags"; fi
 }
 
+# ── Check 9: active initiative staleness ───────────────────────────────
+check_active_initiatives() {
+    local initiatives_dir="$WORKSPACE_ROOT/council/initiatives"
+    [[ -d "$initiatives_dir" ]] || { _warn "council/initiatives/ not found"; return 0; }
+
+    # Build a map: initiative title -> status
+    # Uses associative array keyed by lowercase title
+    local -A title_to_status
+    local -A title_to_file
+    local init_files
+    init_files=$(ls "$initiatives_dir"/*.md 2>/dev/null) || true
+    [[ -z "$init_files" ]] && { _warn "no initiative files found"; return 0; }
+
+    while IFS= read -r init_file; do
+        [[ -z "$init_file" ]] && continue
+        local title status
+        title=$(head -1 "$init_file" | sed 's/^# //')
+        status=$(grep -m1 '^\*\*Status' "$init_file" | sed 's/^\*\*Status:\*\* //' || true)
+        [[ -z "$title" || -z "$status" ]] && continue
+        local key
+        key=$(echo "$title" | tr '[:upper:]' '[:lower:]')
+        title_to_status["$key"]="$status"
+        title_to_file["$key"]="$(basename "$init_file")"
+    done <<< "$init_files"
+
+    # Find CLAUDE.md files across workspace
+    local claude_files
+    claude_files=$(find "$WORKSPACE_ROOT" -name "CLAUDE.md" \
+        -not -path "*/.git/*" \
+        -not -path "*/node_modules/*" \
+        -not -path "*/.entire/*" \
+        -not -path "*/_archive/*" \
+        2>/dev/null) || true
+
+    local ok=true
+    while IFS= read -r claude_file; do
+        [[ -z "$claude_file" ]] && continue
+
+        # Extract initiative names from "## Active Initiatives" section
+        local in_section=false
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^##[[:space:]]+Active[[:space:]]+Initiatives ]]; then
+                in_section=true
+                continue
+            fi
+            if [[ "$in_section" == true && "$line" =~ ^## ]]; then
+                break
+            fi
+            if [[ "$in_section" == true && "$line" =~ ^\-[[:space:]]+\*\*([^*]+)\*\* ]]; then
+                local init_name="${BASH_REMATCH[1]}"
+                local init_key
+                init_key=$(echo "$init_name" | tr '[:upper:]' '[:lower:]')
+
+                if [[ -n "${title_to_status[$init_key]+x}" ]]; then
+                    local init_status="${title_to_status[$init_key]}"
+                    # Check if status starts with Active
+                    if [[ ! "$init_status" =~ ^Active ]]; then
+                        local rel="${claude_file#"$WORKSPACE_ROOT"/}"
+                        _warn "$rel lists '$init_name' as active but status is '$init_status'"
+                        ok=false
+                    fi
+                fi
+            fi
+        done < "$claude_file"
+    done <<< "$claude_files"
+    if [[ "$ok" == true ]]; then _pass "CLAUDE.md active initiative references match initiative status"; fi
+}
+
 # ── Main ─────────────────────────────────────────────────────────────────
 cmd_validate() {
     _check_deps || return 1
@@ -267,10 +335,11 @@ cmd_validate() {
     check_tag_cluster_consistency
     check_archived_no_cluster
     check_required_tags
+    check_active_initiatives
 
     echo ""
     if [[ $ERRORS -eq 0 && $WARNINGS -eq 0 ]]; then
-        echo -e "${GREEN}All 8 checks passed${NC}"
+        echo -e "${GREEN}All 9 checks passed${NC}"
     else
         echo -e "${DIM}Results: ${ERRORS} error(s), ${WARNINGS} warning(s)${NC}"
     fi
