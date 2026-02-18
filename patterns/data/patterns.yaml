@@ -3,6 +3,16 @@
 
 patterns:
 
+    - id: "pat-414154-4802dbcc"
+      name: "[DEPRECATED] Risky Business"
+      context: "Always"
+      problem: ""
+      solution: "Do it dangerous"
+      category: "testing"
+      origin: "session-2026-02-18"
+      confidence: 0.0
+      validations: 0
+      created_at: "2026-02-18T11:29:14Z"
     - id: "pat-309430-e9ebf2a5"
       name: "Mirror is the gap between declared priority and actual work"
       context: ""
@@ -237,6 +247,15 @@ patterns:
       created_at: "2026-02-10T06:00:00Z"
 
 anti_patterns:
+
+    - id: "anti-414154-ac37001f"
+      name: "Avoid: Risky Business"
+      symptom: " (Context: Always)"
+      risk: "It causes sadness"
+      fix: "Do not use this pattern. Instead: Do it dangerous (See rationale)"
+      category: "testing"
+      severity: "high"
+      created_at: "2026-02-18T11:29:14Z"
     - id: "anti-000001-seed"
       name: "Baked-in credentials"
       symptom: "Credentials stored in container image or code"

@@ -13,6 +13,7 @@ PATTERNS_FILE="$DATA_DIR/patterns.yaml"
 source "$LIB_DIR/capture.sh"
 source "$LIB_DIR/match.sh"
 source "$LIB_DIR/suggest.sh"
+source "$LIB_DIR/invert.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -57,7 +58,13 @@ Commands:
 
   show <id>            Show details for a specific pattern/anti-pattern
 
+  show <id>            Show details for a specific pattern/anti-pattern
+
   validate <id>        Mark a pattern as validated (increases confidence)
+
+  flag <id>            Flag a pattern as harmful or problematic
+    --reason "why"     Reason for flagging
+    --type <type>      Type of flag: harmful, obsolete, incorrect (default: harmful)
 
   init                 Initialize patterns database
 
@@ -353,6 +360,57 @@ cmd_validate() {
     validate_pattern "$id"
 }
 
+# Command: flag
+cmd_flag() {
+    local id="$1"
+    local reason=""
+    local type="harmful"
+
+    shift
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --reason)
+                reason="$2"
+                shift 2
+                ;;
+            --type)
+                type="$2"
+                shift 2
+                ;;
+            *)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    if [[ -z "$id" ]]; then
+        echo -e "${RED}Error: Pattern ID is required${NC}" >&2
+        return 1
+    fi
+
+    if [[ -z "$reason" ]]; then
+        echo -e "${RED}Error: Reason is required${NC}" >&2
+        return 1
+    fi
+
+    # Record the flag (uses existing validations field for now, but negative)
+    # Ideally we'd have a separate field, but for MVP we use a convention
+    # We'll store flags in a separate file to track count
+    local flags_file="$DATA_DIR/flags.jsonl"
+    echo "{\"pattern_id\": \"$id\", \"type\": \"$type\", \"reason\": \"$reason\", \"timestamp\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" >> "$flags_file"
+    
+    echo -e "${YELLOW}Flagged pattern $id as $type.${NC}"
+
+    # Check for inversion trigger
+    if [[ "$type" == "harmful" ]]; then
+        local count
+        count=$(grep -c "\"pattern_id\": \"$id\", \"type\": \"harmful\"" "$flags_file")
+        check_inversion_trigger "$id" "$count" "$reason"
+    fi
+}
+
 # Main command dispatcher
 main() {
     if [[ $# -eq 0 ]]; then
@@ -391,6 +449,9 @@ main() {
             ;;
         validate)
             cmd_validate "$@"
+            ;;
+        flag)
+            cmd_flag "$@"
             ;;
         init)
             init_database
