@@ -204,7 +204,7 @@ query_journal() {
     
     # Get recent decisions matching project (last 10, then filter)
     local matches
-    matches=$(grep -i "$project" "$JOURNAL_FILE" 2>/dev/null | tail -10) || return 0
+    matches=$(grep -i "$project" "$JOURNAL_FILE" 2>/dev/null | jq -c 'select((.status // "active") == "active")' 2>/dev/null | tail -10) || return 0
     [[ -z "$matches" ]] && return 0
 
     while IFS= read -r line; do

@@ -581,6 +581,104 @@ cmd_export() {
     esac
 }
 
+cmd_retract() {
+    local id=""
+    local reason=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --reason) reason="$2"; shift 2 ;;
+            -*) echo -e "${RED}Unknown option: $1${NC}" >&2; return 1 ;;
+            *) [[ -z "$id" ]] && id="$1"; shift ;;
+        esac
+    done
+
+    if [[ -z "$id" ]]; then
+        echo -e "${RED}Error: Decision ID required${NC}" >&2
+        echo "Usage: journal.sh retract <id> --reason \"...\"" >&2
+        return 1
+    fi
+    if [[ -z "$reason" ]]; then
+        echo -e "${RED}Error: --reason required${NC}" >&2
+        return 1
+    fi
+
+    local current
+    current=$(get_decision "$id")
+    if [[ -z "$current" ]]; then
+        echo -e "${RED}Error: Decision $id not found${NC}" >&2
+        return 1
+    fi
+
+    local current_status
+    current_status=$(echo "$current" | jq -r '.status // "active"')
+    if [[ "$current_status" == "retracted" ]]; then
+        echo -e "${YELLOW}Decision $id is already retracted${NC}" >&2
+        return 1
+    fi
+
+    # Append new JSONL line with retracted status
+    local retracted
+    retracted=$(echo "$current" | jq -c \
+        --arg reason "$reason" \
+        --arg changed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '. + {status: "retracted", retracted_reason: $reason, status_changed_at: $changed}')
+
+    echo "$retracted" >> "$DECISIONS_FILE"
+
+    echo -e "${GREEN}Retracted:${NC} ${BOLD}$id${NC}"
+    echo -e "  ${CYAN}Reason:${NC} $reason"
+}
+
+cmd_supersede() {
+    local id=""
+    local new_id=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --by) new_id="$2"; shift 2 ;;
+            -*) echo -e "${RED}Unknown option: $1${NC}" >&2; return 1 ;;
+            *) [[ -z "$id" ]] && id="$1"; shift ;;
+        esac
+    done
+
+    if [[ -z "$id" ]]; then
+        echo -e "${RED}Error: Decision ID required${NC}" >&2
+        echo "Usage: journal.sh supersede <id> --by <new-id>" >&2
+        return 1
+    fi
+    if [[ -z "$new_id" ]]; then
+        echo -e "${RED}Error: --by <new-id> required${NC}" >&2
+        return 1
+    fi
+
+    local current
+    current=$(get_decision "$id")
+    if [[ -z "$current" ]]; then
+        echo -e "${RED}Error: Decision $id not found${NC}" >&2
+        return 1
+    fi
+
+    local replacement
+    replacement=$(get_decision "$new_id")
+    if [[ -z "$replacement" ]]; then
+        echo -e "${RED}Error: Replacement decision $new_id not found${NC}" >&2
+        return 1
+    fi
+
+    # Append new JSONL line with superseded status
+    local superseded
+    superseded=$(echo "$current" | jq -c \
+        --arg by "$new_id" \
+        --arg changed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '. + {status: "superseded", superseded_by: $by, status_changed_at: $changed}')
+
+    echo "$superseded" >> "$DECISIONS_FILE"
+
+    echo -e "${GREEN}Superseded:${NC} ${BOLD}$id${NC}"
+    echo -e "  ${CYAN}Replaced by:${NC} $new_id"
+}
+
 # Main command dispatcher
 main() {
     if [[ $# -eq 0 ]]; then
@@ -618,6 +716,12 @@ main() {
             ;;
         compact)
             compact_decisions
+            ;;
+        retract)
+            cmd_retract "$@"
+            ;;
+        supersede)
+            cmd_supersede "$@"
             ;;
         export)
             cmd_export "$@"

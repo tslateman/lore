@@ -75,7 +75,7 @@ add_edge() {
         jq --arg from "$from" --arg to "$to" --arg rel "$relation" \
            --argjson weight "$weight" --arg created "$timestamp" \
            --argjson bidir "$bidirectional" \
-           '.edges += [{from: $from, to: $to, relation: $rel, weight: $weight, bidirectional: $bidir, created_at: $created}]' \
+           '.edges += [{from: $from, to: $to, relation: $rel, weight: $weight, bidirectional: $bidir, status: "active", created_at: $created}]' \
            "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
         echo "Created edge: $from -> $to ($relation)"
     fi
@@ -90,7 +90,7 @@ add_edge() {
         if [[ -z "$reverse_existing" ]]; then
             jq --arg from "$to" --arg to "$from" --arg rel "$relation" \
                --argjson weight "$weight" --arg created "$timestamp" \
-               '.edges += [{from: $from, to: $to, relation: $rel, weight: $weight, bidirectional: true, created_at: $created}]' \
+               '.edges += [{from: $from, to: $to, relation: $rel, weight: $weight, bidirectional: true, status: "active", created_at: $created}]' \
                "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
         fi
     fi
@@ -117,25 +117,49 @@ delete_edge() {
     echo "Deleted edge: $from -> $to"
 }
 
+# Deprecate an edge (soft-delete via status field)
+deprecate_edge() {
+    local from="$1"
+    local to="$2"
+    local relation="${3:-}"
+
+    init_graph
+
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    if [[ -n "$relation" ]]; then
+        jq --arg from "$from" --arg to "$to" --arg rel "$relation" --arg updated "$timestamp" \
+           '.edges = [.edges[] | if (.from == $from and .to == $to and .relation == $rel) then .status = "deprecated" | .updated_at = $updated else . end]' \
+           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+    else
+        jq --arg from "$from" --arg to "$to" --arg updated "$timestamp" \
+           '.edges = [.edges[] | if (.from == $from and .to == $to) then .status = "deprecated" | .updated_at = $updated else . end]' \
+           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+    fi
+
+    echo "Deprecated edge: $from -> $to${relation:+ ($relation)}"
+}
+
 # Get all edges from a node
 get_outgoing_edges() {
     local from="$1"
     init_graph
-    jq -r --arg from "$from" '.edges[] | select(.from == $from)' "$GRAPH_FILE"
+    jq -r --arg from "$from" '.edges[] | select(.from == $from) | select((.status // "active") != "deprecated")' "$GRAPH_FILE"
 }
 
 # Get all edges to a node
 get_incoming_edges() {
     local to="$1"
     init_graph
-    jq -r --arg to "$to" '.edges[] | select(.to == $to)' "$GRAPH_FILE"
+    jq -r --arg to "$to" '.edges[] | select(.to == $to) | select((.status // "active") != "deprecated")' "$GRAPH_FILE"
 }
 
 # Get all edges for a node (both directions)
 get_all_edges() {
     local node="$1"
     init_graph
-    jq -r --arg node "$node" '.edges[] | select(.from == $node or .to == $node)' "$GRAPH_FILE"
+    jq -r --arg node "$node" '.edges[] | select(.from == $node or .to == $node) | select((.status // "active") != "deprecated")' "$GRAPH_FILE"
 }
 
 # List all edges
@@ -145,10 +169,10 @@ list_edges() {
 
     if [[ -n "$relation" ]]; then
         jq -r --arg rel "$relation" \
-           '.edges[] | select(.relation == $rel) | "\(.from) -> \(.to) [\(.relation), weight: \(.weight)]"' \
+           '.edges[] | select(.relation == $rel) | select((.status // "active") != "deprecated") | "\(.from) -> \(.to) [\(.relation), weight: \(.weight)]"' \
            "$GRAPH_FILE"
     else
-        jq -r '.edges[] | "\(.from) -> \(.to) [\(.relation), weight: \(.weight)]"' "$GRAPH_FILE"
+        jq -r '.edges[] | select((.status // "active") != "deprecated") | "\(.from) -> \(.to) [\(.relation), weight: \(.weight)]"' "$GRAPH_FILE"
     fi
 }
 
@@ -185,9 +209,9 @@ get_neighbors() {
 
     # Get both outgoing and incoming neighbors
     jq -r --arg node "$node" '
-        (.edges[] | select(.from == $node) | .to),
-        (.edges[] | select(.to == $node) | .from)
+        (.edges[] | select(.from == $node) | select((.status // "active") != "deprecated") | .to),
+        (.edges[] | select(.to == $node) | select((.status // "active") != "deprecated") | .from)
     ' "$GRAPH_FILE" | sort -u
 }
 
-export -f validate_edge_type add_edge delete_edge get_outgoing_edges get_incoming_edges get_all_edges list_edges update_edge_weight edge_count get_neighbors
+export -f validate_edge_type add_edge delete_edge deprecate_edge get_outgoing_edges get_incoming_edges get_all_edges list_edges update_edge_weight edge_count get_neighbors

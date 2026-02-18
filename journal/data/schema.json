@@ -40,6 +40,26 @@
       "default": "pending",
       "description": "Current status of the decision"
     },
+    "status": {
+      "type": "string",
+      "enum": ["active", "superseded", "retracted"],
+      "default": "active",
+      "description": "Lifecycle status of the decision"
+    },
+    "superseded_by": {
+      "type": ["string", "null"],
+      "pattern": "^dec-[a-f0-9]{8}$",
+      "description": "ID of the decision that replaces this one"
+    },
+    "retracted_reason": {
+      "type": ["string", "null"],
+      "description": "Why this decision was retracted"
+    },
+    "status_changed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When the status was last changed"
+    },
     "type": {
       "type": "string",
       "enum": ["architecture", "implementation", "naming", "tooling", "process", "bugfix", "refactor", "other"],

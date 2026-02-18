@@ -1161,11 +1161,10 @@ main() {
 
         # Component dispatch
         journal)    shift
-                    if [[ "${1:-}" == "add" ]]; then
-                        shift; journal_add "$@"
-                    else
-                        "$LORE_DIR/journal/journal.sh" "$@"
-                    fi
+                    case "${1:-}" in
+                        add) shift; journal_add "$@" ;;
+                        *) "$LORE_DIR/journal/journal.sh" "$@" ;;
+                    esac
                     ;;
         graph)      shift; "$LORE_DIR/graph/graph.sh" "$@" ;;
         patterns)   shift; "$LORE_DIR/patterns/patterns.sh" "$@" ;;

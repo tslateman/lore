@@ -109,6 +109,12 @@ load_decisions() {
         local id decision rationale tags timestamp project importance
 
         id=$(echo "$line" | jq -r '.id // ""')
+
+        # Skip non-active decisions
+        local status
+        status=$(echo "$line" | jq -r '.status // "active"')
+        [[ "$status" != "active" ]] && continue
+
         decision=$(echo "$line" | jq -r '.decision // ""')
         rationale=$(echo "$line" | jq -r '.rationale // ""')
         tags=$(echo "$line" | jq -r '(.tags // []) | join(", ")')

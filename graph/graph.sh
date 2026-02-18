@@ -680,6 +680,47 @@ cmd_export() {
     esac
 }
 
+# Deprecate an edge (soft-delete without removing)
+cmd_deprecate() {
+    local from=""
+    local to=""
+    local relation=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --relation) relation="$2"; shift 2 ;;
+            *)
+                if [[ -z "$from" ]]; then from="$1"
+                elif [[ -z "$to" ]]; then to="$1"
+                fi
+                shift ;;
+        esac
+    done
+
+    if [[ -z "$from" || -z "$to" ]]; then
+        echo -e "${RED}Error: from and to are required${NC}" >&2
+        echo "Usage: graph.sh deprecate <from> <to> [--relation type]"
+        return 1
+    fi
+
+    # Resolve names to IDs
+    local from_id to_id
+    from_id=$(resolve_node_ref "$from")
+    to_id=$(resolve_node_ref "$to")
+
+    if [[ -z "$from_id" ]]; then
+        echo -e "${RED}Error: Node not found: $from${NC}" >&2
+        return 1
+    fi
+    if [[ -z "$to_id" ]]; then
+        echo -e "${RED}Error: Node not found: $to${NC}" >&2
+        return 1
+    fi
+
+    deprecate_edge "$from_id" "$to_id" "$relation"
+    echo -e "${GREEN}Deprecated:${NC} $from_id -> $to_id${relation:+ [$relation]}"
+}
+
 # Main command dispatcher
 main() {
     if [[ $# -lt 1 ]]; then
@@ -723,6 +764,9 @@ main() {
             ;;
         disconnect)
             cmd_disconnect "$@"
+            ;;
+        deprecate)
+            cmd_deprecate "$@"
             ;;
         delete|rm)
             cmd_delete "$@"

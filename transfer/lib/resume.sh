@@ -52,6 +52,151 @@ suggest_patterns_for_context() {
 }
 
 #######################################
+# Check if a session file has sparse/minimal content
+# Returns 0 (true) if <= 1 field is populated
+# Args: session_file path
+#######################################
+is_session_sparse() {
+    local session_file="$1"
+
+    [[ ! -f "${session_file}" ]] && return 0
+
+    local populated=0
+
+    # Check summary (non-empty, not the default placeholder)
+    local summary
+    summary=$(jq -r '.summary // ""' "${session_file}" 2>/dev/null)
+    if [[ -n "${summary}" && "${summary}" != "(no summary)" ]]; then
+        populated=$((populated + 1))
+    fi
+
+    # Check handoff message
+    local handoff_msg
+    handoff_msg=$(jq -r '.handoff.message // ""' "${session_file}" 2>/dev/null)
+    if [[ -n "${handoff_msg}" ]]; then
+        populated=$((populated + 1))
+    fi
+
+    # Check goals_addressed
+    local goals_len
+    goals_len=$(jq '.goals_addressed | length' "${session_file}" 2>/dev/null || echo 0)
+    if [[ "${goals_len}" -gt 0 ]]; then
+        populated=$((populated + 1))
+    fi
+
+    # Check decisions_made
+    local decisions_len
+    decisions_len=$(jq '.decisions_made | length' "${session_file}" 2>/dev/null || echo 0)
+    if [[ "${decisions_len}" -gt 0 ]]; then
+        populated=$((populated + 1))
+    fi
+
+    # Check open_threads
+    local threads_len
+    threads_len=$(jq '.open_threads | length' "${session_file}" 2>/dev/null || echo 0)
+    if [[ "${threads_len}" -gt 0 ]]; then
+        populated=$((populated + 1))
+    fi
+
+    # Sparse if <= 1 field populated
+    [[ "${populated}" -le 1 ]]
+}
+
+#######################################
+# Reconstruct context from data layer when no handoff exists
+# Gathers recent git, journal, patterns, and failures
+#######################################
+reconstruct_context() {
+    echo -e "${YELLOW}--- Reconstructed Context (no handoff found) ---${NC}"
+    echo ""
+
+    # Recent git activity
+    echo -e "${CYAN}Recent Git:${NC}"
+    local branch
+    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+    if [[ -n "${branch}" ]]; then
+        echo "  Branch: ${branch}"
+        echo ""
+
+        echo "  Last 10 commits:"
+        git log --oneline -10 2>/dev/null | while IFS= read -r line; do
+            echo "    ${line}"
+        done || true
+        echo ""
+
+        local uncommitted
+        uncommitted=$(git status --porcelain 2>/dev/null || true)
+        if [[ -n "${uncommitted}" ]]; then
+            echo "  Uncommitted files:"
+            echo "${uncommitted}" | while IFS= read -r line; do
+                echo "    ${line}"
+            done
+            echo ""
+        fi
+
+        echo "  Diff stat (last 5 commits):"
+        git diff --stat HEAD~5..HEAD 2>/dev/null | while IFS= read -r line; do
+            echo "    ${line}"
+        done || true
+        echo ""
+    else
+        echo "  (not a git repository)"
+        echo ""
+    fi
+
+    # Recent journal decisions
+    local journal_data="${LORE_DIR}/journal/data/decisions.jsonl"
+    if [[ -f "${journal_data}" ]]; then
+        echo -e "${CYAN}Recent Decisions:${NC}"
+        local decisions
+        decisions=$(jq -s 'group_by(.id) | map(.[-1]) | sort_by(.timestamp) | reverse | .[0:5]' "${journal_data}" 2>/dev/null || true)
+        if [[ -n "${decisions}" && "${decisions}" != "[]" && "${decisions}" != "null" ]]; then
+            echo "${decisions}" | jq -r '.[] | "  - \(.decision[0:80])\(if (.decision | length) > 80 then "..." else "" end)"' 2>/dev/null || true
+        else
+            echo "  (no decisions recorded)"
+        fi
+        echo ""
+    fi
+
+    # Recent patterns
+    local patterns_data="${LORE_DIR}/patterns/data/patterns.yaml"
+    if [[ -f "${patterns_data}" ]] && command -v yq &>/dev/null; then
+        echo -e "${CYAN}Recent Patterns:${NC}"
+        local patterns
+        patterns=$(yq -o=json '.patterns' "${patterns_data}" 2>/dev/null | jq 'sort_by(.created_at) | reverse | .[0:5]' 2>/dev/null || true)
+        if [[ -n "${patterns}" && "${patterns}" != "[]" && "${patterns}" != "null" ]]; then
+            echo "${patterns}" | jq -r '.[] | "  - \((.name // .pattern // "(unnamed)")[0:60])"' 2>/dev/null || true
+        else
+            echo "  (no patterns recorded)"
+        fi
+        echo ""
+    fi
+
+    # Recent failures
+    local failures_data="${LORE_DIR}/failures/data/failures.jsonl"
+    if [[ -f "${failures_data}" ]]; then
+        echo -e "${CYAN}Recent Failures:${NC}"
+        local failures
+        failures=$(tail -5 "${failures_data}" 2>/dev/null || true)
+        if [[ -n "${failures}" ]]; then
+            echo "${failures}" | while IFS= read -r line; do
+                local err_type err_msg
+                err_type=$(echo "${line}" | jq -r '.error_type // .type // "unknown"' 2>/dev/null || true)
+                err_msg=$(echo "${line}" | jq -r '.message // .error // "(no message)"' 2>/dev/null || true)
+                [[ ${#err_msg} -gt 60 ]] && err_msg="${err_msg:0:57}..."
+                echo "  - [${err_type}] ${err_msg}"
+            done
+        else
+            echo "  (no failures recorded)"
+        fi
+        echo ""
+    fi
+
+    echo -e "${YELLOW}--- End Reconstructed Context ---${NC}"
+    echo ""
+}
+
+#######################################
 # Fork a new session from a parent session
 # Creates new session inheriting context, sets as current
 # Args: parent_session_id
@@ -426,6 +571,11 @@ resume_session() {
         echo ""
     fi
 
+    # If session is sparse, reconstruct context from data layer
+    if is_session_sparse "${session_file}"; then
+        reconstruct_context
+    fi
+
     # Suggest relevant patterns based on session context
     # Try multiple sources: project, summary, open threads
     local project summary
@@ -530,7 +680,9 @@ resume_latest() {
     if [[ -z "${latest}" ]]; then
         echo "No previous sessions found."
         echo ""
-        # Still useful: suggest patterns for the current project
+        # Reconstruct context from data layer
+        reconstruct_context
+        # Also suggest patterns for the current project
         local project_name
         project_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
         suggest_patterns_for_context "${project_name}"

@@ -194,7 +194,7 @@ list_recent() {
 
     # Get unique decisions (latest version of each)
     reverse_lines "$DECISIONS_FILE" | \
-        jq -s 'group_by(.id) | map(.[-1])' | \
+        jq -s 'group_by(.id) | map(.[-1]) | map(select((.status // "active") == "active"))' | \
         jq ".[0:$count]"
 }
 
@@ -206,6 +206,7 @@ list_by_date() {
     jq -s --arg start "$start_date" --arg end "$end_date" '
         [.[] | select(.timestamp >= $start and .timestamp <= ($end + "T23:59:59Z"))]
         | group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
         | sort_by(.timestamp) | reverse
     ' "$DECISIONS_FILE"
 }
@@ -226,6 +227,7 @@ search_decisions() {
             (.tags | map(ascii_downcase) | any(contains($q)))
         )]
         | group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
         | sort_by(.timestamp) | reverse
     ' "$DECISIONS_FILE"
 }
@@ -242,12 +244,13 @@ get_by_entity() {
         local ids
         ids=$(sort -u "$index_file" | paste -sd'|' -)
         grep -E "\"id\":\"(${ids})\"" "$DECISIONS_FILE" | \
-            jq -s 'group_by(.id) | map(.[-1]) | sort_by(.timestamp) | reverse'
+            jq -s 'group_by(.id) | map(.[-1]) | map(select((.status // "active") == "active")) | sort_by(.timestamp) | reverse'
     else
         # Fallback to full search if no index
         jq -s --arg e "$entity" '
             [.[] | select(.entities | map(ascii_downcase) | any(contains($e | ascii_downcase)))]
             | group_by(.id) | map(.[-1])
+            | map(select((.status // "active") == "active"))
             | sort_by(.timestamp) | reverse
         ' "$DECISIONS_FILE"
     fi
@@ -260,6 +263,7 @@ get_by_type() {
     jq -s --arg t "$type" '
         [.[] | select(.type == $t)]
         | group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
         | sort_by(.timestamp) | reverse
     ' "$DECISIONS_FILE"
 }
@@ -271,6 +275,7 @@ get_by_tag() {
     jq -s --arg t "$tag" '
         [.[] | select(.tags | any(. == $t))]
         | group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
         | sort_by(.timestamp) | reverse
     ' "$DECISIONS_FILE"
 }
@@ -282,6 +287,7 @@ get_by_project() {
     jq -s --arg p "$project" '
         [.[] | select(.tags | any(. == $p or startswith($p + ":") or startswith($p + ",")))]
         | group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
         | sort_by(.timestamp) | reverse
     ' "$DECISIONS_FILE"
 }
@@ -293,6 +299,7 @@ get_by_outcome() {
     jq -s --arg o "$outcome" '
         [.[] | select(.outcome == $o)]
         | group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
         | sort_by(.timestamp) | reverse
     ' "$DECISIONS_FILE"
 }
@@ -300,7 +307,7 @@ get_by_outcome() {
 # Count decisions by various dimensions
 get_stats() {
     jq -s '
-        group_by(.id) | map(.[-1]) |
+        group_by(.id) | map(.[-1]) | map(select((.status // "active") == "active")) |
         {
             total: length,
             by_type: (group_by(.type) | map({key: .[0].type, value: length}) | from_entries),
@@ -318,6 +325,7 @@ export_session() {
     jq -s --arg s "$session_id" '
         [.[] | select(.session_id == $s)]
         | group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
         | sort_by(.timestamp)
     ' "$DECISIONS_FILE"
 }
