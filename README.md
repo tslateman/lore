@@ -29,6 +29,22 @@ export PATH="$HOME/dev/lore:$PATH"
 lore --help
 ```
 
+### Setup Data Directory
+
+Lore stores user data (decisions, patterns, sessions) separately from tool
+code. Run the install script to set this up:
+
+```bash
+./scripts/install.sh
+```
+
+This creates `~/.local/share/lore/` and migrates any existing data from the
+repo. Add to your shell profile:
+
+```bash
+export LORE_DATA_DIR=~/.local/share/lore
+```
+
 ### Install Dependencies (macOS)
 
 ```bash
@@ -121,19 +137,22 @@ Journal captures decisions with rationale. Patterns capture lessons learned. Gra
 
 ## Data Storage
 
-```
-~/.lore/
-└── search.db          # FTS5 index, embeddings, graph cache
+User data lives at `$LORE_DATA_DIR` (default: `~/.local/share/lore`):
 
-lore/
+```
+~/.local/share/lore/
 ├── journal/data/      # decisions.jsonl
 ├── patterns/data/     # patterns.yaml
 ├── transfer/data/     # sessions/*.json
 ├── graph/data/        # graph.json
-├── registry/data/     # metadata.yaml, clusters.yaml
 ├── intent/data/       # goals/
-└── inbox/data/        # observations.jsonl
+├── inbox/data/        # observations.jsonl
+├── failures/data/     # failures.jsonl
+└── search.db          # FTS5 index, embeddings, graph cache
 ```
+
+Run `lore init` to scaffold this structure, or `scripts/install.sh` to
+migrate existing data.
 
 ## Integration
 
@@ -155,7 +174,10 @@ Add to your Claude Code configuration:
     "lore": {
       "command": "node",
       "args": ["/path/to/lore/mcp/build/index.js"],
-      "env": { "LORE_DIR": "/path/to/lore" }
+      "env": {
+        "LORE_DIR": "/path/to/lore",
+        "LORE_DATA_DIR": "~/.local/share/lore"
+      }
     }
   }
 }
