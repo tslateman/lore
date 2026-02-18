@@ -110,6 +110,7 @@ CAPTURE
     --rationale, -r       Why this decision was made
     --alternatives, -a    Other options considered
     --tags, -t            Tags for categorization
+    --valid-at            When the decision became true (ISO8601)
   learn <text>            Capture a pattern or lesson
     --context             When this pattern applies
     --solution            The approach or fix
@@ -129,6 +130,7 @@ QUERY
   suggest <context>       Suggest relevant patterns
   failures [--type T]     List failures
   triggers                Show recurring failures (Rule of Three)
+  promote-failure [type]   Promote recurring failures to anti-patterns
 
 INTENT (Goals)
   goal create <name>      Create a goal
@@ -247,6 +249,7 @@ OTHER QUERIES
   lore suggest <text>       Get pattern suggestions for context
   lore failures             List recorded failures
   lore triggers             Show recurring failure patterns (3+ occurrences)
+  lore promote-failure T   Promote error type T to anti-pattern (--fix, --threshold)
 
 BUILDING THE INDEX
   lore index                Build/rebuild FTS5 search index
@@ -610,6 +613,7 @@ _search_grep() {
     local failures_file="${LORE_FAILURES_DATA}/failures.jsonl"
     if [[ -f "$failures_file" ]]; then
         grep -i "$query" "$failures_file" 2>/dev/null \
+            | jq -s 'sort_by(.timestamp) | reverse | .[]' -c 2>/dev/null \
             | jq -r '"  \(.id) [\(.error_type)] \(.error_message[0:80])"' 2>/dev/null \
             || echo "  (no results)"
     else
@@ -857,6 +861,17 @@ cmd_fail() {
     echo -e "  ${CYAN}Type:${NC} $error_type"
     echo -e "  ${CYAN}Message:${NC} $message"
     [[ -n "$tool" ]] && echo -e "  ${CYAN}Tool:${NC} $tool"
+
+    # Auto-suggest promotion if this error type now has 3+ occurrences
+    local type_count
+    type_count=$(jq -s --arg t "$error_type" \
+        '[.[] | select(.error_type == $t)] | length' \
+        "${LORE_FAILURES_DATA}/failures.jsonl" 2>/dev/null) || true
+    if [[ -n "$type_count" && "$type_count" -ge 3 ]]; then
+        echo "" >&2
+        echo -e "${YELLOW}This error type has occurred ${type_count} times.${NC}" >&2
+        echo -e "${YELLOW}Run \`lore promote-failure ${error_type}\` to create an anti-pattern.${NC}" >&2
+    fi
 }
 
 cmd_failures() {
@@ -918,6 +933,112 @@ cmd_triggers() {
     echo
 
     echo "$results" | jq -r '.[] | "  \(.error_type): \(.count) occurrences (latest: \(.latest[0:16]))\n    Sample: \(.sample_message[0:70])\n"'
+}
+
+cmd_promote_failure() {
+    source "$LORE_DIR/failures/lib/failures.sh"
+
+    local error_type=""
+    local fix=""
+    local threshold=3
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --fix)
+                fix="$2"
+                shift 2
+                ;;
+            --threshold)
+                threshold="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Usage: lore promote-failure [error_type] [--fix \"how to fix\"] [--threshold N]" >&2
+                return 1
+                ;;
+            *)
+                if [[ -z "$error_type" ]]; then
+                    error_type="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    # Get recurring failure types
+    local triggers
+    triggers=$(failures_triggers "$threshold")
+
+    local trigger_count
+    trigger_count=$(echo "$triggers" | jq 'length')
+
+    if [[ "$trigger_count" -eq 0 ]]; then
+        echo -e "${YELLOW}No recurring failure types (threshold: ${threshold})${NC}"
+        return 0
+    fi
+
+    # If a specific type was given, filter to that type
+    if [[ -n "$error_type" ]]; then
+        local filtered
+        filtered=$(echo "$triggers" | jq --arg t "$error_type" '[.[] | select(.error_type == $t)]')
+        local filtered_count
+        filtered_count=$(echo "$filtered" | jq 'length')
+
+        if [[ "$filtered_count" -eq 0 ]]; then
+            echo -e "${RED}Error type '${error_type}' has fewer than ${threshold} occurrences${NC}" >&2
+            return 1
+        fi
+        triggers="$filtered"
+    fi
+
+    # Process each qualifying failure type
+    echo "$triggers" | jq -c '.[]' | while IFS= read -r trigger; do
+        local etype ecount sample_msg
+        etype=$(echo "$trigger" | jq -r '.error_type')
+        ecount=$(echo "$trigger" | jq -r '.count')
+        sample_msg=$(echo "$trigger" | jq -r '.sample_message')
+
+        # Gather all messages of this type for a richer symptom
+        local all_messages
+        all_messages=$(jq -s --arg t "$etype" \
+            '[.[] | select(.error_type == $t) | .error_message] | unique | .[0:5] | join("; ")' \
+            "${LORE_FAILURES_DATA}/failures.jsonl" 2>/dev/null) || true
+        # Strip surrounding quotes from jq output
+        all_messages="${all_messages%\"}"
+        all_messages="${all_messages#\"}"
+
+        local name="PITFALL: ${etype}"
+        local symptom="${all_messages:-$sample_msg}"
+        local risk="Recurring failure (${ecount} occurrences)"
+        local severity="medium"
+        local category="general"
+
+        # Increase severity for high-count failures
+        if [[ "$ecount" -ge 10 ]]; then
+            severity="high"
+        elif [[ "$ecount" -ge 5 ]]; then
+            severity="medium"
+        fi
+
+        # Detect category from error type
+        case "$etype" in
+            ToolError)  category="general" ;;
+            Timeout)    category="performance" ;;
+            *)          category="general" ;;
+        esac
+
+        echo -e "${BOLD}Promoting ${etype} (${ecount} occurrences) to anti-pattern...${NC}"
+
+        "$LORE_DIR/patterns/patterns.sh" warn "$name" \
+            --symptom "$symptom" \
+            --fix "${fix:-}" \
+            --risk "$risk" \
+            --severity "$severity" \
+            --category "$category"
+
+        echo ""
+    done
 }
 
 journal_add() {
@@ -994,6 +1115,17 @@ journal_add() {
                 if ! lore_check_duplicate "decision" "$_check_text"; then
                     return 1
                 fi
+            fi
+        fi
+    fi
+
+    # Contradiction check: warn if new entry conflicts with existing active decisions
+    if [[ "${force:-false}" == false ]]; then
+        local _conflict_lib="$LORE_DIR/lib/conflict.sh"
+        if [[ -f "$_conflict_lib" ]]; then
+            local _contra_text="${title} ${body}"
+            if source "$_conflict_lib" 2>/dev/null; then
+                lore_check_contradiction "$_contra_text" || true
             fi
         fi
     fi
@@ -1195,6 +1327,7 @@ main() {
         fail)       shift; cmd_fail "$@" ;;
         failures)   shift; cmd_failures "$@" ;;
         triggers)   shift; cmd_triggers "$@" ;;
+        promote-failure) shift; cmd_promote_failure "$@" ;;
 
         # Top-level commands
         init)       shift; cmd_init "$@" ;;

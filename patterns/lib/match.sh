@@ -230,7 +230,10 @@ match_patterns_to_context() {
     local current_context=""
     local current_solution=""
     local current_confidence=""
+    local current_created_at=""
     local in_pattern=false
+    local now_epoch
+    now_epoch=$(date +%s)
 
     while IFS= read -r line; do
         if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*id:[[:space:]]*\"(.*)\" ]]; then
@@ -242,9 +245,22 @@ match_patterns_to_context() {
                 score=$(calculate_match_score "$context_keywords" "$pattern_keywords")
 
                 if [[ $score -gt 10 ]]; then
-                    # Weight by confidence
+                    # Apply temporal decay: 1/(1 + days_old/90)
+                    local decay_factor="1.0"
+                    if [[ -n "$current_created_at" ]]; then
+                        local date_part="${current_created_at%%T*}"
+                        local ts_epoch
+                        ts_epoch=$(date -j -f "%Y-%m-%d" "$date_part" +%s 2>/dev/null) || ts_epoch=0
+                        if [[ $ts_epoch -gt 0 ]]; then
+                            local days_old=$(( (now_epoch - ts_epoch) / 86400 ))
+                            decay_factor=$(awk -v d="$days_old" 'BEGIN {printf "%.3f", 1.0 / (1 + d / 90)}')
+                        fi
+                    fi
+
+                    # Weight by confidence * temporal decay
                     local weighted_score
-                    weighted_score=$(echo "$score * ${current_confidence:-0.5}" | bc 2>/dev/null || echo "$score")
+                    weighted_score=$(awk -v s="$score" -v c="${current_confidence:-0.5}" -v d="$decay_factor" \
+                        'BEGIN {printf "%.0f", s * c * d}')
                     matches+=("$current_id|$current_name|$current_context|$current_solution|$weighted_score")
                 fi
             fi
@@ -254,6 +270,7 @@ match_patterns_to_context() {
             current_context=""
             current_solution=""
             current_confidence=""
+            current_created_at=""
             in_pattern=true
         elif [[ "$in_pattern" == "true" ]]; then
             if [[ "$line" =~ name:[[:space:]]*\"(.*)\" ]]; then
@@ -264,6 +281,8 @@ match_patterns_to_context() {
                 current_solution="${BASH_REMATCH[1]}"
             elif [[ "$line" =~ confidence:[[:space:]]*([0-9.]+) ]]; then
                 current_confidence="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ created_at:[[:space:]]*\"(.*)\" ]]; then
+                current_created_at="${BASH_REMATCH[1]}"
             fi
         fi
     done < "$PATTERNS_FILE"
@@ -276,7 +295,20 @@ match_patterns_to_context() {
         score=$(calculate_match_score "$context_keywords" "$pattern_keywords")
 
         if [[ $score -gt 10 ]]; then
-            matches+=("$current_id|$current_name|$current_context|$current_solution|$score")
+            local decay_factor="1.0"
+            if [[ -n "$current_created_at" ]]; then
+                local date_part="${current_created_at%%T*}"
+                local ts_epoch
+                ts_epoch=$(date -j -f "%Y-%m-%d" "$date_part" +%s 2>/dev/null) || ts_epoch=0
+                if [[ $ts_epoch -gt 0 ]]; then
+                    local days_old=$(( (now_epoch - ts_epoch) / 86400 ))
+                    decay_factor=$(awk -v d="$days_old" 'BEGIN {printf "%.3f", 1.0 / (1 + d / 90)}')
+                fi
+            fi
+            local weighted_score
+            weighted_score=$(awk -v s="$score" -v c="${current_confidence:-0.5}" -v d="$decay_factor" \
+                'BEGIN {printf "%.0f", s * c * d}')
+            matches+=("$current_id|$current_name|$current_context|$current_solution|$weighted_score")
         fi
     fi
 

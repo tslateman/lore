@@ -197,3 +197,161 @@ lore_check_duplicate() {
 
     return 1  # Duplicates found
 }
+
+# Extract entities from text (file paths, function names, backtick-quoted terms).
+# Reuses capture.sh logic but works standalone for conflict checking.
+_extract_entities_for_conflict() {
+    local text="$1"
+    local entities=()
+
+    # File paths (e.g., src/main.rs, lib/utils.py)
+    while IFS= read -r match; do
+        [[ -n "$match" ]] && entities+=("$match")
+    done < <(echo "$text" | grep -oE '[a-zA-Z0-9_/-]+\.[a-zA-Z]{1,4}' 2>/dev/null | sort -u || true)
+
+    # Function/method names (e.g., parse_config(), handleEvent)
+    while IFS= read -r match; do
+        [[ -n "$match" ]] && entities+=("$match")
+    done < <(echo "$text" | grep -oE '[a-z_][a-zA-Z0-9_]*\(\)' 2>/dev/null | sed 's/()$//' | sort -u || true)
+
+    # Backtick-quoted terms
+    while IFS= read -r match; do
+        [[ -n "$match" ]] && entities+=("$match")
+    done < <(echo "$text" | grep -oE '`[^`]+`' 2>/dev/null | sed 's/`//g' | sort -u || true)
+
+    # Significant capitalized terms (proper nouns, tool names — 3+ chars)
+    while IFS= read -r match; do
+        [[ -n "$match" ]] && entities+=("$match")
+    done < <(echo "$text" | grep -oE '\b[A-Z][a-zA-Z]{2,}\b' 2>/dev/null | sort -u || true)
+
+    printf '%s\n' "${entities[@]}" 2>/dev/null | grep -v '^$' | sort -u || true
+}
+
+# Count entity overlap between two newline-separated entity lists.
+_entity_overlap_count() {
+    local entities_a="$1"
+    local entities_b="$2"
+
+    [[ -z "$entities_a" || -z "$entities_b" ]] && { echo 0; return; }
+
+    local count
+    count=$(comm -12 <(echo "$entities_a" | sort -u) <(echo "$entities_b" | sort -u) | wc -l | tr -d ' ')
+    echo "$count"
+}
+
+# Check for contradictions: decisions that share entities but say different things.
+# Returns 0 always (warn only, never block). Prints warnings to stderr.
+# Usage: lore_check_contradiction <new_decision_text> [new_decision_id]
+lore_check_contradiction() {
+    local content="$1"
+    local new_id="${2:-}"
+    local decisions_file="${LORE_DECISIONS_FILE}"
+
+    [[ -f "$decisions_file" ]] || return 0
+
+    # Extract entities from the new decision
+    local new_entities
+    new_entities=$(_extract_entities_for_conflict "$content")
+
+    # Need at least 1 entity to check for contradictions
+    local entity_count
+    entity_count=$(echo "$new_entities" | grep -c . 2>/dev/null || true)
+    [[ "$entity_count" -lt 1 ]] && return 0
+
+    # Get unique active decisions (latest version of each ID, exclude retracted/superseded)
+    local unique_decisions
+    unique_decisions=$(jq -s '
+        group_by(.id) | map(.[-1])[]
+        | select((.status // "active") == "active")
+        | {id, decision, rationale, entities}
+    ' -c "$decisions_file" 2>/dev/null) || return 0
+
+    [[ -z "$unique_decisions" ]] && return 0
+
+    local contradictions=""
+
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+
+        local existing_id existing_text existing_entities_json
+        existing_id=$(echo "$line" | jq -r '.id')
+
+        # Skip self-comparison
+        [[ -n "$new_id" && "$existing_id" == "$new_id" ]] && continue
+
+        existing_text=$(echo "$line" | jq -r '(.decision // "") + " " + (.rationale // "")')
+
+        # Extract entities from existing decision
+        local existing_entities
+        existing_entities=$(_extract_entities_for_conflict "$existing_text")
+
+        # Count shared entities
+        local overlap
+        overlap=$(_entity_overlap_count "$new_entities" "$existing_entities")
+
+        # Need 2+ shared entities for a contradiction candidate
+        [[ "$overlap" -lt 2 ]] && continue
+
+        # Check text similarity — contradictions have LOW similarity (same topic, different conclusion)
+        local sim
+        sim=$(_jaccard_similarity "$content" "$existing_text")
+
+        # High similarity = duplicate (handled by dedup). Low similarity with shared entities = contradiction.
+        # Skip if too similar (>= 50% = likely same conclusion) or moderately similar (30-50% = probably related)
+        [[ "$sim" -ge 30 ]] && continue
+
+        local short_text
+        short_text=$(echo "$line" | jq -r '.decision[0:80]')
+        contradictions="${contradictions}${existing_id}|${overlap}|${sim}|${short_text}\n"
+
+        # Create graph edge if both nodes exist
+        if [[ -n "$new_id" ]]; then
+            _try_add_contradiction_edge "$new_id" "$existing_id" 2>/dev/null || true
+        fi
+    done <<< "$unique_decisions"
+
+    if [[ -n "$contradictions" ]]; then
+        echo -e "${YELLOW}Potential contradiction(s) detected:${NC}" >&2
+        echo -e "$contradictions" | while IFS='|' read -r cid overlap sim text; do
+            [[ -z "$cid" ]] && continue
+            echo -e "  ${BOLD}${cid}${NC} ${DIM}(${overlap} shared entities, ${sim}% text similarity)${NC}" >&2
+            echo -e "  ${CYAN}${text}${NC}" >&2
+            echo "" >&2
+        done
+        echo -e "${DIM}These decisions share entities but reach different conclusions.${NC}" >&2
+        echo -e "${DIM}Review and resolve with: journal.sh retract <id> or journal.sh supersede <id> --by <new-id>${NC}" >&2
+    fi
+
+    return 0  # Always allow write
+}
+
+# Try to add a contradicts edge in the graph (best-effort).
+_try_add_contradiction_edge() {
+    local from_id="$1"
+    local to_id="$2"
+    local graph_file="${LORE_GRAPH_FILE}"
+
+    [[ -f "$graph_file" ]] || return 0
+
+    # Check both nodes exist in graph
+    local from_exists to_exists
+    from_exists=$(jq -r --arg id "$from_id" '.nodes[$id] // empty' "$graph_file" 2>/dev/null) || return 0
+    to_exists=$(jq -r --arg id "$to_id" '.nodes[$id] // empty' "$graph_file" 2>/dev/null) || return 0
+
+    [[ -z "$from_exists" || -z "$to_exists" ]] && return 0
+
+    # Check if edge already exists
+    local existing
+    existing=$(jq -r --arg from "$from_id" --arg to "$to_id" \
+        '.edges[] | select(.from == $from and .to == $to and .relation == "contradicts") | .from' \
+        "$graph_file" 2>/dev/null) || return 0
+
+    [[ -n "$existing" ]] && return 0
+
+    # Add contradicts edge
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    jq --arg from "$from_id" --arg to "$to_id" --arg created "$timestamp" \
+        '.edges += [{from: $from, to: $to, relation: "contradicts", weight: 1.0, bidirectional: true, status: "active", created_at: $created}]' \
+        "$graph_file" > "${graph_file}.tmp" && mv "${graph_file}.tmp" "$graph_file"
+}

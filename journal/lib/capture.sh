@@ -120,6 +120,7 @@ create_decision_record() {
     local alternatives="${3:-}"
     local tags="${4:-}"
     local explicit_type="${5:-}"
+    local valid_at="${6:-}"
 
     local id
     id=$(generate_decision_id)
@@ -168,6 +169,7 @@ create_decision_record() {
         --argjson entities "$entities" \
         --argjson tags "$tags_array" \
         --arg git_commit "$git_commit" \
+        --arg valid_at "$valid_at" \
         '{
             id: $id,
             timestamp: $timestamp,
@@ -181,7 +183,8 @@ create_decision_record() {
             tags: $tags,
             lesson_learned: null,
             related_decisions: [],
-            git_commit: (if $git_commit == "" then null else $git_commit end)
+            git_commit: (if $git_commit == "" then null else $git_commit end),
+            valid_at: (if $valid_at == "" then null else $valid_at end)
         }'
 }
 

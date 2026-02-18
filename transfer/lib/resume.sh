@@ -31,6 +31,109 @@ if [[ ! -t 1 ]]; then
 fi
 
 #######################################
+# Suggest pattern creation from clustered lessons
+# Scans decisions with lesson_learned, groups by similarity,
+# suggests pattern creation when 3+ decisions share a lesson.
+#######################################
+suggest_promotions() {
+    local decisions_file="${LORE_DECISIONS_FILE}"
+    [[ -f "$decisions_file" ]] || return 0
+
+    # Get active decisions with lesson_learned
+    local lessons
+    lessons=$(jq -s '
+        group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active" and .lesson_learned != null and .lesson_learned != ""))
+        | map({id, lesson: .lesson_learned, decision: .decision[0:80]})
+    ' "$decisions_file" 2>/dev/null) || return 0
+
+    local count
+    count=$(echo "$lessons" | jq 'length' 2>/dev/null) || return 0
+    [[ "$count" -lt 3 ]] && return 0
+
+    # Compare lessons pairwise, cluster by similarity
+    # Build clusters: group lessons with 40%+ word overlap
+    local clusters=""
+    local assigned=()
+
+    for ((i=0; i<count; i++)); do
+        # Skip if already assigned to a cluster
+        local skip=false
+        for a in "${assigned[@]+"${assigned[@]}"}"; do
+            [[ "$a" == "$i" ]] && { skip=true; break; }
+        done
+        [[ "$skip" == true ]] && continue
+
+        local cluster_members=("$i")
+        local lesson_i
+        lesson_i=$(echo "$lessons" | jq -r ".[$i].lesson")
+
+        local words_i
+        words_i=$(echo "$lesson_i" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u)
+
+        for ((j=i+1; j<count; j++)); do
+            skip=false
+            for a in "${assigned[@]+"${assigned[@]}"}"; do
+                [[ "$a" == "$j" ]] && { skip=true; break; }
+            done
+            [[ "$skip" == true ]] && continue
+
+            local lesson_j
+            lesson_j=$(echo "$lessons" | jq -r ".[$j].lesson")
+
+            local words_j
+            words_j=$(echo "$lesson_j" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u)
+
+            local intersection union
+            intersection=$(comm -12 <(echo "$words_i") <(echo "$words_j") | wc -l | tr -d ' ')
+            union=$(comm <(echo "$words_i") <(echo "$words_j") | sort -u | wc -l | tr -d ' ')
+
+            if [[ "$union" -gt 0 ]]; then
+                local sim=$(( intersection * 100 / union ))
+                if [[ "$sim" -ge 40 ]]; then
+                    cluster_members+=("$j")
+                    assigned+=("$j")
+                fi
+            fi
+        done
+
+        assigned+=("$i")
+
+        if [[ ${#cluster_members[@]} -ge 3 ]]; then
+            # Found a promotable cluster
+            local representative_lesson
+            representative_lesson=$(echo "$lessons" | jq -r ".[${cluster_members[0]}].lesson")
+            local member_count=${#cluster_members[@]}
+
+            local decision_ids=""
+            for idx in "${cluster_members[@]}"; do
+                local did
+                did=$(echo "$lessons" | jq -r ".[$idx].id")
+                decision_ids="${decision_ids}${decision_ids:+, }${did}"
+            done
+
+            clusters="${clusters}${member_count}|${representative_lesson}|${decision_ids}\n"
+        fi
+    done
+
+    [[ -z "$clusters" ]] && return 0
+
+    echo "--- Promote Lessons to Patterns ---"
+    echo ""
+    echo -e "${YELLOW}These lessons appear in 3+ decisions and could become patterns:${NC}"
+    echo ""
+
+    echo -e "$clusters" | while IFS='|' read -r member_count lesson ids; do
+        [[ -z "$member_count" ]] && continue
+        echo -e "  ${BOLD}${member_count} decisions${NC} share this lesson:"
+        echo -e "    ${CYAN}${lesson:0:120}${NC}"
+        echo -e "    ${DIM}IDs: ${ids}${NC}"
+        echo -e "    Run: ${GREEN}lore learn \"${lesson:0:60}...\" --context \"<when>\" --solution \"<what>\"${NC}"
+        echo ""
+    done
+}
+
+#######################################
 # Suggest relevant patterns for a context string
 # Outputs nothing if no patterns match (fail-silent)
 #######################################
@@ -602,6 +705,9 @@ resume_session() {
         local combined_context="${context_parts[*]}"
         suggest_patterns_for_context "${combined_context}" 5
     fi
+
+    # Suggest promoting recurring lessons to patterns
+    suggest_promotions 2>/dev/null || true
 
     # Fork: create new session inheriting from this one
     local new_session_id

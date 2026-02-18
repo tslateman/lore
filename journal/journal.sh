@@ -108,6 +108,7 @@ cmd_record() {
     local explicit_type=""
     local files=""
     local force=false
+    local valid_at=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -130,6 +131,10 @@ cmd_record() {
                 ;;
             -f|--files)
                 files="$2"
+                shift 2
+                ;;
+            --valid-at)
+                valid_at="$2"
                 shift 2
                 ;;
             --force)
@@ -171,6 +176,18 @@ cmd_record() {
         fi
     fi
 
+    # Contradiction check: warn if new decision conflicts with existing active decisions
+    if [[ "$force" == false ]]; then
+        local _conflict_lib="${SCRIPT_DIR}/../lib/conflict.sh"
+        if [[ -f "$_conflict_lib" ]]; then
+            local _contra_text="$decision"
+            [[ -n "$rationale" ]] && _contra_text="${_contra_text} ${rationale}"
+            if source "$_conflict_lib" 2>/dev/null; then
+                lore_check_contradiction "$_contra_text" || true
+            fi
+        fi
+    fi
+
     # Check for inline format
     if [[ "$decision" =~ \[because: ]] || [[ "$decision" =~ \[vs: ]]; then
         local parsed
@@ -182,7 +199,7 @@ cmd_record() {
 
     # Create the decision record
     local record
-    record=$(create_decision_record "$decision" "$rationale" "$alternatives" "$tags" "$explicit_type")
+    record=$(create_decision_record "$decision" "$rationale" "$alternatives" "$tags" "$explicit_type" "$valid_at")
 
     # Store it (pass --force to bypass deduplication guard)
     local id

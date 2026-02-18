@@ -88,6 +88,11 @@
       "type": ["string", "null"],
       "pattern": "^[a-f0-9]{40}$",
       "description": "Associated git commit SHA"
+    },
+    "valid_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When the decision became true (defaults to timestamp if omitted)"
     }
   }
 }

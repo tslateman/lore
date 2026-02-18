@@ -94,6 +94,33 @@ add_edge() {
                "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
         fi
     fi
+
+    # Enforce edge semantics for supersedes and contradicts
+    if [[ "$relation" == "supersedes" ]]; then
+        # Look up the target node's journal_id
+        local target_journal_id
+        target_journal_id=$(jq -r --arg id "$to" '.nodes[$id].data.journal_id // empty' "$GRAPH_FILE")
+
+        if [[ -n "$target_journal_id" ]]; then
+            # Source journal store (guarded to prevent circular imports)
+            if [[ -z "${_EDGES_STORE_LOADED:-}" ]]; then
+                _EDGES_STORE_LOADED=1
+                source "${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/journal/lib/store.sh"
+            fi
+
+            # Look up the source node's journal_id for the superseded_by field
+            local source_journal_id
+            source_journal_id=$(jq -r --arg id "$from" '.nodes[$id].data.journal_id // empty' "$GRAPH_FILE")
+
+            update_decision "$target_journal_id" "status" "superseded"
+            if [[ -n "$source_journal_id" ]]; then
+                update_decision "$target_journal_id" "superseded_by" "$source_journal_id"
+            fi
+            echo "Marked decision ${target_journal_id} as superseded by ${source_journal_id:-$from}"
+        fi
+    elif [[ "$relation" == "contradicts" ]]; then
+        echo "Contradiction registered between ${from} and ${to}. Review with \`lore graph related ${from}\`"
+    fi
 }
 
 # Remove an edge

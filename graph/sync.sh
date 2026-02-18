@@ -198,3 +198,34 @@ echo -e "${GREEN}Synced ${new_decision_nodes} new decision nodes, ${new_file_nod
 if [[ "$deduped_edges" -gt 0 ]]; then
     echo -e "${YELLOW}Removed ${deduped_edges} duplicate edge(s)${NC}"
 fi
+
+# --- Step 5: Create missing supersedes edges for decisions with superseded_by ---
+supersedes_created=0
+while IFS=$'\t' read -r old_id new_id; do
+    [[ -z "$old_id" || -z "$new_id" ]] && continue
+
+    # Compute node keys for both decisions
+    old_node="decision-$(echo -n "$old_id" | md5sum | cut -c1-8)"
+    new_node="decision-$(echo -n "$new_id" | md5sum | cut -c1-8)"
+
+    # Check both nodes exist in the graph
+    old_exists=$(jq -r --arg id "$old_node" '.nodes[$id] // empty' "$GRAPH_FILE")
+    new_exists=$(jq -r --arg id "$new_node" '.nodes[$id] // empty' "$GRAPH_FILE")
+    [[ -z "$old_exists" || -z "$new_exists" ]] && continue
+
+    # Check if supersedes edge already exists (new -> old)
+    edge_exists=$(jq -r --arg from "$new_node" --arg to "$old_node" \
+        '[.edges[] | select(.from == $from and .to == $to and .relation == "supersedes")] | length' \
+        "$GRAPH_FILE")
+
+    if [[ "$edge_exists" -eq 0 ]]; then
+        jq --arg from "$new_node" --arg to "$old_node" --arg created "$now" \
+           '.edges += [{from: $from, to: $to, relation: "supersedes", weight: 1.0, bidirectional: false, status: "active", created_at: $created}]' \
+           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+        supersedes_created=$((supersedes_created + 1))
+    fi
+done < <(jq -r 'select(.superseded_by != null) | [.id, .superseded_by] | @tsv' "$DECISIONS_FILE" 2>/dev/null || true)
+
+if [[ "$supersedes_created" -gt 0 ]]; then
+    echo -e "${GREEN}Created ${supersedes_created} missing supersedes edge(s)${NC}"
+fi
