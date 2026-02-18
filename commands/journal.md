@@ -30,7 +30,7 @@ Follow Strunk's style in the body: active voice, omit needless words, be concret
 ## Step 3: Execute
 
 ```bash
-./lore.sh journal add \
+${CLAUDE_PLUGIN_ROOT}/lore.sh journal add \
   --type <type> \
   --project <project> \
   --title "<title>" \

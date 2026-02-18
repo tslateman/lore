@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/lore.sh resume 2>/dev/null || true",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

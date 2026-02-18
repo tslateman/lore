@@ -50,7 +50,7 @@ Run the appropriate commands for each item:
 **Decisions:**
 
 ```bash
-./lore.sh remember "<decision text>" \
+${CLAUDE_PLUGIN_ROOT}/lore.sh remember "<decision text>" \
   --rationale "<why>" \
   --alternatives "<what else was considered>" \
   --tags "<project>,<topic>" \
@@ -60,7 +60,7 @@ Run the appropriate commands for each item:
 **Patterns:**
 
 ```bash
-./lore.sh learn "<pattern name>" \
+${CLAUDE_PLUGIN_ROOT}/lore.sh learn "<pattern name>" \
   --context "<when this applies>" \
   --solution "<what to do>" \
   --problem "<what goes wrong without this>" \
@@ -70,7 +70,7 @@ Run the appropriate commands for each item:
 **Failures:**
 
 ```bash
-./lore.sh fail "<ErrorType>" "<what happened and how it was fixed>"
+${CLAUDE_PLUGIN_ROOT}/lore.sh fail "<ErrorType>" "<what happened and how it was fixed>"
 ```
 
 ## Step 4: Confirm

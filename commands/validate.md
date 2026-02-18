@@ -8,7 +8,7 @@ Run Lore's validation suite and fix what it finds.
 ## Step 1: Run Validation
 
 ```bash
-./lore.sh validate
+${CLAUDE_PLUGIN_ROOT}/lore.sh validate
 ```
 
 ## Step 2: Analyze Results
@@ -45,7 +45,7 @@ Common fixes:
 
 ## Step 4: Re-validate
 
-Run `./lore.sh validate` again to confirm all fixes.
+Run `${CLAUDE_PLUGIN_ROOT}/lore.sh validate` again to confirm all fixes.
 
 ## Step 5: Report
 

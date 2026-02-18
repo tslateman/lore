@@ -25,7 +25,7 @@ Write a single dense paragraph covering all three areas. Follow Strunk's style:
 ## Step 3: Run the Command
 
 ```bash
-./lore.sh handoff "<message>"
+${CLAUDE_PLUGIN_ROOT}/lore.sh handoff "<message>"
 ```
 
 ## Step 4: Confirm
