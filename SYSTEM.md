@@ -52,7 +52,7 @@ failures/ ──→ triggers (Rule of Three) ──→ patterns/ ──→ sessi
 When an error type recurs three times, failure analysis surfaces it. The pattern
 gets recorded. Future sessions receive that pattern at resume. The system learns.
 
-## Seven Components
+## Eight Components
 
 Each component answers one question. Together they form institutional memory.
 
@@ -93,10 +93,11 @@ Lore exposes one contract: `LORE_CONTRACT.md`.
 
 | Interface | Example                             | Effect                             |
 | --------- | ----------------------------------- | ---------------------------------- |
-| Write     | `lore remember "X" --rationale "Y"` | Appends to journal                 |
-| Write     | `lore learn "X" --context "Y"`      | Appends to patterns                |
+| Write     | `lore capture "X" --rationale "Y"`  | Infers type, routes to component   |
+| Write     | `lore remember "X" --rationale "Y"` | Appends to journal (alias)         |
+| Write     | `lore learn "X" --context "Y"`      | Appends to patterns (alias)        |
 | Write     | `lore observe "X"`                  | Appends to inbox                   |
-| Write     | `lore fail NonZeroExit "msg"`       | Appends to failures                |
+| Write     | `lore fail NonZeroExit "msg"`       | Appends to failures (alias)        |
 | Write     | `lore goal create "X"`              | Creates goal YAML                  |
 | Read      | `lore search "X"`                   | Searches all components            |
 | Read      | `lore resume`                       | Loads last session context         |
