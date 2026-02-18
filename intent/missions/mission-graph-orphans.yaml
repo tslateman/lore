@@ -1,0 +1,23 @@
+id: mission-graph-orphans
+title: Resolve orphan nodes in knowledge graph
+objective: >
+  Connect the 48 orphan nodes (nodes with zero edges) in graph/data/graph.json
+  to their related concepts. Done when orphan count drops below 10.
+project: lore
+domain: knowledge-graph
+constraints:
+  - Preserve existing edges — add only, never remove
+  - Each new edge must have a meaningful relation type
+  - Prefer derives_from and relates_to for weak connections
+success_criteria:
+  - criterion: Orphan node count below 10
+    verification: "Run: graph/graph.sh orphans | wc -l"
+  - criterion: No invalid edges introduced
+    verification: "Run: graph/graph.sh validate"
+context_hints:
+  patterns: []
+  journal_types: [decision]
+  graph_entities: [lore, graph]
+priority: normal
+status: draft
+created: 2026-02-18T12:00:00-08:00

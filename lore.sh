@@ -144,6 +144,9 @@ MAINTENANCE
   validate                Run comprehensive checks
   ingest <p> <t> <file>   Bulk import from external formats
 
+JOURNAL
+  journal add             Add structured journal entry (--type, --project, --title, --body)
+
 COMPONENTS (direct access)
   journal <cmd>           Decision journal
   patterns <cmd>          Patterns and anti-patterns
@@ -916,6 +919,133 @@ cmd_triggers() {
     echo "$results" | jq -r '.[] | "  \(.error_type): \(.count) occurrences (latest: \(.latest[0:16]))\n    Sample: \(.sample_message[0:70])\n"'
 }
 
+journal_add() {
+    local entry_type="" project="" title="" body="" tags=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --type)     entry_type="$2"; shift 2 ;;
+            --project)  project="$2"; shift 2 ;;
+            --title)    title="$2"; shift 2 ;;
+            --body)     body="$2"; shift 2 ;;
+            --tags)     tags="$2"; shift 2 ;;
+            --force)    local force=true; shift ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Usage: lore journal add --type <type> --project <project> --title <title> --body <body> [--tags <tags>]" >&2
+                return 1
+                ;;
+            *)
+                echo -e "${RED}Unexpected argument: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Validate required fields
+    if [[ -z "$entry_type" ]]; then
+        echo -e "${RED}Error: --type required (decision, discovery, session, incident)${NC}" >&2
+        return 1
+    fi
+    if [[ -z "$project" ]]; then
+        echo -e "${RED}Error: --project required${NC}" >&2
+        return 1
+    fi
+    if [[ -z "$title" ]]; then
+        echo -e "${RED}Error: --title required${NC}" >&2
+        return 1
+    fi
+    if [[ -z "$body" ]]; then
+        echo -e "${RED}Error: --body required${NC}" >&2
+        return 1
+    fi
+
+    # Validate type
+    case "$entry_type" in
+        decision|discovery|session|incident) ;;
+        *)
+            echo -e "${RED}Error: --type must be one of: decision, discovery, session, incident${NC}" >&2
+            return 1
+            ;;
+    esac
+
+    # Validate project exists in mani.yaml
+    local workspace_root
+    workspace_root="$(cd "$LORE_DIR/.." && pwd)"
+    local mani_file="${MANI_FILE:-$workspace_root/mani.yaml}"
+    if ! grep -q "^  ${project}:" "$mani_file" 2>/dev/null; then
+        echo -e "${RED}Error: Project '${project}' not found in mani.yaml${NC}" >&2
+        return 1
+    fi
+
+    # Validate title length
+    if [[ ${#title} -gt 120 ]]; then
+        echo -e "${RED}Error: Title exceeds 120 characters (${#title})${NC}" >&2
+        return 1
+    fi
+
+    # Dedup guard
+    if [[ "${force:-false}" == false ]]; then
+        local _conflict_lib="$LORE_DIR/lib/conflict.sh"
+        if [[ -f "$_conflict_lib" ]]; then
+            local _check_text="${title} ${body}"
+            if source "$_conflict_lib" 2>/dev/null; then
+                if ! lore_check_duplicate "decision" "$_check_text"; then
+                    return 1
+                fi
+            fi
+        fi
+    fi
+
+    # Generate slug from title
+    local slug
+    slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-' | head -c 60)
+
+    # Generate filename
+    local datestamp
+    datestamp=$(date +%Y-%m-%d)
+    local entries_dir="$LORE_DIR/journal/data/entries"
+    mkdir -p "$entries_dir"
+    local filename="${datestamp}_${slug}.md"
+
+    # Build tags array for YAML front matter
+    local tags_yaml="[]"
+    if [[ -n "$tags" ]]; then
+        tags_yaml="[$(echo "$tags" | sed 's/,/, /g')]"
+    fi
+
+    # Write markdown file with YAML front matter
+    local created
+    created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    cat > "$entries_dir/$filename" <<FRONTMATTER
+---
+type: ${entry_type}
+project: ${project}
+title: ${title}
+tags: ${tags_yaml}
+created: ${created}
+---
+
+${body}
+FRONTMATTER
+
+    # Backward compat: also record to JSONL via journal.sh
+    local record_args=("$title" --rationale "$body" --tags "${project}${tags:+,$tags}" --type "$entry_type")
+    if [[ "${force:-false}" == true ]]; then
+        record_args+=(--force)
+    fi
+    "$LORE_DIR/journal/journal.sh" record "${record_args[@]}" >/dev/null 2>&1 || true
+
+    # Sync to graph (background, fail-silent)
+    "$LORE_DIR/graph/sync.sh" &>/dev/null &
+
+    echo -e "${GREEN}Created:${NC} ${BOLD}journal/data/entries/${filename}${NC}"
+    echo -e "  ${CYAN}Type:${NC} $entry_type"
+    echo -e "  ${CYAN}Project:${NC} $project"
+    echo -e "  ${CYAN}Title:${NC} $title"
+    [[ -n "$tags" ]] && echo -e "  ${CYAN}Tags:${NC} $tags"
+}
+
 cmd_observe() {
     source "$LORE_DIR/inbox/lib/inbox.sh"
 
@@ -1030,7 +1160,13 @@ main() {
         index)      shift; bash "$LORE_DIR/lib/search-index.sh" "$@" ;;
 
         # Component dispatch
-        journal)    shift; "$LORE_DIR/journal/journal.sh" "$@" ;;
+        journal)    shift
+                    if [[ "${1:-}" == "add" ]]; then
+                        shift; journal_add "$@"
+                    else
+                        "$LORE_DIR/journal/journal.sh" "$@"
+                    fi
+                    ;;
         graph)      shift; "$LORE_DIR/graph/graph.sh" "$@" ;;
         patterns)   shift; "$LORE_DIR/patterns/patterns.sh" "$@" ;;
         transfer)   shift; "$LORE_DIR/transfer/transfer.sh" "$@" ;;

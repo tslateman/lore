@@ -1,0 +1,26 @@
+id: mission-hook-search-unify
+title: Unify context injection with FTS5 search
+objective: >
+  Replace the grep-based search in scripts/inject-context.sh with queries
+  against the FTS5 search.db index. Done when inject-context.sh uses search.db
+  and response time stays under 300ms.
+project: lore
+domain: search
+constraints:
+  - inject-context.sh must remain a bash script (no Python dependency)
+  - Fallback to grep if search.db is missing or corrupt
+  - Response time must not regress above 300ms
+success_criteria:
+  - criterion: inject-context.sh queries search.db instead of grep
+    verification: "grep 'sqlite3.*search.db' scripts/inject-context.sh"
+  - criterion: Grep fallback works when search.db missing
+    verification: "mv ~/.lore/search.db /tmp/ && scripts/inject-context.sh test-query"
+  - criterion: Response time under 300ms
+    verification: "time scripts/inject-context.sh 'authentication'"
+context_hints:
+  patterns: []
+  journal_types: [decision, discovery]
+  graph_entities: [lore, search]
+priority: normal
+status: draft
+created: 2026-02-18T12:00:00-08:00
