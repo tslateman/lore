@@ -10,6 +10,16 @@
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/pre-compact.sh 2>/dev/null || true"
+          }
+        ]
+      }
     ]
   }
 }
