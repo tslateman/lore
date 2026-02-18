@@ -1035,6 +1035,46 @@
       },
       "created_at": "2026-02-17T06:23:52Z",
       "updated_at": "2026-02-17T06:23:53Z"
+    },
+    "project-tag-geordi": {
+      "type": "project",
+      "name": "geordi",
+      "data": {
+        "source": "wire-project-edges",
+        "description": "Project node created from journal tag: geordi"
+      },
+      "created_at": "2026-02-18T11:18:11Z",
+      "updated_at": "2026-02-18T11:18:11Z"
+    },
+    "project-tag-entire": {
+      "type": "project",
+      "name": "entire",
+      "data": {
+        "source": "wire-project-edges",
+        "description": "Project node created from journal tag: entire"
+      },
+      "created_at": "2026-02-18T11:18:11Z",
+      "updated_at": "2026-02-18T11:18:11Z"
+    },
+    "project-tag-cli": {
+      "type": "project",
+      "name": "cli",
+      "data": {
+        "source": "wire-project-edges",
+        "description": "Project node created from journal tag: cli"
+      },
+      "created_at": "2026-02-18T11:18:11Z",
+      "updated_at": "2026-02-18T11:18:11Z"
+    },
+    "project-tag-cq": {
+      "type": "project",
+      "name": "cq",
+      "data": {
+        "source": "wire-project-edges",
+        "description": "Project node created from journal tag: cq"
+      },
+      "created_at": "2026-02-18T11:18:11Z",
+      "updated_at": "2026-02-18T11:18:11Z"
     }
   },
   "edges": [
@@ -1438,6 +1478,438 @@
       "weight": 1.0,
       "bidirectional": false,
       "created_at": "2026-02-10T06:05:13Z"
+    },
+    {
+      "from": "decision-f66e755e",
+      "to": "project-453a9b3b",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-91aa3421",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-413c05c5",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-a1d3caae",
+      "to": "project-453a9b3b",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-dd45849b",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-6f2fc708",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-0cc5d417",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-0cc5d417",
+      "to": "project-tag-geordi",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-809c5ae2",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-cff92136",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-743dd34e",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-8b2cebec",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-e443a429",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-24179632",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-332bdc5a",
+      "to": "project-453a9b3b",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-c80a0a40",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-461990de",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-b4b600eb",
+      "to": "project-453a9b3b",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-b4b600eb",
+      "to": "project-0ab19c17",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-b4b600eb",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-fffedee8",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-00e4dc80",
+      "to": "project-a189c633",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-232f433e",
+      "to": "project-tag-entire",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-242f3ea9",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-0e284f89",
+      "to": "project-a189c633",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-49126fa1",
+      "to": "project-453a9b3b",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-49126fa1",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-01ef03c8",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-872dfabc",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-200e7ea1",
+      "to": "project-453a9b3b",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-63d6367d",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-2dc02e9c",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-0b236cb5",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-a85922fb",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-fd67e938",
+      "to": "project-tag-entire",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-0b872cf6",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-1d57b6de",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-5e5bb66f",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-dbf7f7f0",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-0b1ee18b",
+      "to": "project-tag-cli",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-b79b1174",
+      "to": "project-tag-cli",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-b79b1174",
+      "to": "project-tag-cq",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-daec4c33",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-1dc4f3cb",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-ae34fa63",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-86f3aa05",
+      "to": "project-453a9b3b",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-0a0f5696",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "project-tag-cli",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "project-cff54971",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-25a1f696",
+      "to": "project-8dc01b0d",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-c9420b2c",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-35ad7ef6",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-3af9975d",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-12781b9c",
+      "to": "project-52a1c95f",
+      "relation": "related_to",
+      "weight": 0.8,
+      "bidirectional": false,
+      "created_at": "2026-02-18T11:18:11Z"
     }
   ]
 }

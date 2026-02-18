@@ -4,7 +4,7 @@
 # Tests Phase 1 (FTS5 index + reinforcement), Phase 2 (conflict detection),
 # and Phase 3 (graph-enhanced recall).
 #
-# Usage: bash test/verify-retrieval.sh
+# Usage: bash tests/verify-retrieval.sh
 #
 # Uses a temporary search DB and graph file so production data is untouched.
 
@@ -254,11 +254,11 @@ else
 fi
 
 # Test 2.4: --force flag bypasses conflict detection
-# Verify that cmd_learn/cmd_remember parse --force correctly by grepping lore.sh
-if grep -q '"--force"' "$LORE_DIR/lore.sh" && grep -q 'force=true' "$LORE_DIR/lore.sh"; then
-    pass "--force flag is implemented in learn/remember commands"
+# Dedup checks live in journal/journal.sh and patterns/patterns.sh; verify --force there
+if grep -q 'force=true' "$LORE_DIR/journal/journal.sh" && grep -q 'force=true' "$LORE_DIR/patterns/patterns.sh"; then
+    pass "--force flag is implemented in journal and patterns capture layers"
 else
-    fail "--force flag should be implemented in lore.sh"
+    fail "--force flag should be implemented in journal/journal.sh and patterns/patterns.sh"
 fi
 
 # ================================================================

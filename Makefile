@@ -1,4 +1,4 @@
-.PHONY: sync-entire sync-graph sync-all check-mcp build-mcp check
+.PHONY: sync-entire sync-graph sync-all check-mcp build-mcp check test
 
 # Sync Entire CLI checkpoints to Lore journal
 sync-entire:
@@ -23,6 +23,13 @@ check-mcp:
 # Build MCP server
 build-mcp:
 	cd mcp && PATH="/Users/tslater/.nvm/versions/node/v24.1.0/bin:$$PATH" npm run build
+
+# Run all tests
+test:
+	@echo "Running tests..."
+	@bash tests/test-capture-api.sh
+	@bash tests/test-goals.sh
+	@bash tests/verify-retrieval.sh
 
 # Check all build freshness
 check: check-mcp

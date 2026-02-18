@@ -108,6 +108,7 @@ cmd_capture() {
     local example_bad=""
     local example_good=""
     local problem=""
+    local force=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -140,6 +141,10 @@ cmd_capture() {
                 example_good="$2"
                 shift 2
                 ;;
+            --force)
+                force=true
+                shift
+                ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}" >&2
                 return 1
@@ -156,6 +161,21 @@ cmd_capture() {
     if [[ -z "$name" ]]; then
         echo -e "${RED}Error: Pattern name is required${NC}" >&2
         return 1
+    fi
+
+    # Dedup guard: check for near-duplicate patterns (fail-open if conflict.sh unavailable)
+    if [[ "$force" == false ]]; then
+        local _conflict_lib="${SCRIPT_DIR}/../lib/conflict.sh"
+        if [[ -f "$_conflict_lib" ]]; then
+            local _check_text="$name"
+            [[ -n "$context" ]] && _check_text="${_check_text} ${context}"
+            [[ -n "$solution" ]] && _check_text="${_check_text} ${solution}"
+            if source "$_conflict_lib" 2>/dev/null; then
+                if ! lore_check_duplicate "pattern" "$_check_text"; then
+                    return 1
+                fi
+            fi
+        fi
     fi
 
     capture_pattern "$name" "$context" "$solution" "$problem" "$category" "$origin" "$example_bad" "$example_good"

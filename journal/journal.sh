@@ -157,6 +157,20 @@ cmd_record() {
         return 1
     fi
 
+    # Dedup guard: check for near-duplicate decisions (fail-open if conflict.sh unavailable)
+    if [[ "$force" == false ]]; then
+        local _conflict_lib="${SCRIPT_DIR}/../lib/conflict.sh"
+        if [[ -f "$_conflict_lib" ]]; then
+            local _check_text="$decision"
+            [[ -n "$rationale" ]] && _check_text="${_check_text} ${rationale}"
+            if source "$_conflict_lib" 2>/dev/null; then
+                if ! lore_check_duplicate "decision" "$_check_text"; then
+                    return 1
+                fi
+            fi
+        fi
+    fi
+
     # Check for inline format
     if [[ "$decision" =~ \[because: ]] || [[ "$decision" =~ \[vs: ]]; then
         local parsed

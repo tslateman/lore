@@ -374,101 +374,16 @@ cmd_help() {
 
 # Quick commands that span components
 cmd_remember() {
-    local force=false
-    local args=()
-    local check_text=""
-    local skip_next=false
-    local pending_flag=""
-
-    for arg in "$@"; do
-        if [[ "$skip_next" == true ]]; then
-            skip_next=false
-            args+=("$arg")
-            # Include rationale in similarity check
-            [[ "$pending_flag" == "rationale" ]] && check_text="${check_text:+$check_text }$arg"
-            pending_flag=""
-            continue
-        fi
-        if [[ "$arg" == "--force" ]]; then
-            force=true
-        elif [[ "$arg" == "-r" || "$arg" == "--rationale" ]]; then
-            args+=("$arg")
-            skip_next=true
-            pending_flag="rationale"
-        elif [[ "$arg" =~ ^(-a|--alternatives|-t|--tags|--type|-f|--files)$ ]]; then
-            args+=("$arg")
-            skip_next=true
-            pending_flag=""
-        elif [[ "$arg" == -* ]]; then
-            args+=("$arg")
-        else
-            args+=("$arg")
-            check_text="${check_text:+$check_text }$arg"
-        fi
-    done
-
-    if [[ "$force" == false && -n "$check_text" ]]; then
-        source "$LORE_DIR/lib/conflict.sh"
-        if ! lore_check_duplicate "decision" "$check_text"; then
-            return 1
-        fi
-    fi
-
-    # Pass --force through to journal.sh so store-level guard is also bypassed
-    if [[ "$force" == true ]]; then
-        "$LORE_DIR/journal/journal.sh" record "${args[@]}" --force
-    else
-        "$LORE_DIR/journal/journal.sh" record "${args[@]}"
-    fi
+    # Dedup check now lives in journal/journal.sh cmd_record (--force passes through)
+    "$LORE_DIR/journal/journal.sh" record "$@"
 
     # Sync decision to graph (background, fail-silent)
     "$LORE_DIR/graph/sync.sh" &>/dev/null &
 }
 
 cmd_learn() {
-    local force=false
-    local args=()
-    local check_text=""
-    local skip_next=false
-    local pending_flag=""
-
-    for arg in "$@"; do
-        if [[ "$skip_next" == true ]]; then
-            skip_next=false
-            args+=("$arg")
-            # Include context and solution in similarity check
-            if [[ "$pending_flag" == "context" || "$pending_flag" == "solution" ]]; then
-                check_text="${check_text:+$check_text }$arg"
-            fi
-            pending_flag=""
-            continue
-        fi
-        if [[ "$arg" == "--force" ]]; then
-            force=true
-        elif [[ "$arg" == "--context" || "$arg" == "--solution" ]]; then
-            args+=("$arg")
-            skip_next=true
-            pending_flag="${arg#--}"
-        elif [[ "$arg" =~ ^(--problem|--category|--origin|--example-bad|--example-good)$ ]]; then
-            args+=("$arg")
-            skip_next=true
-            pending_flag=""
-        elif [[ "$arg" == -* ]]; then
-            args+=("$arg")
-        else
-            args+=("$arg")
-            check_text="${check_text:+$check_text }$arg"
-        fi
-    done
-
-    if [[ "$force" == false && -n "$check_text" ]]; then
-        source "$LORE_DIR/lib/conflict.sh"
-        if ! lore_check_duplicate "pattern" "$check_text"; then
-            return 1
-        fi
-    fi
-
-    "$LORE_DIR/patterns/patterns.sh" capture "${args[@]}"
+    # Dedup check now lives in patterns/patterns.sh cmd_capture (--force passes through)
+    "$LORE_DIR/patterns/patterns.sh" capture "$@"
 }
 
 # Unified capture command — routes to remember/learn/fail based on flags
