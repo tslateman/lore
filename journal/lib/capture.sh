@@ -4,6 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../lib/paths.sh"
 
 # Generate unique decision ID
 generate_decision_id() {
@@ -15,15 +16,15 @@ generate_decision_id() {
 get_session_id() {
     if [[ -n "${LORE_SESSION_ID:-}" ]]; then
         echo "$LORE_SESSION_ID"
-    elif [[ -f "${SCRIPT_DIR}/../../transfer/data/.current_session" ]]; then
+    elif [[ -f "${LORE_TRANSFER_DATA}/.current_session" ]]; then
         # Use transfer's active session for unified session IDs
-        cat "${SCRIPT_DIR}/../../transfer/data/.current_session"
-    elif [[ -f "${SCRIPT_DIR}/../data/.current_session" ]]; then
-        cat "${SCRIPT_DIR}/../data/.current_session"
+        cat "${LORE_TRANSFER_DATA}/.current_session"
+    elif [[ -f "${LORE_JOURNAL_DATA}/.current_session" ]]; then
+        cat "${LORE_JOURNAL_DATA}/.current_session"
     else
         local session_id="session-$(od -An -tx1 -N4 /dev/urandom | tr -d ' \n')"
-        mkdir -p "${SCRIPT_DIR}/../data"
-        echo "$session_id" > "${SCRIPT_DIR}/../data/.current_session"
+        mkdir -p "${LORE_JOURNAL_DATA}"
+        echo "$session_id" > "${LORE_JOURNAL_DATA}/.current_session"
         echo "$session_id"
     fi
 }

@@ -7,10 +7,11 @@
 set -euo pipefail
 
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "${LORE_DIR}/lib/paths.sh"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "$LORE_DIR/.." && pwd)}"
 MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
 
-DATA_DIR="$LORE_DIR/registry/data"
+DATA_DIR="${LORE_REGISTRY_DATA}"
 METADATA_FILE="$DATA_DIR/metadata.yaml"
 CLUSTERS_FILE="$DATA_DIR/clusters.yaml"
 RELATIONSHIPS_FILE="$DATA_DIR/relationships.yaml"

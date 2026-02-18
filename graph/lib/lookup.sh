@@ -4,11 +4,11 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/../../lib/paths.sh"
 GRAPH_DIR="${GRAPH_DIR:-$(dirname "${BASH_SOURCE[0]}")/..}"
-GRAPH_FILE="${GRAPH_DIR}/data/graph.json"
-JOURNAL_DIR="${GRAPH_DIR}/../journal"
-DECISIONS_FILE="${JOURNAL_DIR}/data/decisions.jsonl"
-PATTERNS_FILE="${GRAPH_DIR}/../patterns/data/patterns.yaml"
+GRAPH_FILE="${LORE_GRAPH_FILE}"
+DECISIONS_FILE="${LORE_DECISIONS_FILE}"
+PATTERNS_FILE="${LORE_PATTERNS_FILE}"
 
 # Source nodes.sh for get_node, init_graph
 source "$(dirname "${BASH_SOURCE[0]}")/nodes.sh"

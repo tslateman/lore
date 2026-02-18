@@ -5,7 +5,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATA_DIR="${SCRIPT_DIR}/../data"
+source "${SCRIPT_DIR}/../../lib/paths.sh"
+DATA_DIR="${LORE_FAILURES_DATA}"
 FAILURES_FILE="${DATA_DIR}/failures.jsonl"
 
 VALID_ERROR_TYPES="UserDeny HardDeny NonZeroExit Timeout ToolError LogicError"

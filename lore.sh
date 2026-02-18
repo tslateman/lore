@@ -6,6 +6,7 @@
 set -euo pipefail
 
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+source "${LORE_DIR}/lib/paths.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -450,7 +451,7 @@ cmd_resume() {
     "$LORE_DIR/transfer/transfer.sh" resume "$@"
 }
 
-SEARCH_DB="${LORE_SEARCH_DB:-$HOME/.lore/search.db}"
+SEARCH_DB="${LORE_SEARCH_DB}"
 
 # Derive current project from cwd
 _derive_project() {
@@ -606,7 +607,7 @@ _search_grep() {
     echo ""
 
     echo -e "${CYAN}Failures:${NC}"
-    local failures_file="$LORE_DIR/failures/data/failures.jsonl"
+    local failures_file="${LORE_FAILURES_DATA}/failures.jsonl"
     if [[ -f "$failures_file" ]]; then
         grep -i "$query" "$failures_file" 2>/dev/null \
             | jq -r '"  \(.id) [\(.error_type)] \(.error_message[0:80])"' 2>/dev/null \
@@ -617,7 +618,7 @@ _search_grep() {
     echo ""
 
     echo -e "${CYAN}Inbox:${NC}"
-    local inbox_file="$LORE_DIR/inbox/data/observations.jsonl"
+    local inbox_file="${LORE_INBOX_DATA}/observations.jsonl"
     if [[ -f "$inbox_file" ]]; then
         grep -i "$query" "$inbox_file" 2>/dev/null \
             | jq -r '"  \(.id) [\(.status)] \(.content[0:80])"' 2>/dev/null \
@@ -628,7 +629,7 @@ _search_grep() {
     echo ""
 
     echo -e "${CYAN}Goals:${NC}"
-    local goals_dir="$LORE_DIR/intent/data/goals"
+    local goals_dir="${LORE_INTENT_DATA}/goals"
     if [[ -d "$goals_dir" ]] && ls "$goals_dir"/*.yaml &>/dev/null; then
         grep -li "$query" "$goals_dir"/*.yaml 2>/dev/null \
             | while read -r f; do
@@ -644,7 +645,7 @@ _search_grep() {
 
     echo -e "${CYAN}Registry:${NC}"
     local found_registry=false
-    for reg_file in "$LORE_DIR/registry/data"/*.yaml; do
+    for reg_file in "${LORE_REGISTRY_DATA}"/*.yaml; do
         [[ -f "$reg_file" ]] || continue
         if grep -qi "$query" "$reg_file" 2>/dev/null; then
             echo "  $(basename "$reg_file"): $(grep -ci "$query" "$reg_file" 2>/dev/null) match(es)"
@@ -1004,7 +1005,7 @@ journal_add() {
     # Generate filename
     local datestamp
     datestamp=$(date +%Y-%m-%d)
-    local entries_dir="$LORE_DIR/journal/data/entries"
+    local entries_dir="${LORE_JOURNAL_DATA}/entries"
     mkdir -p "$entries_dir"
     local filename="${datestamp}_${slug}.md"
 
@@ -1133,6 +1134,47 @@ cmd_inbox() {
     echo "$results" | jq -r '.[] | "  \(.id) [\(.status)] \(.timestamp[0:16])\n    \(.content[0:70])\(.content | if length > 70 then "..." else "" end)\n"'
 }
 
+cmd_init() {
+    if [[ "${LORE_DATA_DIR}" == "${LORE_DIR}" ]]; then
+        echo -e "${RED}Error: LORE_DATA_DIR is the repo itself — nothing to initialize.${NC}" >&2
+        echo "Set LORE_DATA_DIR to an external path first, e.g.:" >&2
+        echo "  export LORE_DATA_DIR=~/.lore" >&2
+        return 1
+    fi
+
+    echo -e "${BOLD}Initializing Lore data directory: ${LORE_DATA_DIR}${NC}"
+
+    # Create component directories
+    mkdir -p "${LORE_JOURNAL_DATA}/entries"
+    mkdir -p "${LORE_JOURNAL_DATA}/index"
+    mkdir -p "${LORE_PATTERNS_DATA}"
+    mkdir -p "${LORE_FAILURES_DATA}"
+    mkdir -p "${LORE_INBOX_DATA}"
+    mkdir -p "${LORE_TRANSFER_DATA}/sessions"
+    mkdir -p "${LORE_GRAPH_DATA}"
+    mkdir -p "${LORE_INTENT_DATA}/goals"
+    mkdir -p "${LORE_REGISTRY_DATA}"
+
+    # Seed files (only if missing)
+    [[ -f "${LORE_DECISIONS_FILE}" ]] || touch "${LORE_DECISIONS_FILE}"
+    [[ -f "${LORE_FAILURES_DATA}/failures.jsonl" ]] || touch "${LORE_FAILURES_DATA}/failures.jsonl"
+    [[ -f "${LORE_INBOX_DATA}/observations.jsonl" ]] || touch "${LORE_INBOX_DATA}/observations.jsonl"
+
+    if [[ ! -f "${LORE_PATTERNS_FILE}" ]]; then
+        cat > "${LORE_PATTERNS_FILE}" <<'YAML'
+# Pattern Learner Database
+patterns: []
+anti_patterns: []
+YAML
+    fi
+
+    if [[ ! -f "${LORE_GRAPH_FILE}" ]]; then
+        echo '{"nodes":{},"edges":[]}' > "${LORE_GRAPH_FILE}"
+    fi
+
+    echo -e "${GREEN}Done. Data directory ready at ${LORE_DATA_DIR}${NC}"
+}
+
 main() {
     [[ $# -eq 0 ]] && { show_help; exit 0; }
 
@@ -1155,6 +1197,7 @@ main() {
         triggers)   shift; cmd_triggers "$@" ;;
 
         # Top-level commands
+        init)       shift; cmd_init "$@" ;;
         validate)   shift; source "$LORE_DIR/lib/validate.sh"; cmd_validate "$@" ;;
         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
         index)      shift; bash "$LORE_DIR/lib/search-index.sh" "$@" ;;

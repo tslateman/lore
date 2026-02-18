@@ -5,8 +5,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/paths.sh"
 export GRAPH_DIR="$SCRIPT_DIR"
-export GRAPH_FILE="${GRAPH_DIR}/data/graph.json"
+export GRAPH_FILE="${LORE_GRAPH_FILE}"
 
 # Source library functions
 source "${SCRIPT_DIR}/lib/nodes.sh"

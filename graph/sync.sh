@@ -12,8 +12,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE_DIR="${LORE_DIR:-$(dirname "$SCRIPT_DIR")}"
-GRAPH_FILE="${SCRIPT_DIR}/data/graph.json"
-DECISIONS_FILE="${LORE_DIR}/journal/data/decisions.jsonl"
+source "${LORE_DIR}/lib/paths.sh"
+GRAPH_FILE="${LORE_GRAPH_FILE}"
+DECISIONS_FILE="${LORE_DECISIONS_FILE}"
 
 # Colors
 GREEN='\033[0;32m'

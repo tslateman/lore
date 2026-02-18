@@ -8,7 +8,8 @@
 set -euo pipefail
 
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-GRAPH_FILE="${LORE_DIR}/graph/data/graph.json"
+source "${LORE_DIR}/lib/paths.sh"
+GRAPH_FILE="${LORE_GRAPH_FILE}"
 
 # Traverse graph edges from a starting node via BFS.
 # Usage: graph_traverse <node_id_or_name> [depth]

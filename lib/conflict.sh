@@ -6,7 +6,8 @@
 set -euo pipefail
 
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-SEARCH_DB="${SEARCH_DB:-$HOME/.lore/search.db}"
+source "${LORE_DIR}/lib/paths.sh"
+SEARCH_DB="${LORE_SEARCH_DB}"
 
 # Colors (inherit from caller if set)
 RED="${RED:-\033[0;31m}"
@@ -46,7 +47,7 @@ _jaccard_similarity() {
 _check_decisions_flat() {
     local content="$1"
     local threshold="$2"
-    local decisions_file="$LORE_DIR/journal/data/decisions.jsonl"
+    local decisions_file="${LORE_DECISIONS_FILE}"
 
     [[ -f "$decisions_file" ]] || return 0
 
@@ -75,7 +76,7 @@ _check_decisions_flat() {
 _check_patterns_flat() {
     local content="$1"
     local threshold="$2"
-    local patterns_file="$LORE_DIR/patterns/data/patterns.yaml"
+    local patterns_file="${LORE_PATTERNS_FILE}"
 
     [[ -f "$patterns_file" ]] || return 0
 

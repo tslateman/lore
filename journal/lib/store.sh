@@ -4,8 +4,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATA_DIR="${SCRIPT_DIR}/../data"
-DECISIONS_FILE="${DATA_DIR}/decisions.jsonl"
+source "${SCRIPT_DIR}/../../lib/paths.sh"
+DATA_DIR="${LORE_JOURNAL_DATA}"
+DECISIONS_FILE="${LORE_DECISIONS_FILE}"
 INDEX_DIR="${DATA_DIR}/index"
 
 # Portable line-reversal: tries tac, then tail -r, then awk fallback

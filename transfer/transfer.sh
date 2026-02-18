@@ -13,8 +13,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/paths.sh"
 TRANSFER_ROOT="${LORE_TRANSFER_ROOT:-$SCRIPT_DIR}"
-DATA_DIR="${TRANSFER_ROOT}/data"
+DATA_DIR="${LORE_TRANSFER_DATA}"
 SESSIONS_DIR="${DATA_DIR}/sessions"
 CURRENT_SESSION_FILE="${DATA_DIR}/.current_session"
 

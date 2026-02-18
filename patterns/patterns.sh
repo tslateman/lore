@@ -5,9 +5,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/paths.sh"
 LIB_DIR="$SCRIPT_DIR/lib"
-DATA_DIR="$SCRIPT_DIR/data"
-PATTERNS_FILE="$DATA_DIR/patterns.yaml"
+DATA_DIR="${LORE_PATTERNS_DATA}"
+PATTERNS_FILE="${LORE_PATTERNS_FILE}"
 
 # Source library functions
 source "$LIB_DIR/capture.sh"

@@ -8,13 +8,14 @@
 set -euo pipefail
 
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-DB_DIR="${HOME}/.lore"
-DB="${DB_DIR}/search.db"
+source "${LORE_DIR}/lib/paths.sh"
+DB="${LORE_SEARCH_DB}"
+DB_DIR="$(dirname "$DB")"
 
 # Data sources
-DECISIONS_FILE="${LORE_DIR}/journal/data/decisions.jsonl"
-PATTERNS_FILE="${LORE_DIR}/patterns/data/patterns.yaml"
-SESSIONS_DIR="${LORE_DIR}/transfer/data/sessions"
+DECISIONS_FILE="${LORE_DECISIONS_FILE}"
+PATTERNS_FILE="${LORE_PATTERNS_FILE}"
+SESSIONS_DIR="${LORE_TRANSFER_DATA}/sessions"
 
 # --- Schema ---
 
@@ -478,7 +479,7 @@ load_embeddings() {
 
 # --- Phase 3: Graph-Enhanced Recall ---
 
-GRAPH_FILE="${LORE_DIR}/graph/data/graph.json"
+GRAPH_FILE="${LORE_GRAPH_FILE}"
 
 # Edge type relevance weights for scoring
 declare -A EDGE_WEIGHTS=(

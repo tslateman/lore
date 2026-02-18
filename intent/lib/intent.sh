@@ -5,7 +5,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATA_DIR="${SCRIPT_DIR}/../data"
+source "${SCRIPT_DIR}/../../lib/paths.sh"
+DATA_DIR="${LORE_INTENT_DATA}"
 GOALS_DIR="${DATA_DIR}/goals"
 # Colors
 RED='\033[0;31m'

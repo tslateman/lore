@@ -4,8 +4,9 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/../../lib/paths.sh"
 GRAPH_DIR="${GRAPH_DIR:-$(dirname "${BASH_SOURCE[0]}")/..}"
-GRAPH_FILE="${GRAPH_DIR}/data/graph.json"
+GRAPH_FILE="${LORE_GRAPH_FILE}"
 
 # Ensure graph file exists
 init_graph() {

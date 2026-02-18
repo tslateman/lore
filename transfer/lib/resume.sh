@@ -14,6 +14,7 @@
 
 # Resolve LORE_DIR for cross-component calls
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+source "${LORE_DIR}/lib/paths.sh"
 
 # Colors for output (match journal conventions)
 RED='\033[0;31m'
@@ -145,7 +146,7 @@ reconstruct_context() {
     fi
 
     # Recent journal decisions
-    local journal_data="${LORE_DIR}/journal/data/decisions.jsonl"
+    local journal_data="${LORE_DECISIONS_FILE}"
     if [[ -f "${journal_data}" ]]; then
         echo -e "${CYAN}Recent Decisions:${NC}"
         local decisions
@@ -159,7 +160,7 @@ reconstruct_context() {
     fi
 
     # Recent patterns
-    local patterns_data="${LORE_DIR}/patterns/data/patterns.yaml"
+    local patterns_data="${LORE_PATTERNS_FILE}"
     if [[ -f "${patterns_data}" ]] && command -v yq &>/dev/null; then
         echo -e "${CYAN}Recent Patterns:${NC}"
         local patterns
@@ -173,7 +174,7 @@ reconstruct_context() {
     fi
 
     # Recent failures
-    local failures_data="${LORE_DIR}/failures/data/failures.jsonl"
+    local failures_data="${LORE_FAILURES_DATA}/failures.jsonl"
     if [[ -f "${failures_data}" ]]; then
         echo -e "${CYAN}Recent Failures:${NC}"
         local failures
@@ -291,8 +292,8 @@ fork_session_from_parent() {
 #######################################
 display_spec_context() {
     local session_file="$1"
-    local goals_dir="${LORE_DIR}/intent/data/goals"
-    local journal_data="${LORE_DIR}/journal/data/decisions.jsonl"
+    local goals_dir="${LORE_INTENT_DATA}/goals"
+    local journal_data="${LORE_DECISIONS_FILE}"
 
     # Check for spec context in session
     local goal_id

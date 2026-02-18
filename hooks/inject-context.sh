@@ -10,11 +10,13 @@ trap 'exit 0' ERR
 # - Transparent injection (stderr log + metadata in output)
 
 LORE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PATTERNS_FILE="$LORE_ROOT/patterns/data/patterns.yaml"
-JOURNAL_FILE="$LORE_ROOT/journal/data/decisions.jsonl"
-SESSIONS_DIR="$LORE_ROOT/transfer/data/sessions"
+LORE_DIR="${LORE_ROOT}"
+source "${LORE_ROOT}/lib/paths.sh"
+PATTERNS_FILE="${LORE_PATTERNS_FILE}"
+JOURNAL_FILE="${LORE_DECISIONS_FILE}"
+SESSIONS_DIR="${LORE_TRANSFER_DATA}/sessions"
 BUDGET=2000
-SEARCH_DB="${HOME}/.lore/search.db"
+SEARCH_DB="${LORE_SEARCH_DB}"
 
 input=$(cat)
 cwd=$(echo "$input" | jq -r '.cwd // ""')
