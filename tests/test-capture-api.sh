@@ -260,6 +260,40 @@ test_capture_help_mentions_capture() {
     teardown
 }
 
+test_capture_deprecation_warning() {
+    echo "Test: capture emits deprecation warning on stderr"
+    setup
+
+    local stderr_output
+    stderr_output=$("$TMPDIR/lore.sh" capture "Deprecation test" --force 2>&1 1>/dev/null)
+
+    if echo "$stderr_output" | grep -qi "deprecated"; then
+        echo "  PASS: capture emits deprecation warning"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL: capture did not emit deprecation warning (stderr: $stderr_output)"
+        FAIL=$((FAIL + 1))
+    fi
+    teardown
+}
+
+test_capture_quiet_suppresses_warning() {
+    echo "Test: LORE_QUIET=1 suppresses deprecation warning"
+    setup
+
+    local stderr_output
+    stderr_output=$(LORE_QUIET=1 "$TMPDIR/lore.sh" capture "Quiet test" --force 2>&1 1>/dev/null)
+
+    if echo "$stderr_output" | grep -qi "deprecated"; then
+        echo "  FAIL: LORE_QUIET=1 did not suppress deprecation warning"
+        FAIL=$((FAIL + 1))
+    else
+        echo "  PASS: LORE_QUIET=1 suppresses deprecation warning"
+        PASS=$((PASS + 1))
+    fi
+    teardown
+}
+
 # --- Runner ---
 
 echo "=== Lore Capture API Integration Tests ==="
@@ -284,6 +318,10 @@ echo ""
 test_backward_compat_fail
 echo ""
 test_capture_help_mentions_capture
+echo ""
+test_capture_deprecation_warning
+echo ""
+test_capture_quiet_suppresses_warning
 echo ""
 
 echo "=== Results: $PASS passed, $FAIL failed ==="

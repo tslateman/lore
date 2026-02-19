@@ -31,11 +31,11 @@ If there's prior history, you'll see:
 - **Handoff notes** — next steps, blockers, open questions
 - **Forked session ID** — your new session that inherits this context
 
-**Key point:** Resume creates a *new* session. The parent session stays immutable. Your work writes to the forked session, not the historical record.
+**Key point:** Resume creates a _new_ session. The parent session stays immutable. Your work writes to the forked session, not the historical record.
 
 ## Capture a Decision
 
-You've made a technical decision. Record it with rationale so future sessions know *why*, not just *what*.
+You've made a technical decision. Record it with rationale so future sessions know _why_, not just _what_.
 
 ```bash
 lore remember "Use PostgreSQL for user data" --rationale "Need ACID transactions, team has Postgres experience"
@@ -157,7 +157,7 @@ The cycle continues. Context compounds instead of evaporating.
 │       │                                         │
 │       ▼                                         │
 │  ┌──────────┐                                   │
-│  │ capture  │ ◄─── remember, learn, fail        │
+│  │  write   │ ◄─── remember, learn, fail        │
 │  └────┬─────┘                                   │
 │       │                                         │
 │       ▼                                         │

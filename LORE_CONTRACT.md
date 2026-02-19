@@ -19,42 +19,13 @@ Lore is the shared memory backbone for the orchestration stack. It accepts struc
 
 ## Write Interface
 
-### Universal Capture
+Three commands, one per record type:
 
-`lore capture` is the primary write command. It infers the record type from flags, or accepts an explicit type override.
-
-```bash
-# Decision (default when no type-specific flags present)
-lore capture "Use PostgreSQL" --rationale "Need ACID, team knows it"
-
-# Pattern (inferred from --solution, --context, --problem, --category)
-lore capture "Retry with backoff" --context "External APIs" --solution "100ms * 2^n"
-
-# Failure (inferred from --error-type, --tool, --step)
-lore capture "Permission denied on /etc/hosts" --error-type ToolError
-
-# Explicit type override
-lore capture "Use PostgreSQL" --decision --rationale "Need ACID"
-lore capture "Retry with backoff" --pattern --context "External APIs"
-lore capture "Timeout on deploy" --failure --error-type Timeout
-```
-
-**Type inference rules** (first match wins):
-
-1. Explicit flag (`--decision`, `--pattern`, `--failure`) overrides inference
-2. Failure flags (`--error-type`, `--tool`, `--step`) infer failure
-3. Pattern flags (`--solution`, `--context`, `--problem`, `--category`) infer pattern
-4. Otherwise: decision
-
-### Aliases
-
-`remember`, `learn`, and `fail` are aliases for `capture` with a fixed type. Use whichever reads best in context.
-
-| Alias                          | Equivalent                                       |
-| ------------------------------ | ------------------------------------------------ |
-| `lore remember "X" -r "why"`   | `lore capture "X" --decision --rationale "why"`  |
-| `lore learn "X" --context "Y"` | `lore capture "X" --pattern --context "Y"`       |
-| `lore fail Type "msg"`         | `lore capture "msg" --failure --error-type Type` |
+| Command                        | Records to |
+| ------------------------------ | ---------- |
+| `lore remember "X" -r "why"`   | journal    |
+| `lore learn "X" --context "Y"` | patterns   |
+| `lore fail Type "msg"`         | failures   |
 
 ### Record a Decision (journal)
 
@@ -200,6 +171,10 @@ depends_on: []
 projects: []
 tags: []
 ```
+
+### Deprecated: Universal Capture
+
+`lore capture` still works but emits a deprecation warning. Use `remember`, `learn`, or `fail` directly. Suppress warnings with `LORE_QUIET=1`.
 
 ## Read Interface
 
