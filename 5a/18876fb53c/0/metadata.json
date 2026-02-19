@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "5a18876fb53c",
+  "session_id": "08a76340-7adb-4b8e-abc6-81eb6964ed03",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-19T12:13:50.103426Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "inbox/data/observations.jsonl",
+    "mani.yaml",
+    "plans/plan-specification-layer.md"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "e64b7220-e834-4347-966e-11543e7f7f61",
+  "token_usage": {
+    "input_tokens": 2185,
+    "cache_creation_tokens": 1525131,
+    "cache_read_tokens": 33699759,
+    "output_tokens": 16427,
+    "api_call_count": 337
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-19T12:13:49.342867Z",
+    "agent_lines": 0,
+    "human_added": 245,
+    "human_modified": 5,
+    "human_removed": 0,
+    "total_committed": 245,
+    "agent_percentage": 0
+  },
+  "transcript_path": ".claude/projects/-Users-tslater-dev-lore/08a76340-7adb-4b8e-abc6-81eb6964ed03.jsonl"
+}
