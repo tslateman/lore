@@ -1075,6 +1075,26 @@
       },
       "created_at": "2026-02-18T11:18:11Z",
       "updated_at": "2026-02-18T11:18:11Z"
+    },
+    "decision-86b17605": {
+      "type": "decision",
+      "name": "dec-5148de2b",
+      "data": {
+        "journal_id": "dec-5148de2b",
+        "decision": "Praxis = CLI synthesis, Geordi = API + GUI exploration. No merge. Defer absorbing Geordi's API layer until Geordi completes monolith split and Praxis stabilizes."
+      },
+      "created_at": "2026-02-19T12:32:01Z",
+      "updated_at": "2026-02-19T12:32:01Z"
+    },
+    "file-c3161d96": {
+      "type": "file",
+      "name": "geordi/server.py",
+      "data": {
+        "path": "geordi/server.py",
+        "language": "py"
+      },
+      "created_at": "2026-02-19T12:32:01Z",
+      "updated_at": "2026-02-19T12:32:01Z"
     }
   },
   "edges": [
@@ -1910,6 +1930,33 @@
       "weight": 0.8,
       "bidirectional": false,
       "created_at": "2026-02-18T11:18:11Z"
+    },
+    {
+      "from": "decision-86b17605",
+      "to": "file-c3161d96",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "status": "active",
+      "created_at": "2026-02-19T12:32:01Z"
+    },
+    {
+      "from": "decision-86b17605",
+      "to": "decision-0cc5d417",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "status": "active",
+      "created_at": "2026-02-19T12:32:01Z"
+    },
+    {
+      "from": "decision-0cc5d417",
+      "to": "decision-86b17605",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "status": "active",
+      "created_at": "2026-02-19T12:32:01Z"
     }
   ]
 }
