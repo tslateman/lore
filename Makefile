@@ -1,4 +1,8 @@
-.PHONY: sync-entire sync-graph sync-all check-mcp build-mcp check test
+.PHONY: install sync-entire sync-graph sync-all check-mcp build-mcp check test
+
+# Install lore CLI
+install:
+	@./scripts/install.sh $(ARGS)
 
 # Sync Entire CLI checkpoints to Lore journal
 sync-entire:
@@ -30,6 +34,8 @@ test:
 	@bash tests/test-capture-api.sh
 	@bash tests/test-goals.sh
 	@bash tests/verify-retrieval.sh
+	@bash tests/test_inversion.sh
+	@bash tests/test-cognitive-features.sh
 
 # Check all build freshness
 check: check-mcp

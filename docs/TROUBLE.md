@@ -7,8 +7,9 @@ Common issues and fixes for Lore.
 **Symptom:** `lore search "query"` prints `(no results)` even though data
 exists.
 
-**Cause:** The FTS5 index at `~/.lore/search.db` has not been built or is
-stale after bulk imports.
+**Cause:** The FTS5 index has not been built or is stale after bulk imports.
+The index lives at `$LORE_DATA_DIR/search.db` when `LORE_DATA_DIR` is set, or
+`~/.lore/search.db` as the legacy fallback (see `lib/paths.sh:35-42`).
 
 **Fix:** Run `lore index` to build or rebuild the search index. Run it again
 after `lore ingest` or manual edits to JSONL/YAML data files.

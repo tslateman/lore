@@ -1285,7 +1285,6 @@ cmd_init() {
     mkdir -p "${LORE_TRANSFER_DATA}/sessions"
     mkdir -p "${LORE_GRAPH_DATA}"
     mkdir -p "${LORE_INTENT_DATA}/goals"
-    mkdir -p "${LORE_REGISTRY_DATA}"
 
     # Seed files (only if missing)
     [[ -f "${LORE_DECISIONS_FILE}" ]] || touch "${LORE_DECISIONS_FILE}"

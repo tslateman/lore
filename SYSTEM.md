@@ -87,6 +87,8 @@ JSONL for append-only logs (journal, inbox, failures). JSON for structured
 documents (graph, sessions). YAML for human-maintained registries (patterns,
 goals, metadata).
 
+When `LORE_DATA_DIR` is set (default after `install.sh`: `~/.local/share/lore`), component `data/` directories live at that external path instead of inside the repo. Path resolution is centralized in `lib/paths.sh`.
+
 ## Contracts
 
 Lore exposes one contract: `LORE_CONTRACT.md`.

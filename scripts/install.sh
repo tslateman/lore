@@ -83,7 +83,6 @@ DIRS=(
     "${DATA_DIR}/transfer/data/sessions"
     "${DATA_DIR}/graph/data"
     "${DATA_DIR}/intent/data/goals"
-    "${DATA_DIR}/registry/data"
 )
 
 for dir in "${DIRS[@]}"; do

@@ -18,7 +18,7 @@ export LORE_FAILURES_DATA="${LORE_DATA_DIR}/failures/data"
 export LORE_INBOX_DATA="${LORE_DATA_DIR}/inbox/data"
 export LORE_INTENT_DATA="${LORE_DATA_DIR}/intent/data"
 export LORE_GRAPH_DATA="${LORE_DATA_DIR}/graph/data"
-export LORE_REGISTRY_DATA="${LORE_DATA_DIR}/registry/data"
+export LORE_REGISTRY_DATA="${LORE_DIR}/registry/data"
 
 # Transfer supports a more specific override via LORE_TRANSFER_ROOT
 if [[ -n "${LORE_TRANSFER_ROOT:-}" ]]; then

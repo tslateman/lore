@@ -3,6 +3,16 @@
 
 patterns:
 
+    - id: "pat-458587-a29f3e35"
+      name: "[DEPRECATED] Risky Business"
+      context: "Always"
+      problem: ""
+      solution: "Do it dangerous"
+      category: "testing"
+      origin: "session-2026-02-18"
+      confidence: 0.0
+      validations: 0
+      created_at: "2026-02-18T23:49:47Z"
     - id: "pat-414154-4802dbcc"
       name: "[DEPRECATED] Risky Business"
       context: "Always"
@@ -248,6 +258,14 @@ patterns:
 
 anti_patterns:
 
+    - id: "anti-458587-4729e7c9"
+      name: "Avoid: Risky Business"
+      symptom: " (Context: Always)"
+      risk: "It causes sadness"
+      fix: "Do not use this pattern. Instead: Do it dangerous (See rationale)"
+      category: "testing"
+      severity: "high"
+      created_at: "2026-02-18T23:49:47Z"
     - id: "anti-414154-ac37001f"
       name: "Avoid: Risky Business"
       symptom: " (Context: Always)"

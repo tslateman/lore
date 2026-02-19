@@ -323,20 +323,28 @@ lore learn "Contract-first interfaces" \
 
 ## Data Locations
 
-All data lives under `~/dev/lore/`:
+User data lives at `$LORE_DATA_DIR` (default: `~/.local/share/lore` after running `install.sh`). When `LORE_DATA_DIR` is unset, data stays in the repo itself. Path resolution lives in `lib/paths.sh`.
 
 ```
-journal/data/decisions.jsonl      # Append-only decision log
-graph/data/graph.json             # Knowledge graph (nodes + edges)
-patterns/data/patterns.yaml       # Pattern and anti-pattern library
-transfer/data/sessions/           # Session snapshots (one JSON per session)
-inbox/data/observations.jsonl     # Raw observation staging area
-intent/data/goals/                # Goal YAML files (one per goal)
-registry/data/metadata.yaml       # Project roles, contracts, components
-registry/data/clusters.yaml       # Cluster definitions and data flow
-registry/data/relationships.yaml  # Cross-project dependencies
-registry/data/contracts.yaml      # Contract location tracking
-failures/data/failures.jsonl     # Failure reports
+$LORE_DATA_DIR/
+  journal/data/decisions.jsonl      # Append-only decision log
+  graph/data/graph.json             # Knowledge graph (nodes + edges)
+  patterns/data/patterns.yaml       # Pattern and anti-pattern library
+  transfer/data/sessions/           # Session snapshots (one JSON per session)
+  inbox/data/observations.jsonl     # Raw observation staging area
+  intent/data/goals/                # Goal YAML files (one per goal)
+  failures/data/failures.jsonl      # Failure reports
+  search.db                         # FTS5 search index
+```
+
+Registry data stays in the repo (version-controlled):
+
+```
+~/dev/lore/
+  registry/data/metadata.yaml       # Project roles, contracts, components
+  registry/data/clusters.yaml       # Cluster definitions and data flow
+  registry/data/relationships.yaml  # Cross-project dependencies
+  registry/data/contracts.yaml      # Contract location tracking
 ```
 
 ## Non-Goals
