@@ -396,3 +396,41 @@ rebuild_indexes() {
 
     echo "Indexes rebuilt"
 }
+
+# Update a decision's outcome and optionally its lesson_learned.
+# Args: decision_id outcome [lesson_learned]
+# Outcome must be: successful|revised|abandoned
+# Returns 0 on success, 1 on failure.
+journal_update_outcome() {
+    local id="$1"
+    local outcome="$2"
+    local lesson="${3:-}"
+
+    # Validate outcome
+    case "$outcome" in
+        successful|revised|abandoned) ;;
+        *)
+            echo "Error: Invalid outcome '$outcome'. Use: successful|revised|abandoned" >&2
+            return 1
+            ;;
+    esac
+
+    local current
+    current=$(get_decision "$id")
+
+    if [[ -z "$current" ]]; then
+        echo "Error: Decision $id not found" >&2
+        return 1
+    fi
+
+    # Build updated record
+    local updated
+    updated=$(echo "$current" | jq -c --arg outcome "$outcome" '.outcome = $outcome')
+
+    if [[ -n "$lesson" ]]; then
+        updated=$(echo "$updated" | jq -c --arg lesson "$lesson" '.lesson_learned = $lesson')
+    fi
+
+    # Append updated version (same pattern as update_decision)
+    echo "$updated" >> "$DECISIONS_FILE"
+}

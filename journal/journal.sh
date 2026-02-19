@@ -233,6 +233,12 @@ cmd_record() {
     if [[ -n "$entities" && "$entities" != "" ]]; then
         echo -e "  ${CYAN}Entities:${NC} $entities"
     fi
+
+    local spec_out sq_score sq_hint
+    spec_out=$(compute_decision_spec_quality "$record")
+    sq_score=$(echo "$spec_out" | head -1)
+    sq_hint=$(echo "$spec_out" | tail -1)
+    echo -e "  ${CYAN}Spec quality:${NC} ${sq_score} ${sq_hint}"
 }
 
 cmd_query() {

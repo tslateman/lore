@@ -94,7 +94,8 @@ Options: `--rationale` (`-r`), `--alternatives` (`-a`), `--tags` (`-t`), `--type
   "tags": ["string"],
   "lesson_learned": "string|null",
   "related_decisions": ["dec-id"],
-  "git_commit": "sha|null"
+  "git_commit": "sha|null",
+  "spec_quality": "0.0-1.0 (auto-computed)"
 }
 ```
 
@@ -121,6 +122,7 @@ category: "string"
 origin: "session-<date> or <project-name>"
 confidence: 0.0-1.0
 validations: integer
+spec_quality: 0.0-1.0 (auto-computed)
 examples:
   - bad: "what not to do"
   - good: "what to do"
@@ -238,6 +240,30 @@ lore inbox --status promoted  # show promoted observations
 lore resume              # latest session
 lore resume <session-id> # specific session
 ```
+
+Resume also runs active subtraction checks (contradictions, stale decisions, low-confidence patterns) and auto-reviews pending decisions older than 14 days.
+
+### Review Decisions
+
+```bash
+lore review                                  # list pending decisions
+lore review --auto                           # auto-resolve decisions >30 days old
+lore review --days 7                         # list decisions pending >7 days
+lore review --resolve <id> --outcome successful --lesson "what we learned"
+```
+
+Outcomes: `successful`, `revised`, `abandoned`. Side effects:
+
+- **successful**: boosts related pattern confidence via `validate_pattern()`
+- **abandoned**: records a failure entry for tracking
+
+### Topic Briefing
+
+```bash
+lore brief <topic>       # pre-execution context assembly
+```
+
+Searches decisions, patterns, failures, and graph for the topic. Surfaces contradictions, stale patterns, and related graph connections.
 
 ### Query Goals (intent)
 

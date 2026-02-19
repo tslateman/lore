@@ -76,6 +76,7 @@ Usage: lore <command> [options]
 Session:
   resume              Load context from previous session
   handoff <message>   Capture context for next session
+  review              Review pending decisions
   status              Show current session state
   entire-resume <br>  Resume Entire branch with Lore context
 
@@ -86,6 +87,7 @@ Capture:
 
 Query:
   search <query>      Search all components (--smart for semantic)
+  brief <topic>       Topic briefing before execution
 
 Run 'lore help' for all commands.
 Run 'lore help <topic>' for: capture, search, intent, registry, components
@@ -102,6 +104,12 @@ Usage: lore <command> [options]
 SESSION LIFECYCLE
   resume [session]        Load context from previous session (forks new session)
   handoff <message>       Capture context for next session
+  review                  Review pending decisions and resolve outcomes
+    --days N              Age threshold in days (default: 3)
+    --resolve <id>        Resolve a specific decision
+    --outcome <status>    Set outcome: successful|revised|abandoned
+    --lesson "text"       Record lesson learned
+    --auto                Brief summary for automated use
   status                  Show current session state
   entire-resume <branch>  Resume Entire branch with Lore context injection
 
@@ -127,6 +135,7 @@ QUERY
     --hybrid              Combine keyword + semantic
     --graph-depth N       Follow graph edges (0-3)
   context <project>       Gather full context for a project
+  brief <topic>           Topic-scoped briefing across all components
   suggest <context>       Suggest relevant patterns
   failures [--type T]     List failures
   triggers                Show recurring failures (Rule of Three)
@@ -1327,6 +1336,8 @@ main() {
         failures)   shift; cmd_failures "$@" ;;
         triggers)   shift; cmd_triggers "$@" ;;
         promote-failure) shift; cmd_promote_failure "$@" ;;
+        review)     shift; source "$LORE_DIR/lib/review.sh"; cmd_review "$@" ;;
+        brief)      shift; source "$LORE_DIR/lib/brief.sh"; cmd_brief "$@" ;;
 
         # Top-level commands
         init)       shift; cmd_init "$@" ;;

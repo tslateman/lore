@@ -113,6 +113,43 @@ get_git_commit() {
     fi
 }
 
+# Compute specification quality score for a decision record
+# Outputs two lines: score (0.00-1.00) on line 1, hint on line 2
+compute_decision_spec_quality() {
+    local record="$1"
+
+    local rationale alt_len ent_len tag_len
+    rationale=$(echo "$record" | jq -r '.rationale // ""')
+    alt_len=$(echo "$record" | jq '.alternatives | length')
+    ent_len=$(echo "$record" | jq '.entities | length')
+    tag_len=$(echo "$record" | jq '.tags | length')
+
+    local missing=()
+    local score
+    score=$(awk -v rat="$rationale" -v alts="$alt_len" -v ents="$ent_len" -v tags="$tag_len" '
+        BEGIN {
+            s = 0.2  # decision always present
+            if (rat != "" && rat != "null" && length(rat) > 20) s += 0.3
+            if (alts >= 1) s += 0.2
+            if (ents >= 1) s += 0.15
+            if (tags >= 1) s += 0.15
+            printf "%.2f", s
+        }')
+
+    [[ -z "$rationale" || "$rationale" == "null" || ${#rationale} -le 20 ]] && missing+=("rationale")
+    [[ "$alt_len" -lt 1 ]] && missing+=("alternatives")
+    [[ "$ent_len" -lt 1 ]] && missing+=("entities")
+    [[ "$tag_len" -lt 1 ]] && missing+=("tags")
+
+    echo "$score"
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        local IFS=','
+        echo "(missing: ${missing[*]})"
+    else
+        echo "(complete)"
+    fi
+}
+
 # Create a full decision record
 create_decision_record() {
     local decision="$1"
@@ -157,7 +194,8 @@ create_decision_record() {
     fi
 
     # Build JSON record (compact for JSONL format)
-    jq -c -n \
+    local record_json
+    record_json=$(jq -c -n \
         --arg id "$id" \
         --arg timestamp "$timestamp" \
         --arg session_id "$session_id" \
@@ -185,7 +223,15 @@ create_decision_record() {
             related_decisions: [],
             git_commit: (if $git_commit == "" then null else $git_commit end),
             valid_at: (if $valid_at == "" then null else $valid_at end)
-        }'
+        }')
+
+    # Add spec quality score
+    local spec_out sq_score
+    spec_out=$(compute_decision_spec_quality "$record_json")
+    sq_score=$(echo "$spec_out" | head -1)
+    record_json=$(echo "$record_json" | jq -c --argjson sq "$sq_score" '. + {spec_quality: $sq}')
+
+    echo "$record_json"
 }
 
 # Parse decision text that may include inline rationale

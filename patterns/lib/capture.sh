@@ -56,6 +56,21 @@ yaml_escape() {
     echo "$str"
 }
 
+# Compute specification quality score for a pattern
+# Outputs a single float value (0.00-1.00)
+compute_pattern_spec_quality() {
+    local name="$1" context="$2" solution="$3" problem="$4"
+
+    awk -v ctx="$context" -v sol="$solution" -v prob="$problem" '
+        BEGIN {
+            s = 0.2  # name always present
+            if (ctx != "" && length(ctx) > 10) s += 0.3
+            if (sol != "" && length(sol) > 10) s += 0.3
+            if (prob != "" && length(prob) > 10) s += 0.2
+            printf "%.2f", s
+        }'
+}
+
 # Capture a new pattern
 capture_pattern() {
     local name="$1"
@@ -107,7 +122,8 @@ capture_pattern() {
       origin: \"$origin\"
       confidence: 0.5
       validations: 0
-      created_at: \"$created_at\"$examples_yaml"
+      created_at: \"$created_at\"
+      spec_quality: $(compute_pattern_spec_quality "$name" "$context" "$solution" "$problem")$examples_yaml"
 
     # Insert pattern into YAML file
     # We insert after the "patterns:" line
@@ -147,6 +163,18 @@ capture_pattern() {
     fi
     if [[ -n "$solution" ]]; then
         echo -e "  ${CYAN}Solution:${NC} $solution"
+    fi
+
+    local sq_score sq_missing=()
+    sq_score=$(compute_pattern_spec_quality "$name" "$context" "$solution" "$problem")
+    [[ -z "$context" || ${#context} -le 10 ]] && sq_missing+=("context")
+    [[ -z "$solution" || ${#solution} -le 10 ]] && sq_missing+=("solution")
+    [[ -z "$problem" || ${#problem} -le 10 ]] && sq_missing+=("problem")
+    if [[ ${#sq_missing[@]} -gt 0 ]]; then
+        local IFS=','
+        echo -e "  ${CYAN}Spec quality:${NC} ${sq_score} (missing: ${sq_missing[*]})"
+    else
+        echo -e "  ${CYAN}Spec quality:${NC} ${sq_score} (complete)"
     fi
 }
 

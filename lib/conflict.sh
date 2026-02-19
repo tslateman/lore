@@ -355,3 +355,56 @@ _try_add_contradiction_edge() {
         '.edges += [{from: $from, to: $to, relation: "contradicts", weight: 1.0, bidirectional: true, status: "active", created_at: $created}]' \
         "$graph_file" > "${graph_file}.tmp" && mv "${graph_file}.tmp" "$graph_file"
 }
+
+# Batch scan all active decisions for contradictions.
+# Returns pipe-delimited lines: id_a|id_b|shared_entities|similarity|text_a|text_b
+# Returns empty if no contradictions found.
+find_contradictions() {
+    local decisions_file="${LORE_DECISIONS_FILE}"
+    [[ -f "$decisions_file" ]] || return 0
+
+    # Get unique active decisions
+    local decisions
+    decisions=$(jq -s '
+        group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
+        | map({id, decision, rationale})
+    ' "$decisions_file" 2>/dev/null) || return 0
+
+    local count
+    count=$(echo "$decisions" | jq 'length' 2>/dev/null) || return 0
+    [[ "$count" -lt 2 ]] && return 0
+
+    # Guard against large datasets
+    if [[ "$count" -gt 200 ]]; then
+        echo "WARN: $count decisions exceeds batch limit (200). Skipping contradiction scan." >&2
+        return 0
+    fi
+
+    # Compare all pairs
+    for ((i=0; i<count; i++)); do
+        local id_a text_a entities_a
+        id_a=$(echo "$decisions" | jq -r ".[$i].id")
+        text_a=$(echo "$decisions" | jq -r ".[$i] | (.decision // \"\") + \" \" + (.rationale // \"\")")
+        entities_a=$(_extract_entities_for_conflict "$text_a")
+
+        for ((j=i+1; j<count; j++)); do
+            local id_b text_b entities_b
+            id_b=$(echo "$decisions" | jq -r ".[$j].id")
+            text_b=$(echo "$decisions" | jq -r ".[$j] | (.decision // \"\") + \" \" + (.rationale // \"\")")
+            entities_b=$(_extract_entities_for_conflict "$text_b")
+
+            local overlap
+            overlap=$(_entity_overlap_count "$entities_a" "$entities_b")
+            [[ "$overlap" -lt 2 ]] && continue
+
+            local sim
+            sim=$(_jaccard_similarity "$text_a" "$text_b")
+            [[ "$sim" -ge 30 ]] && continue
+
+            local short_a="${text_a:0:60}"
+            local short_b="${text_b:0:60}"
+            echo "${id_a}|${id_b}|${overlap}|${sim}|${short_a}|${short_b}"
+        done
+    done
+}

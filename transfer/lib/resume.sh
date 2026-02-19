@@ -709,6 +709,32 @@ resume_session() {
     # Suggest promoting recurring lessons to patterns
     suggest_promotions 2>/dev/null || true
 
+    # Active subtraction: surface contradictions, stale decisions, low-confidence patterns
+    source "${LORE_DIR}/lib/subtraction.sh" 2>/dev/null || true
+    if type subtraction_check &>/dev/null; then
+        subtraction_check 2>/dev/null || true
+    fi
+
+    # Auto-review: show pending decisions needing resolution
+    source "${LORE_DIR}/lib/review.sh" 2>/dev/null || true
+    if type cmd_review &>/dev/null; then
+        cmd_review --auto 2>/dev/null || true
+    fi
+
+    # Rolling spec quality average
+    if [[ -f "${LORE_DECISIONS_FILE}" ]]; then
+        local avg_spec
+        avg_spec=$(jq -s '
+            group_by(.id) | map(.[-1])
+            | map(select((.status // "active") == "active"))
+            | map(.spec_quality // empty)
+            | if length > 0 then (add / length * 100 | round / 100) else null end
+        ' "${LORE_DECISIONS_FILE}" 2>/dev/null) || true
+        if [[ -n "$avg_spec" && "$avg_spec" != "null" ]]; then
+            echo -e "  Avg spec quality: ${avg_spec}"
+        fi
+    fi
+
     # Fork: create new session inheriting from this one
     local new_session_id
     new_session_id=$(fork_session_from_parent "${session_id}")
