@@ -98,8 +98,8 @@ projects:
     tags: [type:orchestrator, lang:shell, status:archived, goals, intent]
   praxis:
     path: praxis
-    desc: Structured failure journals and analysis
-    tags: [type:tool, lang:python, status:active, failures, analysis, wisdom]
+    desc: Synthesis facade — unified queries across Lore, patterns, and failures
+    tags: [type:tool, lang:python, status:active, synthesis, facade, query]
   qin:
     path: cli/qin
     desc: Stringless qin — after Tao Yuanming
