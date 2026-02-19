@@ -1,0 +1,44 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "d62b6477905a",
+  "session_id": "08a76340-7adb-4b8e-abc6-81eb6964ed03",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-19T12:06:15.710932Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "LORE_CONTRACT.md",
+    "journal/journal.sh",
+    "journal/lib/capture.sh",
+    "journal/lib/store.sh",
+    "lib/brief.sh",
+    "lib/conflict.sh",
+    "lore.sh",
+    "patterns/lib/capture.sh",
+    "lib/review.sh",
+    "lib/subtraction.sh",
+    "tests/test-spec-layer.sh",
+    "transfer/lib/resume.sh"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "e64b7220-e834-4347-966e-11543e7f7f61",
+  "checkpoint_transcript_start": 842,
+  "transcript_lines_at_start": 842,
+  "token_usage": {
+    "input_tokens": 245,
+    "cache_creation_tokens": 1041635,
+    "cache_read_tokens": 16016225,
+    "output_tokens": 4395,
+    "api_call_count": 173
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-19T12:06:14.954603Z",
+    "agent_lines": 3918,
+    "human_added": 19186,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 23104,
+    "agent_percentage": 16.958102493074794
+  },
+  "transcript_path": ".claude/projects/-Users-tslater-dev-lore/08a76340-7adb-4b8e-abc6-81eb6964ed03.jsonl"
+}
