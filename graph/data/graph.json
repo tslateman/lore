@@ -1095,6 +1095,86 @@
       },
       "created_at": "2026-02-19T12:32:01Z",
       "updated_at": "2026-02-19T12:32:01Z"
+    },
+    "decision-c302cfc7": {
+      "type": "decision",
+      "name": "dec-4b1d3489",
+      "data": {
+        "journal_id": "dec-4b1d3489",
+        "decision": "Split mixed-quality evidence into explicit tiers in executive documents"
+      },
+      "created_at": "2026-02-19T12:53:07Z",
+      "updated_at": "2026-02-19T12:53:07Z"
+    },
+    "file-92345b4b": {
+      "type": "file",
+      "name": "docs/executive-briefing.md",
+      "data": {
+        "path": "docs/executive-briefing.md",
+        "language": "md"
+      },
+      "created_at": "2026-02-19T12:53:07Z",
+      "updated_at": "2026-02-19T12:53:07Z"
+    },
+    "decision-641bf7c5": {
+      "type": "decision",
+      "name": "dec-f2bfad7e",
+      "data": {
+        "journal_id": "dec-f2bfad7e",
+        "decision": "Remove speculative compound estimates from executive documents rather than qualifying them"
+      },
+      "created_at": "2026-02-19T12:53:10Z",
+      "updated_at": "2026-02-19T12:53:10Z"
+    },
+    "decision-69bdb1cd": {
+      "type": "decision",
+      "name": "dec-421b3853",
+      "data": {
+        "journal_id": "dec-421b3853",
+        "decision": "test"
+      },
+      "created_at": "2026-02-19T13:07:20Z",
+      "updated_at": "2026-02-19T13:07:20Z"
+    },
+    "decision-27259f64": {
+      "type": "decision",
+      "name": "dec-82df8609",
+      "data": {
+        "journal_id": "dec-82df8609",
+        "decision": "Keep remember and learn as separate commands"
+      },
+      "created_at": "2026-02-19T13:16:19Z",
+      "updated_at": "2026-02-19T13:16:19Z"
+    },
+    "pattern-0e0ff514": {
+      "type": "pattern",
+      "name": "pat-507238-d7a92963",
+      "data": {
+        "pattern_id": "pat-507238-d7a92963",
+        "name": "Distinguish read-serving from write-serving complexity when deduplicating CLI paths"
+      },
+      "created_at": "2026-02-19T13:22:31Z",
+      "updated_at": "2026-02-19T13:22:31Z"
+    },
+    "decision-b4f9f1ed": {
+      "type": "decision",
+      "name": "dec-435ad4de",
+      "data": {
+        "journal_id": "dec-435ad4de",
+        "decision": "Node types encode three cycles: learning (decision↔pattern), abstraction (decision→pattern→concept→decision), and work ("
+      },
+      "created_at": "2026-02-19T13:31:35Z",
+      "updated_at": "2026-02-19T13:31:35Z"
+    },
+    "pattern-6ac080f1": {
+      "type": "pattern",
+      "name": "pat-507900-48ba66c9",
+      "data": {
+        "pattern_id": "pat-507900-48ba66c9",
+        "name": "Map type-level graphs to find missing refinement operators"
+      },
+      "created_at": "2026-02-19T13:31:45Z",
+      "updated_at": "2026-02-19T13:31:45Z"
     }
   },
   "edges": [
@@ -1957,6 +2037,78 @@
       "bidirectional": true,
       "status": "active",
       "created_at": "2026-02-19T12:32:01Z"
+    },
+    {
+      "from": "decision-c302cfc7",
+      "to": "file-92345b4b",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "status": "active",
+      "created_at": "2026-02-19T12:53:07Z"
+    },
+    {
+      "from": "decision-641bf7c5",
+      "to": "file-92345b4b",
+      "relation": "references",
+      "weight": 1.0,
+      "bidirectional": false,
+      "status": "active",
+      "created_at": "2026-02-19T12:53:10Z"
+    },
+    {
+      "from": "decision-641bf7c5",
+      "to": "decision-c302cfc7",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "status": "active",
+      "created_at": "2026-02-19T12:53:10Z"
+    },
+    {
+      "from": "decision-c302cfc7",
+      "to": "decision-641bf7c5",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": true,
+      "status": "active",
+      "created_at": "2026-02-19T12:53:10Z"
+    },
+    {
+      "from": "decision-27259f64",
+      "to": "pattern-0e0ff514",
+      "relation": "learned_from",
+      "weight": 1.0,
+      "bidirectional": false,
+      "status": "active",
+      "created_at": "2026-02-19T13:22:35Z"
+    },
+    {
+      "from": "decision-b4f9f1ed",
+      "to": "pattern-6ac080f1",
+      "relation": "learned_from",
+      "weight": 1.0,
+      "bidirectional": false,
+      "status": "active",
+      "created_at": "2026-02-19T13:31:55Z"
+    },
+    {
+      "from": "decision-b4f9f1ed",
+      "to": "decision-27259f64",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": false,
+      "status": "active",
+      "created_at": "2026-02-19T13:31:55Z"
+    },
+    {
+      "from": "decision-27259f64",
+      "to": "decision-b4f9f1ed",
+      "relation": "relates_to",
+      "weight": 1.0,
+      "bidirectional": false,
+      "status": "active",
+      "created_at": "2026-02-19T13:31:55Z"
     }
   ]
 }

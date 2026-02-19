@@ -52,6 +52,49 @@ failures/ ──→ triggers (Rule of Three) ──→ patterns/ ──→ sessi
 When an error type recurs three times, failure analysis surfaces it. The pattern
 gets recorded. Future sessions receive that pattern at resume. The system learns.
 
+### Type-Level Graph
+
+The graph's node types (session, decision, pattern, concept, file, project) and
+edge types encode three cycles:
+
+```text
+         ┌──────── informs ────────┐
+         ▼                         │
+     decision ───yields──▶ pattern ┘
+         │                    │
+    references           implements
+         │                    │
+         ▼                    ▼
+       file              concept
+         │                    │
+      part_of             grounds
+         │                    │
+         ▼        hosts       ▼
+      project ──────────▶ session
+                             │
+                          produces
+                             │
+                             ▼
+                          decision
+```
+
+**Learning loop:** decision → pattern → decision. Choices reveal patterns;
+patterns inform future choices.
+
+**Abstraction loop:** decision → pattern → concept → decision. Choices become
+patterns, patterns crystallize into concepts, concepts frame future choices.
+
+**Work loop:** project → session → decision → file → project. Projects host
+sessions, sessions produce decisions, decisions change files, files belong to
+projects.
+
+`lesson` is a waypoint on the session → pattern edge — a learned insight that
+hasn't generalized into a reusable pattern yet.
+
+`concept` has no write command. `remember` writes decisions, `learn` writes
+patterns, but nothing promotes a pattern to a concept. Concepts enter the graph
+only through manual `graph add concept`.
+
 ## Eight Components
 
 Each component answers one question. Together they form institutional memory.

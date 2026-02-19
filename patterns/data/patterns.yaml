@@ -3,6 +3,72 @@
 
 patterns:
 
+    - id: "pat-507900-48ba66c9"
+      name: "Map type-level graphs to find missing refinement operators"
+      context: "System has typed nodes and edges but the tooling may not cover all type transitions"
+      problem: ""
+      solution: "Draw the type-level meta-graph (types as nodes, edge-types as edges). Each cycle reveals a feedback loop. Each type without a write command is a missing refinement operator — knowledge accumulates below it but never promotes upward."
+      category: "architecture"
+      origin: "session-2026-02-19"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-19T13:31:40Z"
+      spec_quality: 0.80
+    - id: "pat-507238-d7a92963"
+      name: "Distinguish read-serving from write-serving complexity when deduplicating CLI paths"
+      context: "Multiple commands write to the same store, or a unified command duplicates specialized ones"
+      problem: ""
+      solution: "Ask whether the distinction powers different read queries. If merging re-introduces classification downstream, the split earns its keep. Cut write-time shortcuts that only ease authoring; keep write-time distinctions that serve read-time consumers."
+      category: "architecture"
+      origin: "session-2026-02-19"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-19T13:20:38Z"
+      spec_quality: 0.80
+    - id: "pat-506425-46fc9035"
+      name: "[DEPRECATED] Risky Business"
+      context: "Always"
+      problem: ""
+      solution: "Do it dangerous"
+      category: "testing"
+      origin: "session-2026-02-19"
+      confidence: 0.0
+      validations: 0
+      created_at: "2026-02-19T13:07:05Z"
+      spec_quality: 0.50
+    - id: "pat-505603-75d3bfb6"
+      name: "Epistemic accuracy over strong verbs in technical prose"
+      context: "Writing documents where both prose quality and epistemic accuracy matter (executive briefings, research summaries)"
+      problem: "Prose polishers optimize for verb strength and may introduce overclaims. Strunk's 'be definite' applies to the claim itself, not just verb choice."
+      solution: "When Strunk's 'be definite' conflicts with epistemic accuracy, find verbs that are both strong AND accurate. 'Confirmed' is stronger than 'found' but overclaims convergent evidence. 'Found the same pattern independently' satisfies both."
+      category: "general"
+      origin: "session-2026-02-19"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-19T12:53:23Z"
+      spec_quality: 1.00
+    - id: "pat-505598-b0d7abc9"
+      name: "Decompose research by context size, not problem type"
+      context: "Research requiring synthesis from multiple large sources"
+      problem: "Single-agent research hits context limits. Problem-type decomposition duplicates source reading across agents."
+      solution: "Split agents by what they need to read (not by analysis type). Each agent goes deep on its subset. Cross-validation happens in synthesis report, not during research. Shields main context from large reports."
+      category: "architecture"
+      origin: "session-2026-02-19"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-19T12:53:18Z"
+      spec_quality: 1.00
+    - id: "pat-505595-b5b8aa2f"
+      name: "5-phase team document iteration"
+      context: "High-stakes documents requiring both epistemic rigor and audience fit"
+      problem: "Sequential review misses interaction between content accuracy and presentation. Prose polish after critic review can accidentally revert corrections."
+      solution: "Draft → parallel critic/ambassador review → apply feedback → prose polish. Always verify critic corrections survive the polish pass, as prose polishers may revert accuracy fixes for stylistic reasons."
+      category: "general"
+      origin: "session-2026-02-19"
+      confidence: 0.5
+      validations: 0
+      created_at: "2026-02-19T12:53:15Z"
+      spec_quality: 1.00
     - id: "pat-458587-a29f3e35"
       name: "[DEPRECATED] Risky Business"
       context: "Always"
@@ -258,6 +324,14 @@ patterns:
 
 anti_patterns:
 
+    - id: "anti-506425-56fdc0eb"
+      name: "Avoid: Risky Business"
+      symptom: " (Context: Always)"
+      risk: "It causes sadness"
+      fix: "Do not use this pattern. Instead: Do it dangerous (See rationale)"
+      category: "testing"
+      severity: "high"
+      created_at: "2026-02-19T13:07:05Z"
     - id: "anti-458587-4729e7c9"
       name: "Avoid: Risky Business"
       symptom: " (Context: Always)"
