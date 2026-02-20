@@ -24,9 +24,10 @@ the Lore CLI.
    - **Alternatives**: what was considered and rejected
    - **Affected files**: files changed or created by this decision
 
-2. Classify as decision or pattern:
+2. Classify as decision, pattern, or observation:
    - **Decision** (`lore remember`): a specific choice between alternatives
    - **Pattern** (`lore learn`): a reusable technique or approach
+   - **Observation** (`lore capture`): something noticed but not yet categorized
 
 3. Infer metadata:
    - **Type**: architecture, implementation, naming, tooling, process, refactor
@@ -60,6 +61,13 @@ the Lore CLI.
      --solution "<what>" \
      --problem "<why>" \
      --category <cat>
+   ```
+
+   **Observation:**
+
+   ```bash
+   ~/dev/lore/lore.sh capture "<what was noticed>" \
+     --tags "<project>,<topic>"
    ```
 
 6. Confirm what was captured: the entry ID and a one-line summary

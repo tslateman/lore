@@ -27,12 +27,13 @@ from zero to productive.
 See the [tutorial](docs/tutorial.md) for a hands-on walkthrough. The essentials:
 
 ```bash
-# Record decisions, patterns, and failures with one command
-lore capture "Use JSONL for storage" --rationale "Append-only, simple"
-lore capture "Safe bash arithmetic" --solution 'Use x=$((x+1))' --context "set -e scripts"
-lore capture "Permission denied" --error-type ToolError
+# One verb, four destinations — flags determine type
+lore capture "Users retry after timeout"                                    # → observation (inbox)
+lore capture "Use JSONL for storage" --rationale "Append-only, simple"      # → decision (journal)
+lore capture "Safe bash arithmetic" --solution 'Use x=$((x+1))'            # → pattern (patterns)
+lore capture "Permission denied" --error-type ToolError                     # → failure (failures)
 
-# Or use shortcuts
+# Shortcuts still work
 lore remember "Use JSONL for storage" --rationale "Append-only, simple"
 lore learn "Safe bash arithmetic" --solution 'Use x=$((x+1))'
 lore fail ToolError "Permission denied"

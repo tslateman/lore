@@ -7,7 +7,7 @@ Review this session and capture knowledge to Lore. Do not ask clarifying questio
 
 ## Step 1: Scan the Conversation
 
-Identify captures in three categories:
+Identify captures in four categories:
 
 **Decisions** — architectural or design choices with alternatives considered:
 
@@ -26,7 +26,15 @@ Identify captures in three categories:
 - Tool errors, build failures, test failures
 - The root cause and fix (not just the symptom)
 
-Skip anything already captured in a previous `/capture` or `/handoff` in this session. Skip trivial observations — only record what a future session would benefit from.
+**Observations** — things noticed but not yet categorized:
+
+- Recurring user questions or behaviors
+- Anomalies worth tracking
+- Hunches that need more evidence
+
+When uncertain whether something is a pattern or observation, choose observation.
+
+Skip anything already captured in a previous `/capture` or `/handoff` in this session. Skip trivial notes — only record what a future session would benefit from.
 
 ## Step 2: Present the Capture Plan
 
@@ -40,6 +48,8 @@ Capturing to Lore:
   Patterns: [count]
     - [title 1]
   Failures: [count]
+    - [title 1]
+  Observations: [count]
     - [title 1]
 ```
 
@@ -71,6 +81,12 @@ ${CLAUDE_PLUGIN_ROOT}/lore.sh learn "<pattern name>" \
 
 ```bash
 ${CLAUDE_PLUGIN_ROOT}/lore.sh fail "<ErrorType>" "<what happened and how it was fixed>"
+```
+
+**Observations:**
+
+```bash
+${CLAUDE_PLUGIN_ROOT}/lore.sh capture "<what was noticed>" --tags "<project>,<topic>"
 ```
 
 ## Step 4: Confirm

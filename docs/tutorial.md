@@ -33,12 +33,28 @@ If there's prior history, you'll see:
 
 **Key point:** Resume creates a _new_ session. The parent session stays immutable. Your work writes to the forked session, not the historical record.
 
-## Capture a Decision
+## Record an Observation
 
-You've made a technical decision. Record it with rationale so future sessions know _why_, not just _what_.
+You noticed something worth remembering but don't yet know what it means. Capture it as an observation—the lowest-friction write.
 
 ```bash
-lore remember "Use PostgreSQL for user data" --rationale "Need ACID transactions, team has Postgres experience"
+lore capture "Users frequently ask about retry logic"
+```
+
+Bare `capture` creates an observation in the inbox. No classification required. Promote observations to decisions or patterns later when a clear pattern emerges.
+
+**With tags:**
+
+```bash
+lore capture "API latency spikes during deploys" --tags "infra,performance"
+```
+
+## Capture a Decision
+
+You've made a technical decision. Add `--rationale` to signal importance and route to the journal.
+
+```bash
+lore capture "Use PostgreSQL for user data" --rationale "Need ACID transactions, team has Postgres experience"
 ```
 
 The decision goes into the journal. Later, `lore search "database"` will find it.
@@ -46,7 +62,7 @@ The decision goes into the journal. Later, `lore search "database"` will find it
 **With alternatives:**
 
 ```bash
-lore remember "Use REST over GraphQL" \
+lore capture "Use REST over GraphQL" \
   --rationale "Simpler caching, team unfamiliar with GraphQL" \
   --alternatives "GraphQL (rejected: learning curve), gRPC (rejected: browser support)"
 ```
@@ -55,10 +71,10 @@ Recording rejected alternatives prevents revisiting settled decisions.
 
 ## Capture a Pattern
 
-You've learned something reusable—a technique, a gotcha, a best practice. Capture it as a pattern.
+You've learned something reusable—a technique, a gotcha, a best practice. Add `--solution` to route to patterns.
 
 ```bash
-lore learn "Retry with exponential backoff" \
+lore capture "Retry with exponential backoff" \
   --context "Calling external APIs that rate-limit" \
   --solution "Base delay 100ms, multiply by 2 each retry, max 5 retries"
 ```
@@ -68,7 +84,7 @@ Patterns surface during future `resume` calls when the context matches.
 **Anti-patterns work too:**
 
 ```bash
-lore learn "Don't catch generic exceptions" \
+lore capture "Don't catch generic exceptions" \
   --context "Error handling in Python" \
   --solution "Catch specific exception types; generic catches hide bugs" \
   --category anti-pattern
@@ -157,7 +173,7 @@ The cycle continues. Context compounds instead of evaporating.
 │       │                                         │
 │       ▼                                         │
 │  ┌──────────┐                                   │
-│  │  write   │ ◄─── remember, learn, fail        │
+│  │ capture  │ ◄─── Record knowledge (flags)     │
 │  └────┬─────┘                                   │
 │       │                                         │
 │       ▼                                         │

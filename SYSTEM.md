@@ -21,9 +21,9 @@ Lore is the data layer. Everything the stack remembers passes through here.
 ```
 
 Lore sits at the center -- projects read from it and write to it. Integration is
-opt-in via CLI or client library. Any project that calls `lore remember` or
-`lore learn` becomes a writer. Any project that calls `lore resume` or
-`lore search` becomes a reader. Lore neither knows nor cares who its consumers are.
+opt-in via CLI or client library. Any project that calls `lore capture` becomes
+a writer. Any project that calls `lore resume` or `lore search` becomes a reader.
+Lore neither knows nor cares who its consumers are.
 
 ## Data Flow
 
@@ -33,10 +33,8 @@ opt-in via CLI or client library. Any project that calls `lore remember` or
 1. lore resume          Load context from last session
 2. lore goal list       See active goals
 3. Work happens         Agents read patterns, make decisions
-4. lore remember        Capture decisions with rationale
-5. lore fail            Log failures with error type and context
-6. lore learn           Capture patterns from experience
-7. lore handoff         Snapshot state for next session
+4. lore capture         Record knowledge (type inferred from flags)
+5. lore handoff         Snapshot state for next session
 ```
 
 ### The Compounding Loop

@@ -19,13 +19,16 @@ Lore is the shared memory backbone for the orchestration stack. It accepts struc
 
 ## Write Interface
 
-Three commands, one per record type:
+One verb, four destinations. Flags determine type:
 
-| Command                        | Records to |
-| ------------------------------ | ---------- |
-| `lore remember "X" -r "why"`   | journal    |
-| `lore learn "X" --context "Y"` | patterns   |
-| `lore fail Type "msg"`         | failures   |
+| Command                                   | Records to | Shortcut             |
+| ----------------------------------------- | ---------- | -------------------- |
+| `lore capture "X"`                        | inbox      | `lore observe "X"`   |
+| `lore capture "X" --rationale "why"`      | journal    | `lore remember "X"`  |
+| `lore capture "X" --solution "how"`       | patterns   | `lore learn "X"`     |
+| `lore capture "X" --error-type ToolError` | failures   | `lore fail Type "X"` |
+
+Bare `capture` creates an observation. Add flags to signal importance.
 
 ### Record a Decision (journal)
 
@@ -171,10 +174,6 @@ depends_on: []
 projects: []
 tags: []
 ```
-
-### Deprecated: Universal Capture
-
-`lore capture` still works but emits a deprecation warning. Use `remember`, `learn`, or `fail` directly. Suppress warnings with `LORE_QUIET=1`.
 
 ## Read Interface
 
