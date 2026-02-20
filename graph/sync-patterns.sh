@@ -150,3 +150,116 @@ if [[ "$new_pattern_nodes" -gt 0 ]]; then
 fi
 
 echo -e "${GREEN}Synced ${new_pattern_nodes} new pattern nodes, ${new_edges} new edges${NC}"
+
+# --- Step 2: Create informs edges (pattern -> decision) for same-session pairs ---
+# When a pattern's origin matches a decision's session (by date), the pattern
+# informs future decisions from that same context.
+DECISIONS_FILE="${LORE_DECISIONS_FILE}"
+if [[ ! -f "$DECISIONS_FILE" ]]; then
+    exit 0
+fi
+
+informs_created=0
+
+# Iterate patterns with session-based origins
+while IFS=$'\t' read -r pat_id pat_origin; do
+    [[ -z "$pat_id" || -z "$pat_origin" ]] && continue
+    [[ "$pat_origin" == session-* ]] || continue
+
+    # Extract date from origin: "session-2026-02-16" -> "20260216"
+    origin_date=$(echo "$pat_origin" | sed 's/session-//; s/-//g')
+
+    # Compute pattern node key
+    pat_node="pattern-$(echo -n "$pat_id" | md5sum | cut -c1-8)"
+
+    # Check pattern node exists in graph
+    pat_exists=$(jq -r --arg id "$pat_node" '.nodes[$id] // empty' "$GRAPH_FILE")
+    [[ -z "$pat_exists" ]] && continue
+
+    # Find decisions from the same session date
+    while IFS=$'\t' read -r dec_id dec_session; do
+        [[ -z "$dec_id" || -z "$dec_session" ]] && continue
+
+        # Extract date from decision session_id: "session-20260216-191011-41925c52" -> "20260216"
+        dec_date=$(echo "$dec_session" | sed 's/session-//; s/-.*//' | head -c 8)
+
+        [[ "$origin_date" == "$dec_date" ]] || continue
+
+        dec_node="decision-$(echo -n "$dec_id" | md5sum | cut -c1-8)"
+
+        # Check decision node exists
+        dec_exists=$(jq -r --arg id "$dec_node" '.nodes[$id] // empty' "$GRAPH_FILE")
+        [[ -z "$dec_exists" ]] && continue
+
+        # Check if informs edge already exists
+        existing=$(jq --arg from "$pat_node" --arg to "$dec_node" --arg rel "informs" \
+            '[.edges[] | select(.from == $from and .to == $to and .relation == $rel)] | length' \
+            "$GRAPH_FILE")
+
+        if [[ "$existing" -eq 0 ]]; then
+            jq --arg from "$pat_node" --arg to "$dec_node" --arg created "$now" \
+               '.edges += [{from: $from, to: $to, relation: "informs", weight: 1.0, bidirectional: false, status: "active", created_at: $created}]' \
+               "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+            informs_created=$((informs_created + 1))
+        fi
+    done < <(jq -r '[.id, .session_id] | @tsv' "$DECISIONS_FILE" 2>/dev/null || true)
+
+done < <(echo "$patterns_json" | jq -r '.[] | [.id, (.origin // "")] | @tsv' 2>/dev/null || true)
+
+if [[ "$informs_created" -gt 0 ]]; then
+    echo -e "${GREEN}Created ${informs_created} informs edge(s) (pattern -> decision)${NC}"
+fi
+
+# --- Step 3: Create yields edges (decision -> pattern) for same-session pairs ---
+# A decision yields a pattern when both belong to the same session date.
+# Runs here (after pattern nodes exist) rather than in sync.sh, because
+# rebuild.sh creates decision nodes first and pattern nodes second.
+yields_created=0
+
+while IFS=$'\t' read -r pat_id pat_origin; do
+    [[ -z "$pat_id" || -z "$pat_origin" ]] && continue
+    [[ "$pat_origin" == session-* ]] || continue
+
+    # Extract date from origin: "session-2026-02-16" -> "20260216"
+    origin_date=$(echo "$pat_origin" | sed 's/session-//; s/-//g')
+
+    # Compute pattern node key
+    pat_node="pattern-$(echo -n "$pat_id" | md5sum | cut -c1-8)"
+
+    # Check pattern node exists in graph
+    pat_exists=$(jq -r --arg id "$pat_node" '.nodes[$id] // empty' "$GRAPH_FILE")
+    [[ -z "$pat_exists" ]] && continue
+
+    # Find decisions from the same session date
+    while IFS=$'\t' read -r dec_id dec_session; do
+        [[ -z "$dec_id" || -z "$dec_session" ]] && continue
+
+        # Extract date from decision session_id: "session-20260216-191011-41925c52" -> "20260216"
+        dec_date=$(echo "$dec_session" | sed 's/session-//; s/-.*//' | head -c 8)
+
+        [[ "$origin_date" == "$dec_date" ]] || continue
+
+        dec_node="decision-$(echo -n "$dec_id" | md5sum | cut -c1-8)"
+
+        # Check decision node exists
+        dec_exists=$(jq -r --arg id "$dec_node" '.nodes[$id] // empty' "$GRAPH_FILE")
+        [[ -z "$dec_exists" ]] && continue
+
+        # Check if yields edge already exists
+        existing=$(jq --arg from "$dec_node" --arg to "$pat_node" --arg rel "yields" \
+            '[.edges[] | select(.from == $from and .to == $to and .relation == $rel)] | length' \
+            "$GRAPH_FILE")
+
+        if [[ "$existing" -eq 0 ]]; then
+            jq --arg from "$dec_node" --arg to "$pat_node" --arg created "$now" \
+               '.edges += [{from: $from, to: $to, relation: "yields", weight: 1.0, bidirectional: false, status: "active", created_at: $created}]' \
+               "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+            yields_created=$((yields_created + 1))
+        fi
+    done < <(jq -r '[.id, .session_id] | @tsv' "$DECISIONS_FILE" 2>/dev/null || true)
+
+done < <(echo "$patterns_json" | jq -r '.[] | [.id, (.origin // "")] | @tsv' 2>/dev/null || true)
+
+if [[ "$yields_created" -gt 0 ]]; then
+    echo -e "${GREEN}Created ${yields_created} yields edge(s) (decision -> pattern)${NC}"
+fi

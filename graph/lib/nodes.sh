@@ -25,7 +25,7 @@ generate_node_id() {
 }
 
 # Valid node types
-VALID_NODE_TYPES=("concept" "file" "pattern" "lesson" "decision" "session" "project" "failure")
+VALID_NODE_TYPES=("concept" "file" "pattern" "lesson" "decision" "session" "project" "failure" "goal" "observation")
 
 validate_node_type() {
     local type="$1"

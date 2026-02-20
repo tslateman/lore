@@ -229,3 +229,63 @@ done < <(jq -r 'select(.superseded_by != null) | [.id, .superseded_by] | @tsv' "
 if [[ "$supersedes_created" -gt 0 ]]; then
     echo -e "${GREEN}Created ${supersedes_created} missing supersedes edge(s)${NC}"
 fi
+
+# --- Step 6: Create lesson nodes from decisions with lesson_learned ---
+lessons_created=0
+while IFS=$'\t' read -r dec_id lesson_text; do
+    [[ -z "$dec_id" || -z "$lesson_text" ]] && continue
+
+    # Compute decision node key
+    dec_node="decision-$(echo -n "$dec_id" | md5sum | cut -c1-8)"
+
+    # Check decision node exists
+    dec_exists=$(jq -r --arg id "$dec_node" '.nodes[$id] // empty' "$GRAPH_FILE")
+    [[ -z "$dec_exists" ]] && continue
+
+    # Deterministic lesson node key from decision_id
+    lesson_node="lesson-$(echo -n "$dec_id" | md5sum | cut -c1-8)"
+
+    # Check if lesson node already exists
+    lesson_exists=$(jq -r --arg id "$lesson_node" '.nodes[$id] // empty' "$GRAPH_FILE")
+    if [[ -n "$lesson_exists" ]]; then
+        continue
+    fi
+
+    # Truncate lesson text for node name (80 chars)
+    lesson_name="${lesson_text:0:80}"
+
+    # Create lesson node and learned_from edge in one jq pass
+    jq --arg key "$lesson_node" \
+       --arg name "$lesson_name" \
+       --arg dec_id "$dec_id" \
+       --arg lesson "$lesson_text" \
+       --arg dec_node "$dec_node" \
+       --arg created "$now" \
+       '.nodes[$key] = {
+            type: "lesson",
+            name: $name,
+            data: { decision_id: $dec_id, lesson_text: $lesson },
+            created_at: $created,
+            updated_at: $created
+        } |
+        .edges += [{
+            from: $key,
+            to: $dec_node,
+            relation: "learned_from",
+            weight: 1.0,
+            bidirectional: false,
+            status: "active",
+            created_at: $created
+        }]' \
+       "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+
+    lessons_created=$((lessons_created + 1))
+done < <(jq -r 'select(.lesson_learned | type == "string" and length > 0) | [.id, .lesson_learned] | @tsv' "$DECISIONS_FILE" 2>/dev/null || true)
+
+if [[ "$lessons_created" -gt 0 ]]; then
+    echo -e "${GREEN}Created ${lessons_created} lesson node(s) with learned_from edges${NC}"
+fi
+
+# --- Step 7: yields edges (decision -> pattern) created in sync-patterns.sh ---
+# Moved there because rebuild.sh runs sync.sh before sync-patterns.sh, so pattern
+# nodes don't exist yet when this script runs from a clean graph.

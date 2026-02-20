@@ -62,6 +62,9 @@ Node types:
 - `decision` - Architectural or design decisions
 - `session` - Work sessions or sprints
 - `failure` - Recorded failure reports
+- `project` - Software projects in the ecosystem
+- `goal` - Strategic goals and objectives
+- `observation` - Promoted observations from inbox
 
 Examples:
 
@@ -96,6 +99,10 @@ Edge types:
 | `derived_from`  | Pattern learned from a specific decision |
 | `part_of`       | Component of a larger concept/initiative |
 | `summarized_by` | Consolidated into a higher-level summary |
+| `yields`        | Decision produces a pattern              |
+| `informs`       | Pattern informs a decision               |
+| `grounds`       | Concept grounds a session                |
+| `hosts`         | Project hosts a session                  |
 
 Examples:
 
@@ -353,10 +360,10 @@ sessions) are the source of truth. Rebuild from scratch:
 ./graph.sh rebuild
 ```
 
-This resets the graph, runs all four sync scripts (decisions, patterns,
-failures, sessions), normalizes edge spelling, and deduplicates edges.
-Individual write commands (`remember`, `learn`, `fail`, `handoff`) sync
-incrementally in the background.
+This resets the graph, runs all seven sync scripts (decisions, patterns,
+failures, sessions, projects, goals, observations), normalizes edge spelling,
+and deduplicates edges. Individual write commands (`remember`, `learn`, `fail`,
+`handoff`, `goal create`, `observe`) sync incrementally in the background.
 
 ## Integration with Lore
 

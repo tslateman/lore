@@ -85,7 +85,7 @@ Capture:
   fail <type> <msg>   Log a failure (Timeout, ToolError, etc.)
 
 Query:
-  search <query>      Search all components (--smart for semantic)
+  search <query>      Search all components
 
 Run 'lore help' for all commands.
 Run 'lore help <topic>' for: capture, search, intent, registry, components
@@ -122,9 +122,6 @@ CAPTURE
 
 QUERY
   search <query>          Search across all components
-    --smart               Auto-select semantic if Ollama available
-    --semantic            Force semantic search (requires Ollama)
-    --hybrid              Combine keyword + semantic
     --graph-depth N       Follow graph edges (0-3)
   context <project>       Gather full context for a project
   suggest <context>       Suggest relevant patterns
@@ -146,6 +143,9 @@ MAINTENANCE
   index                   Build/rebuild search index
   validate                Run comprehensive checks
   ingest <p> <t> <file>   Bulk import from external formats
+  consolidate             Group similar decisions and create summaries
+    --write               Actually create summaries (default: dry-run)
+    --threshold N         Jaccard similarity % (default: 50)
 
 JOURNAL
   journal add             Add structured journal entry (--type, --project, --title, --body)
@@ -226,13 +226,10 @@ BASIC SEARCH
 
   Searches: journal, patterns, sessions, graph, inbox
 
-SEARCH MODES
-  --smart             Auto-select best mode (semantic if Ollama running)
-  --semantic          Force semantic search (requires Ollama + nomic-embed-text)
-  --hybrid            Combine keyword + semantic with rank fusion
+  Uses FTS5 ranked search with 5-factor scoring:
+    BM25 * recency * frequency * importance * project_boost
 
-  lore search "error handling" --smart
-  lore search "retry logic" --semantic
+  Falls back to grep when no search index exists.
 
 GRAPH TRAVERSAL
   --graph-depth N     Follow knowledge graph edges (0-3, default 0)
@@ -662,7 +659,6 @@ _search_grep() {
 cmd_search() {
     local query=""
     local graph_depth=0
-    local mode="fts"
     local compact=false
 
     while [[ $# -gt 0 ]]; do
@@ -675,25 +671,13 @@ cmd_search() {
                 fi
                 shift 2
                 ;;
-            --smart)
-                mode="smart"
-                shift
-                ;;
-            --semantic)
-                mode="semantic"
-                shift
-                ;;
-            --hybrid)
-                mode="hybrid"
-                shift
-                ;;
             --compact)
                 compact=true
                 shift
                 ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}" >&2
-                echo "Usage: lore search <query> [--compact] [--smart|--semantic|--hybrid] [--graph-depth 0-3]" >&2
+                echo "Usage: lore search <query> [--compact] [--graph-depth 0-3]" >&2
                 return 1
                 ;;
             *)
@@ -705,41 +689,22 @@ cmd_search() {
 
     if [[ -z "$query" ]]; then
         echo -e "${RED}Error: Search query required${NC}" >&2
-        echo "Usage: lore search <query> [--compact] [--smart|--semantic|--hybrid] [--graph-depth 0-3]" >&2
+        echo "Usage: lore search <query> [--compact] [--graph-depth 0-3]" >&2
         return 1
     fi
 
     local project
     project=$(_derive_project)
 
-    # Smart mode: try hybrid if Ollama available, else fall back to FTS
-    if [[ "$mode" == "smart" ]]; then
-        if command -v ollama &>/dev/null && ollama list 2>/dev/null | grep -q nomic-embed; then
-            mode="hybrid"
-        else
-            mode="fts"
-        fi
-    fi
-
     if [[ -f "$SEARCH_DB" ]]; then
         if [[ "$compact" != true ]]; then
-            echo -e "${BOLD}Searching Lore (${mode})...${NC}"
+            echo -e "${BOLD}Searching Lore...${NC}"
             [[ -n "$project" ]] && echo -e "${DIM}Project boost: ${project}${NC}"
             [[ "$graph_depth" -ge 1 ]] && echo -e "${DIM}Graph depth: ${graph_depth}${NC}"
             echo ""
         fi
 
-        if [[ "$mode" == "fts" ]]; then
-            _search_fts5 "$query" "$project" 10 "$graph_depth" "$compact"
-        else
-            "$LORE_DIR/lib/search-index.sh" search "$query" --mode "$mode" --project "$project" --limit 10
-            # Graph expansion for non-FTS modes
-            if [[ "$graph_depth" -ge 1 ]]; then
-                echo ""
-                echo -e "${BOLD}Graph expansion (depth ${graph_depth}):${NC}"
-                "$LORE_DIR/lib/search-index.sh" graph "$query" --depth "$graph_depth" --limit 5 2>/dev/null || true
-            fi
-        fi
+        _search_fts5 "$query" "$project" 10 "$graph_depth" "$compact"
     else
         echo -e "${BOLD}Searching Lore (grep fallback — run 'lore index' to enable ranked search)...${NC}"
         echo ""
@@ -1225,6 +1190,9 @@ cmd_observe() {
     if [[ "$source" != "manual" ]]; then
         echo -e "  ${CYAN}Source:${NC} $source"
     fi
+
+    # Sync observations to graph (background, fail-silent)
+    "$LORE_DIR/graph/sync-observations.sh" &>/dev/null &
 }
 
 cmd_inbox() {
@@ -1264,6 +1232,190 @@ cmd_inbox() {
     echo
 
     echo "$results" | jq -r '.[] | "  \(.id) [\(.status)] \(.timestamp[0:16])\n    \(.content[0:70])\(.content | if length > 70 then "..." else "" end)\n"'
+}
+
+cmd_consolidate() {
+    local dry_run=true
+    local threshold=50
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --write)
+                dry_run=false
+                shift
+                ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
+            --threshold)
+                threshold="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Usage: lore consolidate [--write] [--threshold N]" >&2
+                return 1
+                ;;
+            *)
+                echo -e "${RED}Unexpected argument: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    source "${LORE_DIR}/lib/conflict.sh"
+
+    local decisions_file="${LORE_DECISIONS_FILE}"
+    if [[ ! -f "$decisions_file" ]]; then
+        echo -e "${YELLOW}No decisions file found.${NC}"
+        return 0
+    fi
+
+    # Load active decisions (latest version of each ID)
+    local decisions
+    decisions=$(jq -s '
+        group_by(.id) | map(.[-1])
+        | map(select((.status // "active") == "active"))
+        | map({id, decision, rationale})
+    ' "$decisions_file" 2>/dev/null) || {
+        echo -e "${RED}Failed to parse decisions file.${NC}" >&2
+        return 1
+    }
+
+    local count
+    count=$(echo "$decisions" | jq 'length' 2>/dev/null) || return 1
+
+    if [[ "$count" -lt 3 ]]; then
+        echo -e "${YELLOW}Fewer than 3 active decisions -- nothing to consolidate.${NC}"
+        return 0
+    fi
+
+    # Greedy single-linkage clustering by Jaccard similarity
+    local clusters=""
+    local assigned=()
+    local cluster_count=0
+    local total_consolidated=0
+
+    for ((i=0; i<count; i++)); do
+        # Skip if already assigned
+        local skip=false
+        for a in "${assigned[@]+"${assigned[@]}"}"; do
+            [[ "$a" == "$i" ]] && { skip=true; break; }
+        done
+        [[ "$skip" == true ]] && continue
+
+        local cluster_members=("$i")
+        local text_i
+        text_i=$(echo "$decisions" | jq -r ".[$i] | (.decision // \"\") + \" \" + (.rationale // \"\")")
+        local words_i
+        words_i=$(echo "$text_i" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u)
+
+        for ((j=i+1; j<count; j++)); do
+            skip=false
+            for a in "${assigned[@]+"${assigned[@]}"}"; do
+                [[ "$a" == "$j" ]] && { skip=true; break; }
+            done
+            [[ "$skip" == true ]] && continue
+
+            local text_j
+            text_j=$(echo "$decisions" | jq -r ".[$j] | (.decision // \"\") + \" \" + (.rationale // \"\")")
+            local words_j
+            words_j=$(echo "$text_j" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u)
+
+            local intersection union
+            intersection=$(comm -12 <(echo "$words_i") <(echo "$words_j") | wc -l | tr -d ' ')
+            union=$(comm <(echo "$words_i") <(echo "$words_j") | sort -u | wc -l | tr -d ' ')
+
+            if [[ "$union" -gt 0 ]]; then
+                local sim=$(( intersection * 100 / union ))
+                if [[ "$sim" -ge "$threshold" ]]; then
+                    cluster_members+=("$j")
+                    assigned+=("$j")
+                fi
+            fi
+        done
+
+        assigned+=("$i")
+
+        if [[ ${#cluster_members[@]} -ge 3 ]]; then
+            cluster_count=$((cluster_count + 1))
+            total_consolidated=$((total_consolidated + ${#cluster_members[@]}))
+
+            # Collect member IDs and find shortest decision text
+            local member_ids=()
+            local shortest_text=""
+            local shortest_len=999999
+            for idx in "${cluster_members[@]}"; do
+                local mid mtext
+                mid=$(echo "$decisions" | jq -r ".[$idx].id")
+                mtext=$(echo "$decisions" | jq -r ".[$idx].decision")
+                member_ids+=("$mid")
+                local mlen=${#mtext}
+                if [[ "$mlen" -lt "$shortest_len" ]]; then
+                    shortest_len="$mlen"
+                    shortest_text="$mtext"
+                fi
+            done
+
+            if [[ "$dry_run" == true ]]; then
+                echo -e "${BOLD}Cluster ${cluster_count}${NC} (${#cluster_members[@]} decisions):"
+                for idx in "${cluster_members[@]}"; do
+                    local cid ctext
+                    cid=$(echo "$decisions" | jq -r ".[$idx].id")
+                    ctext=$(echo "$decisions" | jq -r ".[$idx].decision[0:60]")
+                    echo -e "  ${DIM}${cid}${NC}  ${ctext}"
+                done
+                echo ""
+            else
+                # Create summary decision
+                local ids_csv
+                ids_csv=$(printf '%s' "${member_ids[0]}")
+                for ((k=1; k<${#member_ids[@]}; k++)); do
+                    ids_csv="${ids_csv}, ${member_ids[$k]}"
+                done
+
+                local summary_text="Consolidated: ${shortest_text}"
+                local summary_rationale="Synthesizes ${#member_ids[@]} similar decisions: ${ids_csv}"
+
+                echo -e "${BOLD}Creating summary for cluster ${cluster_count}...${NC}"
+                local record_output
+                record_output=$("$LORE_DIR/journal/journal.sh" record "$summary_text" \
+                    --rationale "$summary_rationale" \
+                    --tags "consolidation" \
+                    --force 2>&1) || true
+                echo "$record_output"
+
+                # Extract the summary decision ID from the record output
+                local summary_id
+                summary_id=$(echo "$record_output" | grep -oE 'dec-[a-f0-9]+' | head -1) || true
+
+                if [[ -n "$summary_id" ]]; then
+                    # Create summarized_by edges from each original to the summary
+                    for mid in "${member_ids[@]}"; do
+                        "$LORE_DIR/graph/graph.sh" connect "$mid" "$summary_id" summarized_by 2>/dev/null || true
+                    done
+                    echo -e "  ${GREEN}Linked ${#member_ids[@]} decisions to ${summary_id}${NC}"
+                else
+                    echo -e "  ${YELLOW}Could not extract summary ID; skipping graph edges.${NC}"
+                fi
+                echo ""
+            fi
+        fi
+    done
+
+    # Print stats
+    echo -e "${BOLD}---${NC}"
+    if [[ "$dry_run" == true ]]; then
+        echo -e "Clusters found: ${BOLD}${cluster_count}${NC}"
+        echo -e "Decisions to consolidate: ${BOLD}${total_consolidated}${NC}"
+        if [[ "$cluster_count" -gt 0 ]]; then
+            echo -e "${DIM}Run with --write to create summary records.${NC}"
+        fi
+    else
+        echo -e "Clusters consolidated: ${BOLD}${cluster_count}${NC}"
+        echo -e "Decisions consolidated: ${BOLD}${total_consolidated}${NC}"
+    fi
 }
 
 cmd_init() {
@@ -1334,6 +1486,7 @@ main() {
         validate)   shift; source "$LORE_DIR/lib/validate.sh"; cmd_validate "$@" ;;
         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
         index)      shift; bash "$LORE_DIR/lib/search-index.sh" "$@" ;;
+        consolidate) shift; cmd_consolidate "$@" ;;
 
         # Component dispatch
         journal)    shift
@@ -1347,7 +1500,10 @@ main() {
         transfer)   shift; "$LORE_DIR/transfer/transfer.sh" "$@" ;;
 
         # Intent (goals)
-        goal)       shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_goal_main "$@" ;;
+        goal)       shift; source "$LORE_DIR/intent/lib/intent.sh"; intent_goal_main "$@"
+                    # Sync goals to graph (background, fail-silent)
+                    "$LORE_DIR/graph/sync-goals.sh" &>/dev/null &
+                    ;;
         intent)     shift; source "$LORE_DIR/intent/lib/intent.sh"
                     case "${1:-}" in
                         export) shift; intent_export_main "$@" ;;

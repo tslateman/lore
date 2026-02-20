@@ -66,6 +66,8 @@ NODE TYPES:
     session     Work sessions or sprints
     project     Software projects in the ecosystem
     failure     Recorded failure reports
+    goal        Strategic goals and objectives
+    observation Promoted observations from inbox
 
 EDGE TYPES:
     relates_to      General semantic relationship
@@ -82,6 +84,10 @@ EDGE TYPES:
     derived_from    Pattern learned from a specific decision
     part_of         Component of a larger concept/initiative
     summarized_by   Consolidated into a higher-level summary
+    yields          Decision produces a pattern
+    informs         Pattern informs a decision
+    grounds         Concept grounds a session
+    hosts           Project hosts a session
 
 EXAMPLES:
     # Add a concept
@@ -316,6 +322,8 @@ cmd_visualize() {
          elif .value.type == "session" then "#ffccbc"
          elif .value.type == "project" then "#b2dfdb"
          elif .value.type == "failure" then "#ffcdd2"
+         elif .value.type == "goal" then "#e1bee7"
+         elif .value.type == "observation" then "#80cbc4"
          else "#e0e0e0" end) +
         "\"];"
     ' "$GRAPH_FILE"

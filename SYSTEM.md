@@ -54,8 +54,7 @@ gets recorded. Future sessions receive that pattern at resume. The system learns
 
 ### Type-Level Graph
 
-The graph's node types (session, decision, pattern, concept, file, project) and
-edge types encode three cycles:
+The graph's node types and edge types encode three cycles:
 
 ```text
          ┌──────── informs ────────┐
@@ -88,12 +87,37 @@ patterns, patterns crystallize into concepts, concepts frame future choices.
 sessions, sessions produce decisions, decisions change files, files belong to
 projects.
 
-`lesson` is a waypoint on the session → pattern edge — a learned insight that
+`lesson` is a waypoint on the session → pattern edge -- a learned insight that
 hasn't generalized into a reusable pattern yet.
 
 `concept` has no write command. `remember` writes decisions, `learn` writes
 patterns, but nothing promotes a pattern to a concept. Concepts enter the graph
 only through manual `graph add concept`.
+
+`goal` and `observation` sit outside the three core cycles. Goals connect to
+projects via `relates_to` edges. Observations connect to decisions and patterns
+they reference. Both sync to the graph on write.
+
+## Memory Taxonomy
+
+The graph's node types encode a memory taxonomy drawn from cognitive science.
+
+| Memory Layer   | Node Types                         | Components                     | Coverage                     |
+| -------------- | ---------------------------------- | ------------------------------ | ---------------------------- |
+| **Episodic**   | decision, session, failure, lesson | journal/, transfer/, failures/ | What happened                |
+| **Semantic**   | pattern, concept                   | patterns/                      | What we learned              |
+| **Strategic**  | goal                               | intent/                        | What we're trying to achieve |
+| **Structural** | project, file                      | registry/                      | What exists                  |
+| **Staging**    | observation                        | inbox/                         | What we noticed              |
+
+Infrastructure components (graph/, registry/) provide projection and metadata
+but are not memory stores.
+
+`concept` nodes require manual creation via `graph add concept`. They represent
+higher-order abstractions that need human judgment to identify.
+
+`lesson` nodes are created automatically when decisions have `lesson_learned`
+fields. They are waypoints between episodic events and semantic patterns.
 
 ## Eight Components
 
@@ -133,16 +157,19 @@ goals, metadata).
 ### Graph as Derived Projection
 
 The graph is not a primary data store. It is a projection derived from journal
-decisions, patterns, failures, and sessions. Flat files are the source of truth.
+decisions, patterns, failures, sessions, projects, goals, and observations. Flat
+files are the source of truth.
 The graph can be rebuilt from scratch at any time:
 
 ```bash
 lore graph rebuild
 ```
 
-Each write command (`remember`, `learn`, `fail`, `handoff`) syncs its record
-type to the graph in the background. `rebuild` runs all four syncs against an
-empty graph, normalizes edge spelling, and deduplicates edges.
+Each write command (`remember`, `learn`, `fail`, `handoff`, `goal create`,
+`observe`) syncs its record type to the graph in the background. `rebuild` runs
+all seven syncs (decisions, patterns, failures, sessions, projects, goals,
+observations) against an empty graph, normalizes edge spelling, and deduplicates
+edges.
 
 When `LORE_DATA_DIR` is set (default after `install.sh`: `~/.local/share/lore`), component `data/` directories live at that external path instead of inside the repo. Path resolution is centralized in `lib/paths.sh`.
 

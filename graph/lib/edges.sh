@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Edge management for Memory Graph
-# Edge types: relates_to, learned_from, affects, supersedes, contradicts
+# Edge types: relates_to, learned_from, affects, supersedes, contradicts,
+#   yields, informs, grounds, hosts (and others — see VALID_EDGE_TYPES)
 
 set -euo pipefail
 
@@ -11,7 +12,7 @@ GRAPH_FILE="${GRAPH_DIR}/data/graph.json"
 source "$(dirname "${BASH_SOURCE[0]}")/nodes.sh"
 
 # Valid edge types
-VALID_EDGE_TYPES=("relates_to" "learned_from" "affects" "supersedes" "contradicts" "contains" "references" "implements" "depends_on" "produces" "consumes" "derived_from" "part_of" "summarized_by")
+VALID_EDGE_TYPES=("relates_to" "learned_from" "affects" "supersedes" "contradicts" "contains" "references" "implements" "depends_on" "produces" "consumes" "derived_from" "part_of" "summarized_by" "yields" "informs" "grounds" "hosts")
 
 validate_edge_type() {
     local type="$1"
