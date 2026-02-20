@@ -1444,13 +1444,6 @@ cmd_consolidate() {
 }
 
 cmd_init() {
-    if [[ "${LORE_DATA_DIR}" == "${LORE_DIR}" ]]; then
-        echo -e "${RED}Error: LORE_DATA_DIR is the repo itself — nothing to initialize.${NC}" >&2
-        echo "Set LORE_DATA_DIR to an external path first, e.g.:" >&2
-        echo "  export LORE_DATA_DIR=~/.lore" >&2
-        return 1
-    fi
-
     echo -e "${BOLD}Initializing Lore data directory: ${LORE_DATA_DIR}${NC}"
 
     # Create component directories
@@ -1463,6 +1456,35 @@ cmd_init() {
     mkdir -p "${LORE_GRAPH_DATA}"
     mkdir -p "${LORE_INTENT_DATA}/goals"
     mkdir -p "${LORE_REGISTRY_DATA}"
+
+    # Seed registry YAML files (only if missing)
+    if [[ ! -f "${LORE_REGISTRY_DATA}/metadata.yaml" ]]; then
+        cat > "${LORE_REGISTRY_DATA}/metadata.yaml" <<'YAML'
+version: "1.0"
+metadata: {}
+YAML
+    fi
+    if [[ ! -f "${LORE_REGISTRY_DATA}/clusters.yaml" ]]; then
+        cat > "${LORE_REGISTRY_DATA}/clusters.yaml" <<'YAML'
+version: "1.0"
+clusters: {}
+YAML
+    fi
+    if [[ ! -f "${LORE_REGISTRY_DATA}/relationships.yaml" ]]; then
+        cat > "${LORE_REGISTRY_DATA}/relationships.yaml" <<'YAML'
+version: "1.0"
+dependencies: {}
+shared: {}
+integrations: {}
+pattern_sharing: []
+YAML
+    fi
+    if [[ ! -f "${LORE_REGISTRY_DATA}/contracts.yaml" ]]; then
+        cat > "${LORE_REGISTRY_DATA}/contracts.yaml" <<'YAML'
+version: "1.0"
+contracts: {}
+YAML
+    fi
 
     # Seed files (only if missing)
     [[ -f "${LORE_DECISIONS_FILE}" ]] || touch "${LORE_DECISIONS_FILE}"

@@ -123,6 +123,30 @@ YAML
 )"
 seed_file "${DATA_DIR}/graph/data/graph.json" '{"nodes":{},"edges":[]}'
 
+seed_file "${DATA_DIR}/registry/data/metadata.yaml" "$(cat <<'YAML'
+version: "1.0"
+metadata: {}
+YAML
+)"
+seed_file "${DATA_DIR}/registry/data/clusters.yaml" "$(cat <<'YAML'
+version: "1.0"
+clusters: {}
+YAML
+)"
+seed_file "${DATA_DIR}/registry/data/relationships.yaml" "$(cat <<'YAML'
+version: "1.0"
+dependencies: {}
+shared: {}
+integrations: {}
+pattern_sharing: []
+YAML
+)"
+seed_file "${DATA_DIR}/registry/data/contracts.yaml" "$(cat <<'YAML'
+version: "1.0"
+contracts: {}
+YAML
+)"
+
 log "Directory structure ready."
 
 # Step 2: Migrate existing data from repo
