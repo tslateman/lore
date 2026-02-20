@@ -26,23 +26,6 @@ search). Without `yq`, pattern indexing fails silently
 **Fix:** `brew install jq yq sqlite3` (macOS) or install each for your
 platform. Get `yq` from <https://github.com/mikefarah/yq>.
 
-## Semantic search fails
-
-**Symptom:** `lore search "query" --semantic` prints
-`Error: Ollama not available for semantic search`.
-
-**Cause:** Semantic and hybrid modes require Ollama running with
-`nomic-embed-text` (`lib/search-index.sh:332-334`).
-
-**Fix:**
-
-```bash
-ollama serve &
-ollama pull nomic-embed-text
-```
-
-Use `--smart` to auto-fall back to FTS5 when Ollama is unavailable.
-
 ## `lore resume` shows no previous sessions
 
 **Symptom:** `lore resume` prints `No previous sessions found.`

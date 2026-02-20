@@ -29,7 +29,7 @@ lore --help
 Use conventional prefixes with Strunk's-style body:
 
 ```text
-feat: Add semantic search to lore search
+feat: Default bare capture to observation, unify CLI around single verb
 fix: Fix duplicate session ID on rapid handoff
 docs: Document graph traversal depth parameter
 ```

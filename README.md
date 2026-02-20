@@ -96,11 +96,10 @@ MEMORY.md gives agents implicit context—loaded into the prompt, hoped to be re
 
 ### Search
 
-Three retrieval phases, used together:
+Two retrieval phases, used together:
 
-1. **FTS5** - Keyword search with BM25 ranking
-2. **Semantic** - Vector embeddings find conceptually related content ("retry logic" → "exponential backoff")
-3. **Graph** - Traverse relationships to surface connected knowledge
+1. **FTS5** — Keyword search with BM25 ranking, boosted by recency, frequency, importance, and project affinity
+2. **Graph** — Traverse relationships to surface connected knowledge (`--graph-depth 1-3`)
 
 ### Session Continuity
 

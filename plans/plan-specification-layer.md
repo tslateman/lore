@@ -1,4 +1,4 @@
-Status: Implemented
+Status: Partial (spec quality scoring implemented; lore review and lore brief not built)
 
 # Plan: Specification Layer
 
