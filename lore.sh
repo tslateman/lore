@@ -89,12 +89,13 @@ Capture flags:
   --error-type Type   → failure (failures)
 
 Query:
-  search <query>      Search all components
-  review              Review pending decisions
-  brief <topic>       Assemble topic-specific context
+  recall <query>        Read from memory (mode inferred from flags)
+  search <query>        Search all components
+  review                Review pending decisions
+  brief <topic>         Assemble topic-specific context
 
 Run 'lore help' for all commands.
-Run 'lore help <topic>' for: capture, search, intent, registry, components
+Run 'lore help <topic>' for: capture, recall, search, intent, registry, components
 EOF
 }
 
@@ -123,24 +124,31 @@ CAPTURE
     --observation         Explicit observation override
     --tags, -t            Tags for categorization (all types)
   remember <text>         Record a decision (shortcut for capture --decision)
-  learn <text>            Capture a pattern (shortcut for capture --pattern)
   fail <type> <message>   Log a failure
   observe <text>          Capture observation (shortcut for capture --observation)
 
-QUERY
-  search <query>          Search across all components
-    --graph-depth N       Follow graph edges (0-3)
-  context <project>       Gather full context for a project
-  suggest <context>       Suggest relevant patterns
+RECALL
+  recall <query>          Universal read — mode inferred from flags:
+    (no flags)            → search across all components
+    --project <name>      → full project context assembly
+    --patterns [context]  → suggest relevant patterns
+    --failures [--type T] → list failures
+    --triggers [N]        → recurring failure types (Rule of Three)
+    --brief <topic>       → topic-specific context briefing
+    --graph-depth N       → follow graph edges during search (0-3)
+    --compact             → machine-readable output
+  search <query>          Search (shortcut for recall)
+  context <project>       Project context (shortcut for recall --project)
+  suggest <context>       Pattern suggestions (shortcut for recall --patterns)
+  failures [--type T]     List failures (shortcut for recall --failures)
+  triggers [N]            Recurring failures (shortcut for recall --triggers)
   review                  List pending decisions older than 3 days
     --auto                Compact output for programmatic use
     --resolve <id>        Resolve a decision's outcome
       --outcome <value>   successful|revised|abandoned
       --lesson "text"     Optional lesson learned
-  brief <topic>           Assemble topic-specific context briefing
-  failures [--type T]     List failures
-  triggers                Show recurring failures (Rule of Three)
-  promote-failure [type]   Promote recurring failures to anti-patterns
+  brief <topic>           Topic context (shortcut for recall --brief)
+  promote-failure [type]  Promote recurring failures to anti-patterns
 
 INTENT (Goals)
   goal create <name>      Create a goal
@@ -153,6 +161,7 @@ REGISTRY
   registry validate       Check consistency
 
 MAINTENANCE
+  learn <text>            Capture a pattern (shortcut, prefer: capture --solution)
   index                   Build/rebuild search index
   validate                Run comprehensive checks
   ingest <p> <t> <file>   Bulk import from external formats
@@ -166,13 +175,12 @@ JOURNAL
 COMPONENTS (direct access)
   journal <cmd>           Decision journal
   patterns <cmd>          Patterns and anti-patterns
-  graph <cmd>             Knowledge graph
   transfer <cmd>          Session management
   inbox <cmd>             Observation staging
   intent <cmd>            Goals and specs
 
 Run 'lore help <topic>' for detailed help on:
-  capture, search, intent, registry, components
+  capture, recall, search, intent, registry, components
 EOF
 }
 
@@ -232,6 +240,47 @@ OBSERVATIONS (observe)
   lore observe "Users frequently ask about retry logic"
 
   Raw observations go to inbox for later triage.
+EOF
+}
+
+show_help_recall() {
+    cat << 'EOF'
+RECALL COMMANDS
+
+Read from memory with a single verb. Flags select the read mode.
+
+  lore recall "authentication"              → search (default)
+  lore recall --project council             → full project context
+  lore recall --patterns "API design"       → relevant patterns
+  lore recall --failures --type Timeout     → filtered failure list
+  lore recall --triggers                    → recurring failure analysis
+  lore recall --brief "graph"               → topic-scoped briefing
+
+The default (bare recall with a query) performs a ranked search across all
+components. Add flags to request specific read modes.
+
+SEARCH (default)
+  lore recall "query"
+  lore recall "query" --graph-depth 2       Follow graph edges
+  lore recall "query" --compact             Machine-readable output
+
+PROJECT CONTEXT
+  lore recall --project <name>              Registry, decisions, patterns, graph
+
+PATTERNS
+  lore recall --patterns                    All patterns
+  lore recall --patterns "deployment"       Patterns matching context
+
+FAILURES
+  lore recall --failures                    All failures
+  lore recall --failures --type Timeout     Filter by error type
+
+TRIGGERS
+  lore recall --triggers                    Types with 3+ occurrences
+  lore recall --triggers 5                  Custom threshold
+
+BRIEFING
+  lore recall --brief "topic"              Cross-component topic summary
 EOF
 }
 
@@ -371,6 +420,9 @@ cmd_help() {
         capture|remember|learn|fail|observe)
             show_help_capture
             ;;
+        recall)
+            show_help_recall
+            ;;
         search|query|find)
             show_help_search
             ;;
@@ -388,6 +440,7 @@ cmd_help() {
             echo ""
             echo "Available topics:"
             echo "  capture     Decisions, patterns, failures, observations"
+            echo "  recall      Read modes and flags"
             echo "  search      Search modes and options"
             echo "  intent      Goals, specs"
             echo "  registry    Project metadata"
@@ -743,6 +796,110 @@ cmd_search() {
         echo ""
         _search_grep "$query"
     fi
+}
+
+cmd_recall() {
+    local mode=""
+    local project=""
+    local brief_topic=""
+    local pass_through=()
+    local query=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --project)
+                mode="project"
+                project="${2:-}"
+                if [[ -z "$project" ]]; then
+                    echo -e "${RED}Error: --project requires a name${NC}" >&2
+                    return 1
+                fi
+                shift 2
+                ;;
+            --patterns)
+                mode="patterns"
+                shift
+                # Remaining args are context for suggest
+                while [[ $# -gt 0 && "$1" != --* ]]; do
+                    pass_through+=("$1")
+                    shift
+                done
+                ;;
+            --failures)
+                mode="failures"
+                shift
+                # Pass through --type if present
+                while [[ $# -gt 0 ]]; do
+                    pass_through+=("$1")
+                    shift
+                done
+                ;;
+            --triggers)
+                mode="triggers"
+                shift
+                # Pass through threshold if present
+                if [[ $# -gt 0 && "$1" != --* ]]; then
+                    pass_through+=("$1")
+                    shift
+                fi
+                ;;
+            --brief)
+                mode="brief"
+                brief_topic="${2:-}"
+                if [[ -z "$brief_topic" ]]; then
+                    echo -e "${RED}Error: --brief requires a topic${NC}" >&2
+                    return 1
+                fi
+                shift 2
+                ;;
+            --graph-depth|--compact)
+                # Search flags — pass through to cmd_search
+                pass_through+=("$1")
+                if [[ "$1" == "--graph-depth" ]]; then
+                    pass_through+=("${2:-}")
+                    shift
+                fi
+                shift
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Run 'lore help recall' for usage." >&2
+                return 1
+                ;;
+            *)
+                query="$1"
+                shift
+                ;;
+        esac
+    done
+
+    case "$mode" in
+        project)
+            cmd_context "$project"
+            ;;
+        patterns)
+            cmd_suggest "${pass_through[@]}"
+            ;;
+        failures)
+            cmd_failures "${pass_through[@]}"
+            ;;
+        triggers)
+            cmd_triggers "${pass_through[@]}"
+            ;;
+        brief)
+            source "$LORE_DIR/lib/brief.sh"
+            cmd_brief "$brief_topic"
+            ;;
+        "")
+            if [[ -z "$query" ]]; then
+                echo -e "${RED}Error: Query or flag required${NC}" >&2
+                echo "Usage: lore recall <query> | --project <name> | --patterns | --failures | --triggers | --brief <topic>" >&2
+                echo "Run 'lore help recall' for details." >&2
+                return 1
+            fi
+            cmd_search "$query" "${pass_through[@]}"
+            ;;
+    esac
 }
 
 cmd_status() {
@@ -1696,6 +1853,7 @@ main() {
     case "$1" in
         # Quick commands
         capture)    shift; cmd_capture "$@" ;;
+        recall)     shift; cmd_recall "$@" ;;
         remember)   shift; cmd_remember "$@" ;;
         learn)      shift; cmd_learn "$@" ;;
         handoff)    shift; cmd_handoff "$@" ;;

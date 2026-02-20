@@ -177,7 +177,24 @@ tags: []
 
 ## Read Interface
 
-### Query Decisions
+One verb reads from all sources. Flags select mode:
+
+| Command                           | Reads from          | Shortcut                  |
+| --------------------------------- | ------------------- | ------------------------- |
+| `lore recall "X"`                 | all components      | `lore search "X"`         |
+| `lore recall --project X`         | registry + context  | `lore context X`          |
+| `lore recall --patterns "X"`      | patterns            | `lore patterns match "X"` |
+| `lore recall --failures --type X` | failures            | `lore failures --type X`  |
+| `lore recall --triggers`          | failures (analysis) | `lore triggers`           |
+| `lore recall --brief "X"`         | all (summarized)    | `lore brief "X"`          |
+
+Bare `recall` searches all components. Add flags to narrow scope.
+
+### Direct Component Queries
+
+These shortcuts remain for backward compatibility and scripting:
+
+#### Query Decisions
 
 ```bash
 lore journal query "<search term>"
@@ -185,22 +202,23 @@ lore journal list --recent 10
 lore journal show <dec-id>
 ```
 
-### Query Patterns
+#### Query Patterns
 
 ```bash
 lore patterns list
 lore patterns match "<situation description>"
-lore search "<term>"
 ```
 
-### Query Graph
+#### Query Graph (internal)
+
+The graph is internal infrastructure. Use `recall` for user-facing reads.
 
 ```bash
 lore graph query "<concept>"
 lore graph neighbors "<node-id>"
 ```
 
-### List Observations (inbox)
+#### List Observations (inbox)
 
 ```bash
 lore inbox                    # all observations (default: raw)
@@ -208,29 +226,26 @@ lore inbox --status raw       # filter by status
 lore inbox --status promoted  # show promoted observations
 ```
 
-### Resume Session
+#### Resume Session
 
 ```bash
 lore resume              # latest session
 lore resume <session-id> # specific session
 ```
 
-### Query Goals (intent)
+#### Query Goals (intent)
 
 ```bash
 lore goal list [--status active] [--priority high]
 lore goal show <goal-id>
 ```
 
-### Query Registry (registry)
+#### Query Registry (registry)
 
 ```bash
 lore registry show <project>      # enriched project details
 lore registry list                # list all projects
 lore registry validate            # check registry consistency
-
-# Full context (registry + decisions + patterns + graph)
-lore context <project>
 ```
 
 ## Integration by Project
@@ -249,8 +264,8 @@ lore remember "Team alpha chose Redis over Memcached for session cache" \
 When spawning a team, check for relevant patterns:
 
 ```bash
-lore patterns match "team coordination"
-lore search "caching"
+lore recall --patterns "team coordination"
+lore recall "caching"
 ```
 
 ### Goal Outcomes (intent)

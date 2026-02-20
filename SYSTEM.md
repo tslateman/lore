@@ -22,7 +22,7 @@ Lore is the data layer. Everything the stack remembers passes through here.
 
 Lore sits at the center -- projects read from it and write to it. Integration is
 opt-in via CLI or client library. Any project that calls `lore capture` becomes
-a writer. Any project that calls `lore resume` or `lore search` becomes a reader.
+a writer. Any project that calls `lore resume` or `lore recall` becomes a reader.
 Lore neither knows nor cares who its consumers are.
 
 ## Data Flow
@@ -31,8 +31,8 @@ Lore neither knows nor cares who its consumers are.
 
 ```text
 1. lore resume          Load context from last session
-2. lore goal list       See active goals
-3. Work happens         Agents read patterns, make decisions
+2. lore recall          Read from any source (search, patterns, failures, context)
+3. Work happens         Agents recall patterns, make decisions
 4. lore capture         Record knowledge (type inferred from flags)
 5. lore handoff         Snapshot state for next session
 ```
@@ -182,11 +182,13 @@ Lore exposes one contract: `LORE_CONTRACT.md`.
 | Write     | `lore fail NonZeroExit "msg"`       | Appends to failures                |
 | Write     | `lore observe "X"`                  | Appends to inbox                   |
 | Write     | `lore goal create "X"`              | Creates goal YAML                  |
-| Read      | `lore search "X"`                   | Searches all components            |
+| Read      | `lore recall "X"`                   | Searches all components            |
+| Read      | `lore recall --project X`           | Assembles project context          |
+| Read      | `lore recall --patterns "X"`        | Pattern suggestions                |
+| Read      | `lore recall --failures --type X`   | Queries failure reports            |
+| Read      | `lore recall --triggers`            | Recurring failures (Rule of Three) |
+| Read      | `lore recall --brief "X"`           | Topic briefing                     |
 | Read      | `lore resume`                       | Loads last session context         |
-| Read      | `lore failures --type X`            | Queries failure reports            |
-| Read      | `lore triggers`                     | Recurring failures (Rule of Three) |
-| Read      | `lore registry context <project>`   | Assembles project context          |
 
 Tags always include the source project name. Decisions from a team orchestrator
 include its project tag. Governance decisions include theirs. This makes

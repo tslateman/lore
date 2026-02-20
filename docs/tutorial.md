@@ -57,7 +57,7 @@ You've made a technical decision. Add `--rationale` to signal importance and rou
 lore capture "Use PostgreSQL for user data" --rationale "Need ACID transactions, team has Postgres experience"
 ```
 
-The decision goes into the journal. Later, `lore search "database"` will find it.
+The decision goes into the journal. Later, `lore recall "database"` will find it.
 
 **With alternatives:**
 
@@ -102,15 +102,31 @@ Error types: `Timeout`, `NonZeroExit`, `UserDeny`, `ToolError`, `LogicError`
 
 When the same error type recurs three times, `lore triggers` surfaces it—the Rule of Three. Recurring failures become patterns worth solving.
 
-## Search Your Knowledge
+## Recall Information
 
-Find what you've captured:
+`recall` is the universal read verb. Bare recall searches everything; flags narrow scope.
 
 ```bash
-lore search "database"
+# Search across all components
+lore recall "database"
+
+# Project context (registry + decisions + patterns)
+lore recall --project myproject
+
+# Pattern suggestions for a situation
+lore recall --patterns "error handling"
+
+# Filtered failure reports
+lore recall --failures --type Timeout
+
+# Recurring failure analysis (Rule of Three)
+lore recall --triggers
+
+# Topic briefing
+lore recall --brief "authentication"
 ```
 
-This searches across all components—journal, patterns, sessions, graph.
+Shortcuts like `lore search`, `lore context`, and `lore triggers` still work — `recall` unifies them under one verb.
 
 ## End the Session
 

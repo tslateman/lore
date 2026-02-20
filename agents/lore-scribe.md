@@ -37,7 +37,7 @@ the Lore CLI.
 4. Check for duplicates by searching existing entries:
 
    ```bash
-   ~/dev/lore/lore.sh search "<key terms>"
+   ~/dev/lore/lore.sh recall "<key terms>"
    ```
 
 5. If no duplicate exists, call the appropriate command:

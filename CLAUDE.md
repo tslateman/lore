@@ -44,8 +44,13 @@ lore handoff "Finished X, next steps: Y, blocked on Z"
 # Resume previous session
 lore resume
 
-# Search everything
-lore search "authentication"
+# One verb reads from all sources — flags select mode
+lore recall "authentication"                                               # → search (default)
+lore recall --project council                                              # → project context
+lore recall --patterns "API design"                                        # → pattern suggestions
+lore recall --failures --type Timeout                                      # → filtered failures
+lore recall --triggers                                                     # → recurring failure analysis
+lore recall --brief "graph"                                                # → topic briefing
 ```
 
 ## Components
