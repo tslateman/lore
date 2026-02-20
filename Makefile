@@ -39,6 +39,7 @@ test:
 	@bash tests/test_inversion.sh
 	@bash tests/test-cognitive-features.sh
 	@bash tests/test-spec-layer.sh
+	@bash tests/test-curated-resume.sh
 
 # Check all build freshness
 check: check-mcp

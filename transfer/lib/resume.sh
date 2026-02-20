@@ -156,6 +156,56 @@ suggest_patterns_for_context() {
 }
 
 #######################################
+# Curate relevant context via FTS5 ranked search
+# Queries the search index and displays ranked results.
+# Falls back silently when no index exists.
+# Args: context_query, project (optional)
+#######################################
+curate_for_context() {
+    local context_query="$1"
+    local project="${2:-}"
+
+    # Graceful degradation: skip if no search index
+    [[ -f "${LORE_SEARCH_DB}" ]] || return 0
+    [[ -z "${context_query}" ]] && return 0
+
+    local search_args=("search" "${context_query}" "--limit" "10")
+    [[ -n "${project}" ]] && search_args+=("--project" "${project}")
+
+    local results
+    results=$(bash "${LORE_DIR}/lib/search-index.sh" "${search_args[@]}" 2>/dev/null) || return 0
+
+    # Skip if empty or header-only
+    local line_count
+    line_count=$(echo "${results}" | wc -l | tr -d ' ')
+    [[ "${line_count}" -le 1 ]] && return 0
+
+    echo -e "${CYAN}--- Relevant Context (ranked) ---${NC}"
+    echo ""
+
+    local displayed=0
+    while IFS='|' read -r type id content _project _timestamp score; do
+        # Skip header line
+        [[ "${type}" == "type" ]] && continue
+        [[ -z "${type}" ]] && continue
+
+        # Truncate content for display
+        [[ ${#content} -gt 100 ]] && content="${content:0:97}..."
+
+        echo -e "  ${BOLD}[${type}]${NC} ${content}"
+
+        # Log access for reinforcement scoring
+        bash "${LORE_DIR}/lib/search-index.sh" log-access "${type}" "${id}" 2>/dev/null || true
+
+        displayed=$((displayed + 1))
+    done <<< "${results}"
+
+    if [[ "${displayed}" -gt 0 ]]; then
+        echo ""
+    fi
+}
+
+#######################################
 # Check if a session file has sparse/minimal content
 # Returns 0 (true) if <= 1 field is populated
 # Args: session_file path
@@ -211,6 +261,19 @@ is_session_sparse() {
 # Gathers recent git, journal, patterns, and failures
 #######################################
 reconstruct_context() {
+    # Ranked path: if search index exists, use curated results
+    if [[ -f "${LORE_SEARCH_DB}" ]]; then
+        local project_name
+        project_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+        echo -e "${YELLOW}--- Reconstructed Context (no handoff found) ---${NC}"
+        echo ""
+        curate_for_context "${project_name}" "${project_name}"
+        echo -e "${YELLOW}--- End Reconstructed Context ---${NC}"
+        echo ""
+        return 0
+    fi
+
+    # Chronological fallback: gather from raw data files
     echo -e "${YELLOW}--- Reconstructed Context (no handoff found) ---${NC}"
     echo ""
 
@@ -584,6 +647,20 @@ resume_session() {
         echo ""
     fi
 
+    # Log access for parent session items (reinforcement scoring)
+    if [[ -f "${LORE_SEARCH_DB}" ]]; then
+        if [[ "${decisions_count}" -gt 0 ]]; then
+            jq -r '.decisions_made[]' "${session_file}" 2>/dev/null | while read -r item; do
+                bash "${LORE_DIR}/lib/search-index.sh" log-access "decision" "${item}" 2>/dev/null || true
+            done
+        fi
+        if [[ "${patterns_count}" -gt 0 ]]; then
+            jq -r '.patterns_learned[]' "${session_file}" 2>/dev/null | while read -r item; do
+                bash "${LORE_DIR}/lib/search-index.sh" log-access "pattern" "${item}" 2>/dev/null || true
+            done
+        fi
+    fi
+
     # Open threads - what needs attention
     echo "--- Open Threads (Needs Attention) ---"
     local threads_count
@@ -704,6 +781,7 @@ resume_session() {
     if [[ ${#context_parts[@]} -gt 0 ]]; then
         local combined_context="${context_parts[*]}"
         suggest_patterns_for_context "${combined_context}" 5
+        curate_for_context "${combined_context}" "${project}"
     fi
 
     # Suggest promoting recurring lessons to patterns
