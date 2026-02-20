@@ -30,12 +30,13 @@ Lore neither knows nor cares who its consumers are.
 ### Session Lifecycle
 
 ```text
-1. lore resume          Load context from last session
-2. lore recall          Read from any source (search, patterns, failures, context)
-3. Work happens         Agents recall patterns, make decisions
-4. lore capture         Record knowledge (type inferred from flags)
-5. lore handoff         Snapshot state for next session
+lore resume       Load context from last session
+  Work happens    Agents capture decisions, patterns, failures as they go
+lore handoff      Snapshot state for next session
 ```
+
+`recall` is available throughout — agents read from Lore when they need context.
+`review` closes the feedback loop between sessions, resolving pending decisions.
 
 ### The Compounding Loop
 
@@ -88,9 +89,9 @@ projects.
 `lesson` is a waypoint on the session → pattern edge -- a learned insight that
 hasn't generalized into a reusable pattern yet.
 
-`concept` has no write command. `remember` writes decisions, `learn` writes
-patterns, but nothing promotes a pattern to a concept. Concepts enter the graph
-only through manual `graph add concept`.
+`concept` has no write command. `capture` writes decisions and patterns, but
+nothing promotes a pattern to a concept. Concepts enter the graph only through
+manual `graph add concept`.
 
 `goal` and `observation` sit outside the three core cycles. Goals connect to
 projects via `relates_to` edges. Observations connect to decisions and patterns
@@ -163,8 +164,8 @@ The graph can be rebuilt from scratch at any time:
 lore graph rebuild
 ```
 
-Each write command (`remember`, `learn`, `fail`, `handoff`, `goal create`,
-`observe`) syncs its record type to the graph in the background. `rebuild` runs
+Each write command (`capture`, `handoff`, `goal create`) syncs its record type
+to the graph in the background. `rebuild` runs
 all seven syncs (decisions, patterns, failures, sessions, projects, goals,
 observations) against an empty graph, normalizes edge spelling, and deduplicates
 edges.
@@ -175,20 +176,20 @@ When `LORE_DATA_DIR` is set (default after `install.sh`: `~/.local/share/lore`),
 
 Lore exposes one contract: `LORE_CONTRACT.md`.
 
-| Interface | Example                             | Effect                             |
-| --------- | ----------------------------------- | ---------------------------------- |
-| Write     | `lore remember "X" --rationale "Y"` | Appends to journal                 |
-| Write     | `lore learn "X" --context "Y"`      | Appends to patterns                |
-| Write     | `lore fail NonZeroExit "msg"`       | Appends to failures                |
-| Write     | `lore observe "X"`                  | Appends to inbox                   |
-| Write     | `lore goal create "X"`              | Creates goal YAML                  |
-| Read      | `lore recall "X"`                   | Searches all components            |
-| Read      | `lore recall --project X`           | Assembles project context          |
-| Read      | `lore recall --patterns "X"`        | Pattern suggestions                |
-| Read      | `lore recall --failures --type X`   | Queries failure reports            |
-| Read      | `lore recall --triggers`            | Recurring failures (Rule of Three) |
-| Read      | `lore recall --brief "X"`           | Topic briefing                     |
-| Read      | `lore resume`                       | Loads last session context         |
+| Verb      | Example                                | Effect                  |
+| --------- | -------------------------------------- | ----------------------- |
+| `capture` | `lore capture "X" --rationale "Y"`     | → journal (decision)    |
+| `capture` | `lore capture "X" --solution "Y"`      | → patterns              |
+| `capture` | `lore capture "X" --error-type T`      | → failures              |
+| `capture` | `lore capture "X"`                     | → inbox (observation)   |
+| `recall`  | `lore recall "X"`                      | ← search all components |
+| `recall`  | `lore recall --project X`              | ← project context       |
+| `recall`  | `lore recall --patterns "X"`           | ← pattern suggestions   |
+| `recall`  | `lore recall --failures --type X`      | ← failure reports       |
+| `recall`  | `lore recall --triggers`               | ← recurring failures    |
+| `recall`  | `lore recall --brief "X"`              | ← topic briefing        |
+| `review`  | `lore review --resolve ID --outcome Y` | ↻ close feedback loop   |
+| session   | `lore resume` / `lore handoff "X"`     | ↔ session lifecycle     |
 
 Tags always include the source project name. Decisions from a team orchestrator
 include its project tag. Governance decisions include theirs. This makes
