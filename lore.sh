@@ -409,6 +409,9 @@ cmd_remember() {
 cmd_learn() {
     # Dedup check now lives in patterns/patterns.sh cmd_capture (--force passes through)
     "$LORE_DIR/patterns/patterns.sh" capture "$@"
+
+    # Sync pattern to graph (background, fail-silent)
+    "$LORE_DIR/graph/sync-patterns.sh" &>/dev/null &
 }
 
 # Unified capture command — routes to remember/learn/fail based on flags
@@ -466,6 +469,9 @@ cmd_capture() {
 
 cmd_handoff() {
     "$LORE_DIR/transfer/transfer.sh" handoff "$@"
+
+    # Sync session to graph (background, fail-silent)
+    "$LORE_DIR/graph/sync-sessions.sh" &>/dev/null &
 }
 
 cmd_resume() {
@@ -879,6 +885,9 @@ cmd_fail() {
     echo -e "  ${CYAN}Type:${NC} $error_type"
     echo -e "  ${CYAN}Message:${NC} $message"
     [[ -n "$tool" ]] && echo -e "  ${CYAN}Tool:${NC} $tool"
+
+    # Sync failure to graph (background, fail-silent)
+    "$LORE_DIR/graph/sync-failures.sh" &>/dev/null &
 
     # Auto-suggest promotion if this error type now has 3+ occurrences
     local type_count

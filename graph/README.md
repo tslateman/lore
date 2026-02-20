@@ -61,6 +61,7 @@ Node types:
 - `lesson` - Learned insights
 - `decision` - Architectural or design decisions
 - `session` - Work sessions or sprints
+- `failure` - Recorded failure reports
 
 Examples:
 
@@ -342,6 +343,20 @@ The graph functionality is split into reusable libraries:
 - **part_of** — Group related patterns under a hub concept (e.g., "bash safety").
 - **summarized_by** — When consolidating patterns, link originals to summary
   with this edge. Original patterns drop to importance=1.
+
+## Rebuild
+
+The graph is a derived projection — flat files (journal, patterns, failures,
+sessions) are the source of truth. Rebuild from scratch:
+
+```bash
+./graph.sh rebuild
+```
+
+This resets the graph, runs all four sync scripts (decisions, patterns,
+failures, sessions), normalizes edge spelling, and deduplicates edges.
+Individual write commands (`remember`, `learn`, `fail`, `handoff`) sync
+incrementally in the background.
 
 ## Integration with Lore
 

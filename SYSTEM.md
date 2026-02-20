@@ -102,7 +102,7 @@ Each component answers one question. Together they form institutional memory.
 | Component   | Question                  | Format | Writers                      |
 | ----------- | ------------------------- | ------ | ---------------------------- |
 | `journal/`  | Why did we choose this?   | JSONL  | Any project via CLI          |
-| `graph/`    | What relates to this?     | JSON   | Any project via CLI          |
+| `graph/`    | What relates to this?     | JSON   | Derived (rebuildable)        |
 | `patterns/` | What did we learn?        | YAML   | Any project via CLI          |
 | `transfer/` | What's next?              | JSON   | Session handoff              |
 | `inbox/`    | What did we notice?       | JSONL  | Observations from any source |
@@ -129,6 +129,20 @@ component/
 JSONL for append-only logs (journal, inbox, failures). JSON for structured
 documents (graph, sessions). YAML for human-maintained registries (patterns,
 goals, metadata).
+
+### Graph as Derived Projection
+
+The graph is not a primary data store. It is a projection derived from journal
+decisions, patterns, failures, and sessions. Flat files are the source of truth.
+The graph can be rebuilt from scratch at any time:
+
+```bash
+lore graph rebuild
+```
+
+Each write command (`remember`, `learn`, `fail`, `handoff`) syncs its record
+type to the graph in the background. `rebuild` runs all four syncs against an
+empty graph, normalizes edge spelling, and deduplicates edges.
 
 When `LORE_DATA_DIR` is set (default after `install.sh`: `~/.local/share/lore`), component `data/` directories live at that external path instead of inside the repo. Path resolution is centralized in `lib/paths.sh`.
 

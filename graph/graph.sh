@@ -53,6 +53,7 @@ COMMANDS:
     stats                               Show graph statistics
 
     sync                                Sync journal decisions to graph nodes
+    rebuild                             Rebuild graph from all flat-file sources
     import <file>                       Import nodes/edges from JSON
     export [format]                     Export graph (json, dot, mermaid)
 
@@ -64,6 +65,7 @@ NODE TYPES:
     decision    Architectural or design decisions
     session     Work sessions or sprints
     project     Software projects in the ecosystem
+    failure     Recorded failure reports
 
 EDGE TYPES:
     relates_to      General semantic relationship
@@ -313,6 +315,7 @@ cmd_visualize() {
          elif .value.type == "decision" then "#d1c4e9"
          elif .value.type == "session" then "#ffccbc"
          elif .value.type == "project" then "#b2dfdb"
+         elif .value.type == "failure" then "#ffcdd2"
          else "#e0e0e0" end) +
         "\"];"
     ' "$GRAPH_FILE"
@@ -792,6 +795,9 @@ main() {
             ;;
         sync)
             bash "${SCRIPT_DIR}/sync.sh" "$@"
+            ;;
+        rebuild)
+            bash "${SCRIPT_DIR}/rebuild.sh" "$@"
             ;;
         help|--help|-h)
             usage
