@@ -22,7 +22,7 @@ setup() {
     mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
     mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
     mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer" "$TMPDIR/inbox/lib"
+    mkdir -p "$TMPDIR/transfer" "$TMPDIR/inbox/data" "$TMPDIR/inbox/lib"
     mkdir -p "$TMPDIR/graph" "$TMPDIR/lib"
 
     # Copy component scripts and libraries
@@ -47,8 +47,12 @@ patterns: []
 anti_patterns: []
 YAML
     : > "$TMPDIR/failures/data/failures.jsonl"
+    : > "$TMPDIR/inbox/data/observations.jsonl"
 
+    # Reset paths.sh idempotency guard so it re-derives from new LORE_DIR
+    unset _LORE_PATHS_LOADED
     export LORE_DIR="$TMPDIR"
+    export LORE_DATA_DIR="$TMPDIR"
 }
 
 teardown() {
@@ -190,16 +194,16 @@ test_explicit_pattern_overrides_default() {
     teardown
 }
 
-test_default_creates_decision() {
-    echo "Test: no type flags defaults to decision"
+test_default_creates_observation() {
+    echo "Test: no type flags defaults to observation"
     setup
     local before
-    before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
+    before=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Default decision" --force
+    "$TMPDIR/lore.sh" capture "Default observation"
 
-    assert_file_grew "decisions.jsonl grew" "$TMPDIR/journal/data/decisions.jsonl" "$before"
-    assert_contains "default decision recorded" "$TMPDIR/journal/data/decisions.jsonl" "Default decision"
+    assert_file_grew "observations.jsonl grew" "$TMPDIR/inbox/data/observations.jsonl" "$before"
+    assert_contains "default observation recorded" "$TMPDIR/inbox/data/observations.jsonl" "Default observation"
     teardown
 }
 
@@ -260,36 +264,66 @@ test_capture_help_mentions_capture() {
     teardown
 }
 
-test_capture_deprecation_warning() {
-    echo "Test: capture emits deprecation warning on stderr"
+test_explicit_observation_override() {
+    echo "Test: --observation flag routes to inbox even with other flags"
     setup
+    local obs_before dec_before
+    obs_before=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
+    dec_before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
 
-    local stderr_output
-    stderr_output=$("$TMPDIR/lore.sh" capture "Deprecation test" --force 2>&1 1>/dev/null)
+    "$TMPDIR/lore.sh" capture "Explicit observation" --observation
 
-    if echo "$stderr_output" | grep -qi "deprecated"; then
-        echo "  PASS: capture emits deprecation warning"
+    assert_file_grew "observations.jsonl grew" "$TMPDIR/inbox/data/observations.jsonl" "$obs_before"
+    assert_contains "observation text recorded" "$TMPDIR/inbox/data/observations.jsonl" "Explicit observation"
+
+    # Decisions file should NOT have grown
+    local dec_after
+    dec_after=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
+    if [[ "$dec_after" -eq "$dec_before" ]]; then
+        echo "  PASS: decisions.jsonl unchanged (explicit observation worked)"
         PASS=$((PASS + 1))
     else
-        echo "  FAIL: capture did not emit deprecation warning (stderr: $stderr_output)"
+        echo "  FAIL: decisions.jsonl grew (explicit observation did not work)"
         FAIL=$((FAIL + 1))
     fi
     teardown
 }
 
-test_capture_quiet_suppresses_warning() {
-    echo "Test: LORE_QUIET=1 suppresses deprecation warning"
+test_capture_observation_with_tags() {
+    echo "Test: bare capture with --tags creates tagged observation"
     setup
+    local before
+    before=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
 
-    local stderr_output
-    stderr_output=$(LORE_QUIET=1 "$TMPDIR/lore.sh" capture "Quiet test" --force 2>&1 1>/dev/null)
+    "$TMPDIR/lore.sh" capture "Tagged observation" --tags "infra,networking"
 
-    if echo "$stderr_output" | grep -qi "deprecated"; then
-        echo "  FAIL: LORE_QUIET=1 did not suppress deprecation warning"
-        FAIL=$((FAIL + 1))
-    else
-        echo "  PASS: LORE_QUIET=1 suppresses deprecation warning"
+    assert_file_grew "observations.jsonl grew" "$TMPDIR/inbox/data/observations.jsonl" "$before"
+    assert_contains "tagged observation recorded" "$TMPDIR/inbox/data/observations.jsonl" "Tagged observation"
+    assert_contains "tags preserved" "$TMPDIR/inbox/data/observations.jsonl" "infra"
+    teardown
+}
+
+test_decision_flags_still_route_to_decision() {
+    echo "Test: --rationale flag still routes to decision (not observation)"
+    setup
+    local dec_before obs_before
+    dec_before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
+    obs_before=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
+
+    "$TMPDIR/lore.sh" capture "Decision with rationale" --rationale "Because reasons" --force
+
+    assert_file_grew "decisions.jsonl grew" "$TMPDIR/journal/data/decisions.jsonl" "$dec_before"
+    assert_contains "decision text recorded" "$TMPDIR/journal/data/decisions.jsonl" "Decision with rationale"
+
+    # Observations file should NOT have grown
+    local obs_after
+    obs_after=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
+    if [[ "$obs_after" -eq "$obs_before" ]]; then
+        echo "  PASS: observations.jsonl unchanged (decision routing worked)"
         PASS=$((PASS + 1))
+    else
+        echo "  FAIL: observations.jsonl grew (decision routing failed)"
+        FAIL=$((FAIL + 1))
     fi
     teardown
 }
@@ -309,7 +343,13 @@ test_explicit_decision_overrides_default
 echo ""
 test_explicit_pattern_overrides_default
 echo ""
-test_default_creates_decision
+test_default_creates_observation
+echo ""
+test_explicit_observation_override
+echo ""
+test_capture_observation_with_tags
+echo ""
+test_decision_flags_still_route_to_decision
 echo ""
 test_backward_compat_remember
 echo ""
@@ -318,10 +358,6 @@ echo ""
 test_backward_compat_fail
 echo ""
 test_capture_help_mentions_capture
-echo ""
-test_capture_deprecation_warning
-echo ""
-test_capture_quiet_suppresses_warning
 echo ""
 
 echo "=== Results: $PASS passed, $FAIL failed ==="

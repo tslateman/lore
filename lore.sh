@@ -19,7 +19,7 @@ DIM='\033[2m'
 NC='\033[0m'
 
 # Infer capture type from command-line flags
-# Returns: "decision", "pattern", or "failure"
+# Returns: "decision", "pattern", "failure", or "observation"
 infer_capture_type() {
     local has_decision_flags=false
     local has_pattern_flags=false
@@ -32,6 +32,7 @@ infer_capture_type() {
             --decision) explicit_type="decision"; shift ;;
             --pattern) explicit_type="pattern"; shift ;;
             --failure) explicit_type="failure"; shift ;;
+            --observation) explicit_type="observation"; shift ;;
 
             # Decision-specific flags
             --rationale|-r|--alternatives|-a|--outcome|--type|-f|--files)
@@ -56,13 +57,15 @@ infer_capture_type() {
     # Explicit type wins
     [[ -n "$explicit_type" ]] && { echo "$explicit_type"; return; }
 
-    # Infer from flags (failure > pattern > decision default)
+    # Infer from flags (failure > pattern > decision > observation default)
     if [[ "$has_failure_flags" == true ]]; then
         echo "failure"
     elif [[ "$has_pattern_flags" == true ]]; then
         echo "pattern"
-    else
+    elif [[ "$has_decision_flags" == true ]]; then
         echo "decision"
+    else
+        echo "observation"
     fi
 }
 
@@ -75,14 +78,15 @@ Usage: lore <command> [options]
 
 Session:
   resume              Load context from previous session
+  capture <text>      Record knowledge (type inferred from flags)
   handoff <message>   Capture context for next session
   status              Show current session state
-  entire-resume <br>  Resume Entire branch with Lore context
 
-Capture:
-  remember <text>     Record a decision (--rationale "why")
-  learn <text>        Capture a pattern (--context "when")
-  fail <type> <msg>   Log a failure (Timeout, ToolError, etc.)
+Capture flags:
+  (none)              → observation (inbox)
+  --rationale "why"   → decision (journal)
+  --solution "what"   → pattern (patterns)
+  --error-type Type   → failure (failures)
 
 Query:
   search <query>      Search all components
@@ -106,19 +110,20 @@ SESSION LIFECYCLE
   entire-resume <branch>  Resume Entire branch with Lore context injection
 
 CAPTURE
-  remember <text>         Record a decision with rationale
-    --rationale, -r       Why this decision was made
-    --alternatives, -a    Other options considered
-    --tags, -t            Tags for categorization
-    --valid-at            When the decision became true (ISO8601)
-  learn <text>            Capture a pattern or lesson
-    --context             When this pattern applies
-    --solution            The approach or fix
-    --category            Pattern category
-  fail <type> <message>   Log a failure for pattern detection
-    Types: Timeout, NonZeroExit, UserDeny, ToolError, LogicError
-  observe <text>          Capture raw observation to inbox
-  capture <text>          Universal capture (infers type from flags)
+  capture <text>          Universal write — type inferred from flags:
+    (no flags)            → observation (inbox)
+    --rationale, -r       → decision (journal)
+    --solution            → pattern (patterns)
+    --error-type          → failure (failures)
+    --decision            Explicit decision override
+    --pattern             Explicit pattern override
+    --failure             Explicit failure override
+    --observation         Explicit observation override
+    --tags, -t            Tags for categorization (all types)
+  remember <text>         Record a decision (shortcut for capture --decision)
+  learn <text>            Capture a pattern (shortcut for capture --pattern)
+  fail <type> <message>   Log a failure
+  observe <text>          Capture observation (shortcut for capture --observation)
 
 QUERY
   search <query>          Search across all components
@@ -140,6 +145,7 @@ REGISTRY
   registry validate       Check consistency
 
 MAINTENANCE
+  learn <text>            Capture a pattern directly (--context, --solution)
   index                   Build/rebuild search index
   validate                Run comprehensive checks
   ingest <p> <t> <file>   Bulk import from external formats
@@ -168,7 +174,15 @@ show_help_capture() {
     cat << 'EOF'
 CAPTURE COMMANDS
 
-Record decisions, patterns, and failures for future retrieval.
+Record knowledge with a single verb. Importance is earned via flags, not assumed.
+
+  lore capture "X"                              → observation (inbox)
+  lore capture "X" --rationale "why"            → decision (journal)
+  lore capture "X" --solution "how"             → pattern (patterns)
+  lore capture "X" --error-type ToolError       → failure (failures)
+
+Bare capture creates an observation — a low-friction note that can be promoted
+to a decision or pattern later. Add flags to signal importance.
 
 DECISIONS (remember)
   lore remember "Use PostgreSQL" --rationale "Need ACID, team knows it"
@@ -395,16 +409,28 @@ cmd_capture() {
     local capture_type
     capture_type=$(infer_capture_type "$@")
 
-    # Strip explicit type flags, pass everything else through
+    # Strip explicit type flags and --force (observation has no dedup), pass everything else
     local args=()
+    local has_force=false
     for arg in "$@"; do
         case "$arg" in
-            --decision|--pattern|--failure) continue ;;
+            --decision|--pattern|--failure|--observation) continue ;;
+            --force) has_force=true; args+=("$arg") ;;
             *) args+=("$arg") ;;
         esac
     done
 
     case "$capture_type" in
+        observation)
+            # Strip --force before passing to cmd_observe (it has no dedup check)
+            local obs_args=()
+            for arg in "${args[@]}"; do
+                [[ "$arg" == "--force" ]] && continue
+                obs_args+=("$arg")
+            done
+            cmd_observe "${obs_args[@]}"
+            return
+            ;;
         decision)
             cmd_remember "${args[@]}"
             ;;
