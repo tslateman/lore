@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "ae6058abd237",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "Makefile",
+    "hooks/inject-context.sh",
+    "journal/journal.sh",
+    "journal/lib/capture.sh",
+    "journal/lib/store.sh",
+    "lore.sh",
+    "registry/data/clusters.yaml",
+    "tests/test-goals.sh",
+    "transfer/lib/resume.sh"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ae/6058abd237/0/metadata.json",
+      "transcript": "/ae/6058abd237/0/full.jsonl",
+      "context": "/ae/6058abd237/0/context.md",
+      "content_hash": "/ae/6058abd237/0/content_hash.txt",
+      "prompt": "/ae/6058abd237/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2185,
+    "cache_creation_tokens": 1525131,
+    "cache_read_tokens": 33699759,
+    "output_tokens": 16427,
+    "api_call_count": 337
+  }
+}
