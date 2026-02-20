@@ -18,14 +18,6 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-# Deprecation warning (suppress with LORE_QUIET=1)
-_lore_deprecation_warning() {
-    [[ "${LORE_QUIET:-}" == "1" ]] && return 0
-    local old_cmd="$1"
-    local new_cmd="$2"
-    echo -e "${YELLOW}[deprecated] '$old_cmd' -> use '$new_cmd'${NC}" >&2
-}
-
 # Infer capture type from command-line flags
 # Returns: "decision", "pattern", or "failure"
 infer_capture_type() {
@@ -81,20 +73,19 @@ Lore - Memory That Compounds
 
 Usage: lore <command> [options]
 
-Write:
-  remember <text>     Record a decision (--rationale "why")
-  learn <text>        Capture a pattern (--context "when")
-  fail <type> <msg>   Log a failure
-  observe <text>      Capture an observation
-
-Read:
-  search <query>      Search all components
-  brief <topic>       Topic briefing with contradictions
-  review              Review pending decisions
-
 Session:
   resume              Load context from previous session
   handoff <message>   Capture context for next session
+  status              Show current session state
+  entire-resume <br>  Resume Entire branch with Lore context
+
+Capture:
+  remember <text>     Record a decision (--rationale "why")
+  learn <text>        Capture a pattern (--context "when")
+  fail <type> <msg>   Log a failure (Timeout, ToolError, etc.)
+
+Query:
+  search <query>      Search all components (--smart for semantic)
 
 Run 'lore help' for all commands.
 Run 'lore help <topic>' for: capture, search, intent, registry, components
@@ -108,7 +99,13 @@ Lore - Memory That Compounds
 
 Usage: lore <command> [options]
 
-WRITE
+SESSION LIFECYCLE
+  resume [session]        Load context from previous session (forks new session)
+  handoff <message>       Capture context for next session
+  status                  Show current session state
+  entire-resume <branch>  Resume Entire branch with Lore context injection
+
+CAPTURE
   remember <text>         Record a decision with rationale
     --rationale, -r       Why this decision was made
     --alternatives, -a    Other options considered
@@ -121,31 +118,21 @@ WRITE
   fail <type> <message>   Log a failure for pattern detection
     Types: Timeout, NonZeroExit, UserDeny, ToolError, LogicError
   observe <text>          Capture raw observation to inbox
+  capture <text>          Universal capture (infers type from flags)
 
-READ
+QUERY
   search <query>          Search across all components
     --smart               Auto-select semantic if Ollama available
     --semantic            Force semantic search (requires Ollama)
     --hybrid              Combine keyword + semantic
     --graph-depth N       Follow graph edges (0-3)
   context <project>       Gather full context for a project
-  brief <topic>           Topic-scoped briefing across all components
+  suggest <context>       Suggest relevant patterns
   failures [--type T]     List failures
   triggers                Show recurring failures (Rule of Three)
-  promote-failure [type]  Promote recurring failures to anti-patterns
-  review                  Review pending decisions and resolve outcomes
-    --days N              Age threshold in days (default: 3)
-    --resolve <id>        Resolve a specific decision
-    --outcome <status>    Set outcome: successful|revised|abandoned
-    --lesson "text"       Record lesson learned
-    --auto                Brief summary for automated use
+  promote-failure [type]   Promote recurring failures to anti-patterns
 
-SESSION
-  resume [session]        Load context from previous session (forks new session)
-  handoff <message>       Capture context for next session
-  entire-resume <branch>  Resume Entire branch with Lore context injection
-
-INTENT
+INTENT (Goals)
   goal create <name>      Create a goal
   goal list [--status S]  List goals
   goal show <id>          Show goal details
@@ -159,6 +146,8 @@ MAINTENANCE
   index                   Build/rebuild search index
   validate                Run comprehensive checks
   ingest <p> <t> <file>   Bulk import from external formats
+
+JOURNAL
   journal add             Add structured journal entry (--type, --project, --title, --body)
 
 COMPONENTS (direct access)
@@ -169,11 +158,6 @@ COMPONENTS (direct access)
   inbox <cmd>             Observation staging
   intent <cmd>            Goals and specs
 
-DEPRECATED
-  capture <text>          Use: remember, learn, or fail
-  suggest <context>       Use: brief <topic>
-  status                  Use: transfer status
-
 Run 'lore help <topic>' for detailed help on:
   capture, search, intent, registry, components
 EOF
@@ -183,8 +167,6 @@ EOF
 show_help_capture() {
     cat << 'EOF'
 CAPTURE COMMANDS
-
-Note: 'lore capture' is deprecated. Use remember, learn, or fail directly.
 
 Record decisions, patterns, and failures for future retrieval.
 
@@ -409,9 +391,6 @@ cmd_remember() {
 cmd_learn() {
     # Dedup check now lives in patterns/patterns.sh cmd_capture (--force passes through)
     "$LORE_DIR/patterns/patterns.sh" capture "$@"
-
-    # Sync pattern to graph (background, fail-silent)
-    "$LORE_DIR/graph/sync-patterns.sh" &>/dev/null &
 }
 
 # Unified capture command — routes to remember/learn/fail based on flags
@@ -469,9 +448,6 @@ cmd_capture() {
 
 cmd_handoff() {
     "$LORE_DIR/transfer/transfer.sh" handoff "$@"
-
-    # Sync session to graph (background, fail-silent)
-    "$LORE_DIR/graph/sync-sessions.sh" &>/dev/null &
 }
 
 cmd_resume() {
@@ -885,9 +861,6 @@ cmd_fail() {
     echo -e "  ${CYAN}Type:${NC} $error_type"
     echo -e "  ${CYAN}Message:${NC} $message"
     [[ -n "$tool" ]] && echo -e "  ${CYAN}Tool:${NC} $tool"
-
-    # Sync failure to graph (background, fail-silent)
-    "$LORE_DIR/graph/sync-failures.sh" &>/dev/null &
 
     # Auto-suggest promotion if this error type now has 3+ occurrences
     local type_count
@@ -1312,6 +1285,7 @@ cmd_init() {
     mkdir -p "${LORE_TRANSFER_DATA}/sessions"
     mkdir -p "${LORE_GRAPH_DATA}"
     mkdir -p "${LORE_INTENT_DATA}/goals"
+    mkdir -p "${LORE_REGISTRY_DATA}"
 
     # Seed files (only if missing)
     [[ -f "${LORE_DECISIONS_FILE}" ]] || touch "${LORE_DECISIONS_FILE}"
@@ -1338,24 +1312,22 @@ main() {
 
     case "$1" in
         # Quick commands
-        capture)    _lore_deprecation_warning "capture" "remember / learn / fail"; shift; cmd_capture "$@" ;;
+        capture)    shift; cmd_capture "$@" ;;
         remember)   shift; cmd_remember "$@" ;;
         learn)      shift; cmd_learn "$@" ;;
         handoff)    shift; cmd_handoff "$@" ;;
         resume)     shift; cmd_resume "$@" ;;
         entire-resume) shift; "$LORE_DIR/scripts/entire-resume-with-context.sh" "$@" ;;
         search)     shift; cmd_search "$@" ;;
-        suggest)    _lore_deprecation_warning "suggest" "brief <topic>"; shift; cmd_suggest "$@" ;;
+        suggest)    shift; cmd_suggest "$@" ;;
         context)    shift; cmd_context "$@" ;;
-        status)     _lore_deprecation_warning "status" "transfer status"; shift; cmd_status "$@" ;;
+        status)     shift; cmd_status "$@" ;;
         observe)    shift; cmd_observe "$@" ;;
         inbox)      shift; cmd_inbox "$@" ;;
         fail)       shift; cmd_fail "$@" ;;
         failures)   shift; cmd_failures "$@" ;;
         triggers)   shift; cmd_triggers "$@" ;;
         promote-failure) shift; cmd_promote_failure "$@" ;;
-        review)     shift; source "$LORE_DIR/lib/review.sh"; cmd_review "$@" ;;
-        brief)      shift; source "$LORE_DIR/lib/brief.sh"; cmd_brief "$@" ;;
 
         # Top-level commands
         init)       shift; cmd_init "$@" ;;

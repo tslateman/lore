@@ -3,9 +3,12 @@ set -euo pipefail
 trap 'exit 0' ERR
 
 LORE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LORE_DIR="${LORE_ROOT}"
+source "${LORE_ROOT}/lib/paths.sh"
+
 TRANSFER_ROOT="$LORE_ROOT/transfer"
-SESSIONS_DIR="$TRANSFER_ROOT/data/sessions"
-CURRENT_SESSION_FILE="$TRANSFER_ROOT/data/.current_session"
+SESSIONS_DIR="${LORE_TRANSFER_DATA}/sessions"
+CURRENT_SESSION_FILE="${LORE_TRANSFER_DATA}/.current_session"
 
 # Source snapshot utilities
 source "$TRANSFER_ROOT/lib/snapshot.sh"
@@ -47,7 +50,7 @@ fi
 
 # Recent active decisions (last 5)
 decisions=""
-decisions_file="$LORE_ROOT/journal/data/decisions.jsonl"
+decisions_file="${LORE_DECISIONS_FILE}"
 if [[ -f "$decisions_file" ]]; then
     decisions=$(jq -s '
         group_by(.id) | map(.[-1])
@@ -59,7 +62,7 @@ fi
 
 # Recent patterns (last 3 names)
 patterns=""
-patterns_file="$LORE_ROOT/patterns/data/patterns.yaml"
+patterns_file="${LORE_PATTERNS_FILE}"
 if [[ -f "$patterns_file" ]] && command -v yq &>/dev/null; then
     patterns=$(yq -o=json '.patterns' "$patterns_file" 2>/dev/null \
         | jq -r 'sort_by(.created_at) | reverse | .[0:3] | .[].name' 2>/dev/null || true)

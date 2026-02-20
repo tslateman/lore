@@ -83,6 +83,7 @@ DIRS=(
     "${DATA_DIR}/transfer/data/sessions"
     "${DATA_DIR}/graph/data"
     "${DATA_DIR}/intent/data/goals"
+    "${DATA_DIR}/registry/data"
 )
 
 for dir in "${DIRS[@]}"; do
@@ -256,44 +257,12 @@ else
     fi
 fi
 
-# Step 5: Shell profile configuration
+# Step 5: Print shell config instructions
 echo ""
-
-EXPORT_LINE="export LORE_DATA_DIR=${DATA_DIR}"
-
-# Detect shell profile
-detect_profile() {
-    local shell_name
-    shell_name="$(basename "${SHELL:-/bin/bash}")"
-    case "$shell_name" in
-        zsh)  echo "${HOME}/.zshrc" ;;
-        bash)
-            # Prefer .bashrc on Linux, .bash_profile on macOS
-            if [[ -f "${HOME}/.bash_profile" ]]; then
-                echo "${HOME}/.bash_profile"
-            else
-                echo "${HOME}/.bashrc"
-            fi
-            ;;
-        *)    echo "${HOME}/.profile" ;;
-    esac
-}
-
-PROFILE="$(detect_profile)"
-
-# Check if already present
-if grep -qF "LORE_DATA_DIR" "$PROFILE" 2>/dev/null; then
-    log "LORE_DATA_DIR already set in ${PROFILE}."
-elif [[ "$DRY_RUN" == true ]]; then
-    dry "append to ${PROFILE}: ${EXPORT_LINE}"
-else
-    echo "" >> "$PROFILE"
-    echo "# Lore data directory (added by scripts/install.sh)" >> "$PROFILE"
-    echo "$EXPORT_LINE" >> "$PROFILE"
-    log "Added LORE_DATA_DIR to ${PROFILE}."
-    export LORE_DATA_DIR="${DATA_DIR}"
-fi
-
+echo -e "${BOLD}Almost done!${NC} Add this to your shell profile (~/.bashrc or ~/.zshrc):"
+echo ""
+echo "  export LORE_DATA_DIR=${DATA_DIR}"
+echo ""
 if [[ "$DRY_RUN" != true && "$SKIP_MIGRATE" != true ]]; then
     echo -e "${DIM}Repo data files were copied (not moved). After confirming everything"
     echo -e "works, you can remove them from the repo with:${NC}"
