@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "f207aa043ae9",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CLAUDE.md",
+    "Makefile",
+    "graph/rebuild.sh",
+    "graph/sync-concepts.sh",
+    "lib/paths.sh",
+    "lib/search-index.sh",
+    "lore.sh",
+    "plans/plan-concepts-and-unified-recall.md",
+    "tests/test-concepts.sh",
+    "tests/test-recall.sh",
+    "tests/verify-retrieval.sh"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f2/07aa043ae9/0/metadata.json",
+      "transcript": "/f2/07aa043ae9/0/full.jsonl",
+      "context": "/f2/07aa043ae9/0/context.md",
+      "content_hash": "/f2/07aa043ae9/0/content_hash.txt",
+      "prompt": "/f2/07aa043ae9/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2185,
+    "cache_creation_tokens": 1525131,
+    "cache_read_tokens": 33699759,
+    "output_tokens": 16427,
+    "api_call_count": 337
+  }
+}
