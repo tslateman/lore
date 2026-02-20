@@ -33,6 +33,7 @@ infer_capture_type() {
             --pattern) explicit_type="pattern"; shift ;;
             --failure) explicit_type="failure"; shift ;;
             --observation) explicit_type="observation"; shift ;;
+            --concept) explicit_type="concept"; shift ;;
 
             # Decision-specific flags
             --rationale|-r|--alternatives|-a|--outcome|--type|-f|--files)
@@ -48,6 +49,9 @@ infer_capture_type() {
             --error-type|--tool|--step)
                 has_failure_flags=true
                 shift 2 ;;
+
+            # Concept flags (value-bearing, skip arg)
+            --definition) shift 2 ;;
 
             # Skip other args
             *) shift ;;
@@ -122,6 +126,8 @@ CAPTURE
     --pattern             Explicit pattern override
     --failure             Explicit failure override
     --observation         Explicit observation override
+    --concept             Explicit concept (with --definition)
+    --definition          Concept definition (used with --concept)
     --tags, -t            Tags for categorization (all types)
   remember <text>         Record a decision (shortcut for capture --decision)
   fail <type> <message>   Log a failure
@@ -134,6 +140,7 @@ RECALL
     --patterns [context]  → suggest relevant patterns
     --failures [--type T] → list failures
     --triggers [N]        → recurring failure types (Rule of Three)
+    --concepts [query]    → search or list concepts
     --brief <topic>       → topic-specific context briefing
     --graph-depth N       → follow graph edges during search (0-3)
     --compact             → machine-readable output
@@ -167,6 +174,7 @@ MAINTENANCE
   ingest <p> <t> <file>   Bulk import from external formats
   consolidate             Group similar decisions and create summaries
     --write               Actually create summaries (default: dry-run)
+    --promote             Also create concepts from clusters
     --threshold N         Jaccard similarity % (default: 50)
 
 JOURNAL
@@ -240,6 +248,12 @@ OBSERVATIONS (observe)
   lore observe "Users frequently ask about retry logic"
 
   Raw observations go to inbox for later triage.
+
+CONCEPTS (capture --concept)
+  lore capture "Fail-silent wrappers" --concept --definition "Library calls that catch errors"
+
+  Options:
+    --definition <text>     What this concept means
 EOF
 }
 
@@ -254,6 +268,7 @@ Read from memory with a single verb. Flags select the read mode.
   lore recall --patterns "API design"       → relevant patterns
   lore recall --failures --type Timeout     → filtered failure list
   lore recall --triggers                    → recurring failure analysis
+  lore recall --concepts "fail-silent"      → concept search
   lore recall --brief "graph"               → topic-scoped briefing
 
 The default (bare recall with a query) performs a ranked search across all
@@ -269,11 +284,16 @@ PROJECT CONTEXT
 
 PATTERNS
   lore recall --patterns                    All patterns
-  lore recall --patterns "deployment"       Patterns matching context
+  lore recall --patterns "deployment"       Ranked search via FTS5
 
 FAILURES
   lore recall --failures                    All failures
+  lore recall --failures "permission"       Ranked search via FTS5
   lore recall --failures --type Timeout     Filter by error type
+
+CONCEPTS
+  lore recall --concepts                    List all concepts
+  lore recall --concepts "deployment"       Ranked search via FTS5
 
 TRIGGERS
   lore recall --triggers                    Types with 3+ occurrences
@@ -474,7 +494,7 @@ cmd_capture() {
     local has_force=false
     for arg in "$@"; do
         case "$arg" in
-            --decision|--pattern|--failure|--observation) continue ;;
+            --decision|--pattern|--failure|--observation|--concept) continue ;;
             --force) has_force=true; args+=("$arg") ;;
             *) args+=("$arg") ;;
         esac
@@ -522,6 +542,33 @@ cmd_capture() {
                 cmd_fail "${fail_args[@]}"
             fi
             ;;
+        concept)
+            local definition=""
+            local text=""
+            local skip_next=false
+            for ((i=0; i<${#args[@]}; i++)); do
+                if [[ "$skip_next" == true ]]; then
+                    skip_next=false
+                    continue
+                fi
+                if [[ "${args[$i]}" == "--definition" && $((i+1)) -lt ${#args[@]} ]]; then
+                    definition="${args[$((i+1))]}"
+                    skip_next=true
+                elif [[ "${args[$i]}" != --* ]]; then
+                    text="${args[$i]}"
+                fi
+            done
+            if [[ -z "$text" ]]; then
+                echo -e "${RED}Error: Concept name required${NC}" >&2
+                echo "Usage: lore capture \"name\" --concept [--definition \"what it means\"]" >&2
+                return 1
+            fi
+            local concept_id
+            concept_id=$(write_concept "$(generate_concept_id)" "$text" "$definition" "manual")
+            echo -e "${GREEN}Created concept:${NC} ${BOLD}${concept_id}${NC}"
+            echo -e "  ${CYAN}Name:${NC} $text"
+            [[ -n "$definition" ]] && echo -e "  ${CYAN}Definition:${NC} $definition"
+            ;;
         *)
             echo -e "${RED}Error: Unknown capture type: $capture_type${NC}" >&2
             return 1
@@ -564,43 +611,41 @@ _search_fts5() {
     local query="$1"
     local project="$2"
     local limit="${3:-10}"
+    local graph_depth="${4:-0}"
+    local compact="${5:-false}"
+    local type_filter="${6:-}"
 
     # Escape single quotes for SQL
     local safe_query="${query//\'/\'\'}"
     local safe_project="${project//\'/\'\'}"
 
+    # Build SQL dynamically based on type filter
+    local decision_sql="SELECT 'decision' as type, id, decision as content, project, timestamp, importance, rank * -1 as bm25_score FROM decisions WHERE decisions MATCH '${safe_query}'"
+    local pattern_sql="SELECT 'pattern' as type, id, name || ': ' || solution as content, 'lore' as project, timestamp, CAST(confidence * 5 AS INT) as importance, rank * -1 as bm25_score FROM patterns WHERE patterns MATCH '${safe_query}'"
+    local transfer_sql="SELECT 'transfer' as type, session_id as id, handoff as content, project, timestamp, 3 as importance, rank * -1 as bm25_score FROM transfers WHERE transfers MATCH '${safe_query}'"
+    local failure_sql="SELECT 'failure' as type, id, error_type || ': ' || error_message as content, '' as project, timestamp, 3 as importance, rank * -1 as bm25_score FROM failures WHERE failures MATCH '${safe_query}'"
+    local observation_sql="SELECT 'observation' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'"
+    local concept_sql="SELECT 'concept' as type, id, name || ': ' || definition as content, '' as project, timestamp, 4 as importance, rank * -1 as bm25_score FROM concepts WHERE concepts MATCH '${safe_query}'"
+
+    local sql_parts=()
+    case "$type_filter" in
+        decision)    sql_parts=("$decision_sql") ;;
+        pattern)     sql_parts=("$pattern_sql") ;;
+        transfer)    sql_parts=("$transfer_sql") ;;
+        failure)     sql_parts=("$failure_sql") ;;
+        observation) sql_parts=("$observation_sql") ;;
+        concept)     sql_parts=("$concept_sql") ;;
+        *)           sql_parts=("$decision_sql" "$pattern_sql" "$transfer_sql" "$failure_sql" "$observation_sql" "$concept_sql") ;;
+    esac
+
+    local union_sql
+    union_sql=$(printf ' UNION ALL %s' "${sql_parts[@]}")
+    union_sql="${union_sql# UNION ALL }"
+
     local results
     results=$(sqlite3 -separator $'\t' "$SEARCH_DB" <<SQL 2>/dev/null
 WITH ranked AS (
-    SELECT
-        'decision' as type,
-        id,
-        decision as content,
-        project,
-        timestamp,
-        importance,
-        rank * -1 as bm25_score
-    FROM decisions WHERE decisions MATCH '${safe_query}'
-    UNION ALL
-    SELECT
-        'pattern' as type,
-        id,
-        name || ': ' || solution as content,
-        'lore' as project,
-        timestamp,
-        CAST(confidence * 5 AS INT) as importance,
-        rank * -1 as bm25_score
-    FROM patterns WHERE patterns MATCH '${safe_query}'
-    UNION ALL
-    SELECT
-        'transfer' as type,
-        session_id as id,
-        handoff as content,
-        project,
-        timestamp,
-        3 as importance,
-        rank * -1 as bm25_score
-    FROM transfers WHERE transfers MATCH '${safe_query}'
+    ${union_sql}
 ),
 frequency AS (
     SELECT
@@ -631,9 +676,6 @@ ORDER BY final_score DESC
 LIMIT ${limit};
 SQL
     ) || true
-
-    local graph_depth="${4:-0}"
-    local compact="${5:-false}"
 
     if [[ -z "$results" ]]; then
         [[ "$compact" != true ]] && echo -e "  ${DIM}(no results)${NC}"
@@ -825,6 +867,14 @@ cmd_recall() {
                     shift
                 done
                 ;;
+            --concepts)
+                mode="concepts"
+                shift
+                while [[ $# -gt 0 && "$1" != --* ]]; do
+                    pass_through+=("$1")
+                    shift
+                done
+                ;;
             --failures)
                 mode="failures"
                 shift
@@ -878,13 +928,50 @@ cmd_recall() {
             cmd_context "$project"
             ;;
         patterns)
-            cmd_suggest "${pass_through[@]}"
+            if [[ -f "$LORE_SEARCH_DB" && ${#pass_through[@]} -gt 0 ]]; then
+                _search_fts5 "${pass_through[*]}" "$(_derive_project)" 10 0 false "pattern"
+            else
+                cmd_suggest "${pass_through[@]}"
+            fi
             ;;
         failures)
-            cmd_failures "${pass_through[@]}"
+            if [[ -f "$LORE_SEARCH_DB" && ${#pass_through[@]} -gt 0 ]]; then
+                # --type is a filter op, not search — delegate to cmd_failures
+                local has_type_flag=false
+                for arg in "${pass_through[@]}"; do
+                    [[ "$arg" == "--type" ]] && has_type_flag=true
+                done
+                if [[ "$has_type_flag" == true ]]; then
+                    cmd_failures "${pass_through[@]}"
+                else
+                    _search_fts5 "${pass_through[*]}" "" 10 0 false "failure"
+                fi
+            else
+                cmd_failures "${pass_through[@]}"
+            fi
             ;;
         triggers)
             cmd_triggers "${pass_through[@]}"
+            ;;
+        concepts)
+            if [[ -f "$LORE_SEARCH_DB" && ${#pass_through[@]} -gt 0 ]]; then
+                _search_fts5 "${pass_through[*]}" "$(_derive_project)" 10 0 false "concept"
+            else
+                local cf="${LORE_CONCEPTS_FILE}"
+                if [[ -f "$cf" ]] && command -v yq &>/dev/null; then
+                    local count
+                    count=$(yq '.concepts | length' "$cf" 2>/dev/null) || count=0
+                    if [[ "$count" -eq 0 ]]; then
+                        echo -e "${YELLOW}No concepts found${NC}"
+                    else
+                        echo -e "${GREEN}Concepts (${count}):${NC}"
+                        echo ""
+                        yq -r '.concepts[] | "  " + .id + "  " + .name + "\n    " + (.definition // "-")' "$cf"
+                    fi
+                else
+                    echo -e "${YELLOW}No concepts found${NC}"
+                fi
+            fi
             ;;
         brief)
             source "$LORE_DIR/lib/brief.sh"
@@ -893,7 +980,7 @@ cmd_recall() {
         "")
             if [[ -z "$query" ]]; then
                 echo -e "${RED}Error: Query or flag required${NC}" >&2
-                echo "Usage: lore recall <query> | --project <name> | --patterns | --failures | --triggers | --brief <topic>" >&2
+                echo "Usage: lore recall <query> | --project <name> | --patterns | --failures | --triggers | --concepts | --brief <topic>" >&2
                 echo "Run 'lore help recall' for details." >&2
                 return 1
             fi
@@ -1424,9 +1511,54 @@ cmd_inbox() {
     echo "$results" | jq -r '.[] | "  \(.id) [\(.status)] \(.timestamp[0:16])\n    \(.content[0:70])\(.content | if length > 70 then "..." else "" end)\n"'
 }
 
+generate_concept_id() {
+    echo "concept-$(od -An -tx1 -N4 /dev/urandom | tr -d ' \n')"
+}
+
+# Write a concept to concepts.yaml
+# Usage: write_concept <id> <name> <definition> <source> [grounded_by_id ...]
+write_concept() {
+    local id="$1" name="$2" definition="$3" source="$4"
+    shift 4
+    local grounded_by=("$@")
+
+    local concepts_file="${LORE_CONCEPTS_FILE}"
+    if [[ ! -f "$concepts_file" ]]; then
+        mkdir -p "$(dirname "$concepts_file")"
+        echo "concepts: []" > "$concepts_file"
+    fi
+
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    # Build the concept entry using yq
+    local tmp
+    tmp=$(mktemp)
+    cat > "$tmp" <<YAML
+id: "$id"
+name: "$name"
+definition: "$definition"
+grounded_by: []
+created_at: "$timestamp"
+source: "$source"
+YAML
+
+    # Add grounded_by entries
+    for gid in "${grounded_by[@]}"; do
+        yq -i ".grounded_by += [\"$gid\"]" "$tmp"
+    done
+
+    # Append to concepts array
+    yq -i ".concepts += [load(\"$tmp\")]" "$concepts_file"
+    rm -f "$tmp"
+
+    echo "$id"
+}
+
 cmd_consolidate() {
     local dry_run=true
     local threshold=50
+    local promote=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -1438,13 +1570,17 @@ cmd_consolidate() {
                 dry_run=true
                 shift
                 ;;
+            --promote)
+                promote=true
+                shift
+                ;;
             --threshold)
                 threshold="$2"
                 shift 2
                 ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}" >&2
-                echo "Usage: lore consolidate [--write] [--threshold N]" >&2
+                echo "Usage: lore consolidate [--write] [--promote] [--threshold N]" >&2
                 return 1
                 ;;
             *)
@@ -1589,6 +1725,33 @@ cmd_consolidate() {
                 else
                     echo -e "  ${YELLOW}Could not extract summary ID; skipping graph edges.${NC}"
                 fi
+
+                # Promote cluster to concept if requested
+                if [[ "$promote" == true && -n "$summary_id" ]]; then
+                    local all_texts=""
+                    for idx in "${cluster_members[@]}"; do
+                        local mtext
+                        mtext=$(echo "$decisions" | jq -r ".[$idx].decision")
+                        all_texts="$all_texts $mtext"
+                    done
+                    # Extract top 3 non-stopword terms as concept name
+                    local concept_name
+                    concept_name=$(echo "$all_texts" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' \
+                        | grep -vE '^(the|a|an|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|could|should|may|might|shall|can|to|of|in|for|on|with|at|by|from|as|into|through|during|before|after|above|below|between|out|up|down|off|over|under|again|further|then|once|and|but|or|nor|not|so|yet|both|either|neither|each|every|all|any|few|more|most|other|some|such|no|only|own|same|than|too|very|just|because|use|used|using)$' \
+                        | sort | uniq -c | sort -rn | head -3 | awk '{print $2}' | paste -s -d ' ' -) || true
+
+                    if [[ -n "$concept_name" ]]; then
+                        local concept_id
+                        concept_id=$(write_concept "$(generate_concept_id)" "$concept_name" "$shortest_text" "consolidation" "${member_ids[@]}")
+                        echo -e "  ${GREEN}Promoted to concept:${NC} ${BOLD}${concept_id}${NC} (${concept_name})"
+
+                        # Sync concept to graph
+                        if [[ -x "$LORE_DIR/graph/sync-concepts.sh" ]]; then
+                            bash "$LORE_DIR/graph/sync-concepts.sh" &>/dev/null &
+                        fi
+                    fi
+                fi
+
                 echo ""
             fi
         fi
@@ -1837,6 +2000,13 @@ YAML
 # Pattern Learner Database
 patterns: []
 anti_patterns: []
+YAML
+    fi
+
+    if [[ ! -f "${LORE_CONCEPTS_FILE}" ]]; then
+        cat > "${LORE_CONCEPTS_FILE}" <<'YAML'
+# Concept Database
+concepts: []
 YAML
     fi
 

@@ -3,7 +3,7 @@
 #
 # Destructive: replaces graph.json entirely. The graph is a derived
 # projection — flat files (journal, patterns, failures, sessions,
-# projects, goals, observations) are the source of truth.
+# projects, goals, observations, concepts) are the source of truth.
 #
 # Usage: graph/rebuild.sh
 
@@ -41,50 +41,57 @@ echo '{"nodes":{},"edges":[]}' > "$GRAPH_FILE"
 sources=0
 
 # 1. Sync decisions
-echo -e "${BOLD}[1/7] Decisions${NC}"
+echo -e "${BOLD}[1/8] Decisions${NC}"
 if bash "${SCRIPT_DIR}/sync.sh"; then
     sources=$((sources + 1))
 fi
 echo ""
 
 # 2. Sync patterns
-echo -e "${BOLD}[2/7] Patterns${NC}"
+echo -e "${BOLD}[2/8] Patterns${NC}"
 if bash "${SCRIPT_DIR}/sync-patterns.sh"; then
     sources=$((sources + 1))
 fi
 echo ""
 
 # 3. Sync failures
-echo -e "${BOLD}[3/7] Failures${NC}"
+echo -e "${BOLD}[3/8] Failures${NC}"
 if bash "${SCRIPT_DIR}/sync-failures.sh"; then
     sources=$((sources + 1))
 fi
 echo ""
 
 # 4. Sync sessions
-echo -e "${BOLD}[4/7] Sessions${NC}"
+echo -e "${BOLD}[4/8] Sessions${NC}"
 if bash "${SCRIPT_DIR}/sync-sessions.sh"; then
     sources=$((sources + 1))
 fi
 echo ""
 
 # 5. Sync projects
-echo -e "${BOLD}[5/7] Projects${NC}"
+echo -e "${BOLD}[5/8] Projects${NC}"
 if bash "${SCRIPT_DIR}/sync-projects.sh"; then
     sources=$((sources + 1))
 fi
 echo ""
 
 # 6. Sync goals
-echo -e "${BOLD}[6/7] Goals${NC}"
+echo -e "${BOLD}[6/8] Goals${NC}"
 if bash "${SCRIPT_DIR}/sync-goals.sh"; then
     sources=$((sources + 1))
 fi
 echo ""
 
 # 7. Sync observations
-echo -e "${BOLD}[7/7] Observations${NC}"
+echo -e "${BOLD}[7/8] Observations${NC}"
 if bash "${SCRIPT_DIR}/sync-observations.sh"; then
+    sources=$((sources + 1))
+fi
+echo ""
+
+# 8. Sync concepts
+echo -e "${BOLD}[8/8] Concepts${NC}"
+if bash "${SCRIPT_DIR}/sync-concepts.sh"; then
     sources=$((sources + 1))
 fi
 echo ""

@@ -288,6 +288,64 @@ test_backward_compat_triggers() {
     teardown
 }
 
+test_recall_concepts_fallback() {
+    echo "Test: lore recall --concepts lists concepts from YAML when no search.db"
+    setup
+
+    # Seed a concept via capture
+    "$TMPDIR/lore.sh" capture "Fail-silent wrappers" --concept --definition "Library calls that catch errors" >/dev/null 2>&1
+
+    local output
+    output=$("$TMPDIR/lore.sh" recall --concepts 2>&1)
+
+    assert_output_contains "output contains concept name" "$output" "Fail-silent wrappers"
+    assert_output_contains "output contains concept definition" "$output" "Library calls that catch errors"
+
+    teardown
+}
+
+test_recall_concepts_empty() {
+    echo "Test: lore recall --concepts shows message when no concepts exist"
+    setup
+
+    local output
+    output=$("$TMPDIR/lore.sh" recall --concepts 2>&1)
+
+    assert_output_contains "shows no concepts message" "$output" "No concepts"
+
+    teardown
+}
+
+test_capture_concept() {
+    echo "Test: lore capture --concept creates a concept"
+    setup
+
+    local output
+    output=$("$TMPDIR/lore.sh" capture "Test Concept" --concept --definition "A test concept" 2>&1)
+
+    assert_output_contains "output confirms creation" "$output" "Created concept"
+    assert_output_contains "output shows concept name" "$output" "Test Concept"
+
+    teardown
+}
+
+test_capture_concept_in_yaml() {
+    echo "Test: capture --concept writes to concepts.yaml"
+    setup
+
+    "$TMPDIR/lore.sh" capture "YAML Concept" --concept --definition "Stored in YAML" >/dev/null 2>&1
+
+    local cf="$TMPDIR/patterns/data/concepts.yaml"
+    assert_ok "concepts.yaml exists" test -f "$cf"
+
+    local content
+    content=$(cat "$cf")
+    assert_output_contains "YAML contains concept name" "$content" "YAML Concept"
+    assert_output_contains "YAML contains definition" "$content" "Stored in YAML"
+
+    teardown
+}
+
 # --- Runner ---
 
 echo "=== Lore Recall Integration Tests ==="
@@ -316,6 +374,14 @@ echo ""
 test_backward_compat_failures
 echo ""
 test_backward_compat_triggers
+echo ""
+test_recall_concepts_fallback
+echo ""
+test_recall_concepts_empty
+echo ""
+test_capture_concept
+echo ""
+test_capture_concept_in_yaml
 echo ""
 
 echo "=== Results: $PASS passed, $FAIL failed ==="

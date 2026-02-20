@@ -50,6 +50,28 @@ CREATE VIRTUAL TABLE IF NOT EXISTS transfers USING fts5(
     timestamp UNINDEXED
 );
 
+CREATE VIRTUAL TABLE IF NOT EXISTS failures USING fts5(
+    id UNINDEXED,
+    error_type,
+    error_message,
+    tool,
+    timestamp UNINDEXED
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS observations USING fts5(
+    id UNINDEXED,
+    content,
+    tags,
+    timestamp UNINDEXED
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS concepts USING fts5(
+    id UNINDEXED,
+    name,
+    definition,
+    timestamp UNINDEXED
+);
+
 -- Access log for reinforcement scoring
 CREATE TABLE IF NOT EXISTS access_log (
     record_type TEXT NOT NULL,
@@ -205,6 +227,66 @@ load_transfers() {
     echo "  Loaded $count transfers"
 }
 
+load_failures() {
+    local failures_file="${LORE_FAILURES_DATA}/failures.jsonl"
+    [[ -f "$failures_file" ]] || return 0
+
+    local count=0
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local id error_type error_message tool timestamp
+
+        id=$(echo "$line" | jq -r '.id // ""')
+        error_type=$(echo "$line" | jq -r '.error_type // ""')
+        error_message=$(echo "$line" | jq -r '.error_message // ""')
+        tool=$(echo "$line" | jq -r '.tool // ""')
+        timestamp=$(echo "$line" | jq -r '.timestamp // ""')
+
+        sqlite3 "$DB" "INSERT INTO failures(id, error_type, error_message, tool, timestamp)
+            VALUES ($(sql_quote "$id"), $(sql_quote "$error_type"), $(sql_quote "$error_message"),
+                    $(sql_quote "$tool"), $(sql_quote "$timestamp"));"
+        count=$((count + 1))
+    done < "$failures_file"
+    echo "  Loaded $count failures"
+}
+
+load_observations() {
+    local observations_file="${LORE_INBOX_DATA}/observations.jsonl"
+    [[ -f "$observations_file" ]] || return 0
+
+    local count=0
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local id content tags timestamp
+
+        id=$(echo "$line" | jq -r '.id // ""')
+        content=$(echo "$line" | jq -r '.content // ""')
+        tags=$(echo "$line" | jq -r '(.tags // []) | join(", ")')
+        timestamp=$(echo "$line" | jq -r '.timestamp // ""')
+
+        sqlite3 "$DB" "INSERT INTO observations(id, content, tags, timestamp)
+            VALUES ($(sql_quote "$id"), $(sql_quote "$content"),
+                    $(sql_quote "$tags"), $(sql_quote "$timestamp"));"
+        count=$((count + 1))
+    done < "$observations_file"
+    echo "  Loaded $count observations"
+}
+
+load_concepts() {
+    [[ -f "$LORE_CONCEPTS_FILE" ]] || return 0
+
+    local count=0
+    while IFS=$'\t' read -r id name definition timestamp; do
+        [[ -z "$id" ]] && continue
+
+        sqlite3 "$DB" "INSERT INTO concepts(id, name, definition, timestamp)
+            VALUES ($(sql_quote "$id"), $(sql_quote "$name"),
+                    $(sql_quote "$definition"), $(sql_quote "$timestamp"));"
+        count=$((count + 1))
+    done < <(yq -r '.concepts[] | [.id, .name, (.definition // ""), (.created_at // "")] | @tsv' "$LORE_CONCEPTS_FILE" 2>/dev/null)
+    echo "  Loaded $count concepts"
+}
+
 # --- Querying ---
 
 search_query() {
@@ -250,6 +332,36 @@ WITH ranked AS (
         3.0 as importance,
         rank * -1 as bm25_score
     FROM transfers WHERE transfers MATCH '${fts_query}'
+    UNION ALL
+    SELECT
+        'failure' as type,
+        id,
+        error_type || ': ' || error_message as content,
+        'lore' as project,
+        timestamp,
+        3.0 as importance,
+        rank * -1 as bm25_score
+    FROM failures WHERE failures MATCH '${fts_query}'
+    UNION ALL
+    SELECT
+        'observation' as type,
+        id,
+        content,
+        'lore' as project,
+        timestamp,
+        2.0 as importance,
+        rank * -1 as bm25_score
+    FROM observations WHERE observations MATCH '${fts_query}'
+    UNION ALL
+    SELECT
+        'concept' as type,
+        id,
+        name || ': ' || definition as content,
+        'lore' as project,
+        timestamp,
+        4.0 as importance,
+        rank * -1 as bm25_score
+    FROM concepts WHERE concepts MATCH '${fts_query}'
 ),
 frequency AS (
     SELECT
@@ -307,6 +419,12 @@ index_stats() {
     sqlite3 "$DB" "SELECT COUNT(*) FROM patterns;"
     echo -n "  Transfers: "
     sqlite3 "$DB" "SELECT COUNT(*) FROM transfers;"
+    echo -n "  Failures: "
+    sqlite3 "$DB" "SELECT COUNT(*) FROM failures;" 2>/dev/null || echo "0"
+    echo -n "  Observations: "
+    sqlite3 "$DB" "SELECT COUNT(*) FROM observations;" 2>/dev/null || echo "0"
+    echo -n "  Concepts: "
+    sqlite3 "$DB" "SELECT COUNT(*) FROM concepts;" 2>/dev/null || echo "0"
     echo -n "  Graph nodes: "
     sqlite3 "$DB" "SELECT COUNT(*) FROM graph_nodes;" 2>/dev/null || echo "0"
     echo -n "  Graph edges: "
@@ -636,6 +754,9 @@ cmd_build() {
 DROP TABLE IF EXISTS decisions;
 DROP TABLE IF EXISTS patterns;
 DROP TABLE IF EXISTS transfers;
+DROP TABLE IF EXISTS failures;
+DROP TABLE IF EXISTS observations;
+DROP TABLE IF EXISTS concepts;
 SQL
     fi
 
@@ -643,6 +764,9 @@ SQL
     load_decisions
     load_patterns
     load_transfers
+    load_failures
+    load_observations
+    load_concepts
 
     # Load graph data
     if [[ "$skip_graph" != "true" ]]; then

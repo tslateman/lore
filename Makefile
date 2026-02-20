@@ -34,6 +34,7 @@ test:
 	@bash tests/test-capture-api.sh
 	@bash tests/test-goals.sh
 	@bash tests/test-recall.sh
+	@bash tests/test-concepts.sh
 	@bash tests/verify-retrieval.sh
 	@bash tests/test_inversion.sh
 	@bash tests/test-cognitive-features.sh

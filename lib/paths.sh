@@ -30,6 +30,7 @@ fi
 # Frequently cross-referenced files
 export LORE_DECISIONS_FILE="${LORE_JOURNAL_DATA}/decisions.jsonl"
 export LORE_PATTERNS_FILE="${LORE_PATTERNS_DATA}/patterns.yaml"
+export LORE_CONCEPTS_FILE="${LORE_PATTERNS_DATA}/concepts.yaml"
 export LORE_GRAPH_FILE="${LORE_GRAPH_DATA}/graph.json"
 
 # Search DB: under LORE_DATA_DIR when externalized, else legacy ~/.lore/

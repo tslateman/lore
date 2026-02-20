@@ -127,6 +127,18 @@ CREATE TABLE IF NOT EXISTS similarity_cache (
     content_hash TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE VIRTUAL TABLE IF NOT EXISTS failures USING fts5(
+    id UNINDEXED, error_type, error_message, tool,
+    timestamp UNINDEXED
+);
+CREATE VIRTUAL TABLE IF NOT EXISTS observations USING fts5(
+    id UNINDEXED, content, tags,
+    timestamp UNINDEXED
+);
+CREATE VIRTUAL TABLE IF NOT EXISTS concepts USING fts5(
+    id UNINDEXED, name, definition,
+    timestamp UNINDEXED
+);
 
 -- Test decisions
 INSERT INTO decisions VALUES ('dec-001', 'Use JSONL for decision storage', 'Append-only, simple', 'architecture, storage', '2026-02-10T00:00:00Z', 'lore', 4);
