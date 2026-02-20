@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "b28e6f45ae35",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CLAUDE.md",
+    "LORE_CONTRACT.md",
+    "Makefile",
+    "SYSTEM.md",
+    "agents/lore-scribe.md",
+    "docs/tutorial.md",
+    "lore.sh",
+    "tests/test-recall.sh"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b2/8e6f45ae35/0/metadata.json",
+      "transcript": "/b2/8e6f45ae35/0/full.jsonl",
+      "context": "/b2/8e6f45ae35/0/context.md",
+      "content_hash": "/b2/8e6f45ae35/0/content_hash.txt",
+      "prompt": "/b2/8e6f45ae35/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2185,
+    "cache_creation_tokens": 1525131,
+    "cache_read_tokens": 33699759,
+    "output_tokens": 16427,
+    "api_call_count": 337
+  }
+}
