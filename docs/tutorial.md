@@ -112,14 +112,6 @@ lore search "database"
 
 This searches across all components—journal, patterns, sessions, graph.
 
-**Smart search** (auto-selects semantic when Ollama is available):
-
-```bash
-lore search "retry logic" --smart
-```
-
-Semantic search finds conceptually related content even without keyword matches.
-
 ## End the Session
 
 Before ending, capture handoff notes for the next session:

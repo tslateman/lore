@@ -215,30 +215,6 @@ lore resume              # latest session
 lore resume <session-id> # specific session
 ```
 
-Resume also runs active subtraction checks (contradictions, stale decisions, low-confidence patterns) and auto-reviews pending decisions older than 14 days.
-
-### Review Decisions
-
-```bash
-lore review                                  # list pending decisions
-lore review --auto                           # auto-resolve decisions >30 days old
-lore review --days 7                         # list decisions pending >7 days
-lore review --resolve <id> --outcome successful --lesson "what we learned"
-```
-
-Outcomes: `successful`, `revised`, `abandoned`. Side effects:
-
-- **successful**: boosts related pattern confidence via `validate_pattern()`
-- **abandoned**: records a failure entry for tracking
-
-### Topic Briefing
-
-```bash
-lore brief <topic>       # pre-execution context assembly
-```
-
-Searches decisions, patterns, failures, and graph for the topic. Surfaces contradictions, stale patterns, and related graph connections.
-
 ### Query Goals (intent)
 
 ```bash

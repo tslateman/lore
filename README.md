@@ -11,11 +11,6 @@ Explicit context management for multi-agent systems.
 - **yq** - YAML processing
 - **sqlite3** - Search index (included on macOS)
 
-Optional for semantic search:
-
-- **Ollama** with `nomic-embed-text` model
-- **Python 3** for vector similarity
-
 ### Quick Install
 
 ```bash
@@ -49,10 +44,6 @@ export LORE_DATA_DIR=~/.local/share/lore
 
 ```bash
 brew install jq yq
-
-# Optional: semantic search
-brew install ollama
-ollama pull nomic-embed-text
 ```
 
 ### Install Dependencies (Linux)
@@ -64,19 +55,18 @@ pip install yq
 
 # Or via snap
 sudo snap install yq
-
-# Optional: Ollama (see https://ollama.ai)
 ```
 
 ## Usage
 
 ```bash
-# Record decisions, patterns, and failures with one command
-lore capture "Use JSONL for storage" --rationale "Append-only, simple"
-lore capture "Safe bash arithmetic" --solution 'Use x=$((x+1))' --context "set -e scripts"
-lore capture "Permission denied" --error-type ToolError
+# One verb, four destinations — flags determine type
+lore capture "Users retry after timeout"                                    # → observation (inbox)
+lore capture "Use JSONL for storage" --rationale "Append-only, simple"      # → decision (journal)
+lore capture "Safe bash arithmetic" --solution 'Use x=$((x+1))'            # → pattern (patterns)
+lore capture "Permission denied" --error-type ToolError                     # → failure (failures)
 
-# Or use shortcuts
+# Shortcuts still work
 lore remember "Use JSONL for storage" --rationale "Append-only, simple"
 lore learn "Safe bash arithmetic" --solution 'Use x=$((x+1))'
 lore fail ToolError "Permission denied"
@@ -89,9 +79,6 @@ lore resume
 
 # Search across all components
 lore search "authentication"
-
-# Semantic search (requires Ollama)
-lore search "retry logic" --mode semantic
 
 # Graph-enhanced search (follows relationships)
 lore search "authentication" --graph-depth 2
