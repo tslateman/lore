@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "09f85829ff62",
+  "session_id": "08a76340-7adb-4b8e-abc6-81eb6964ed03",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-20T02:38:34.865629Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "graph/sync-failures.sh",
+    "graph/sync-sessions.sh",
+    "lore.sh",
+    "SYSTEM.md",
+    "graph/README.md",
+    "graph/data/graph.json",
+    "graph/graph.sh",
+    "graph/rebuild.sh",
+    "graph/sync-patterns.sh",
+    "graph/lib/nodes.sh"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "e64b7220-e834-4347-966e-11543e7f7f61",
+  "token_usage": {
+    "input_tokens": 2185,
+    "cache_creation_tokens": 1525131,
+    "cache_read_tokens": 33699759,
+    "output_tokens": 16427,
+    "api_call_count": 337
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-20T02:38:34.091462Z",
+    "agent_lines": 0,
+    "human_added": 377,
+    "human_modified": 1342,
+    "human_removed": 0,
+    "total_committed": 377,
+    "agent_percentage": 0
+  },
+  "transcript_path": ".claude/projects/-Users-tslater-dev-lore/08a76340-7adb-4b8e-abc6-81eb6964ed03.jsonl"
+}
