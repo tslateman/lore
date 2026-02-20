@@ -145,7 +145,6 @@ REGISTRY
   registry validate       Check consistency
 
 MAINTENANCE
-  learn <text>            Capture a pattern directly (--context, --solution)
   index                   Build/rebuild search index
   validate                Run comprehensive checks
   ingest <p> <t> <file>   Bulk import from external formats
