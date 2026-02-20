@@ -72,6 +72,20 @@ check_duplicate() {
         return 0
     fi
 
+    # Exact-title match: block if any active decision has identical text
+    local new_text_lower
+    new_text_lower=$(echo "$new_text" | tr '[:upper:]' '[:lower:]')
+
+    local exact_match
+    exact_match=$(jq -r --arg text "$new_text_lower" \
+        'select((.decision | ascii_downcase) == $text) | .id' \
+        "$DECISIONS_FILE" 2>/dev/null | head -1) || true
+
+    if [[ -n "$exact_match" ]]; then
+        echo "Duplicate skipped (exact title match with ${exact_match}): ${new_text:0:80}" >&2
+        return 1
+    fi
+
     # Read the last N lines and deduplicate by ID (keep latest)
     local recent
     recent=$(tail -n "$lookback" "$DECISIONS_FILE" 2>/dev/null) || return 0

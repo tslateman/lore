@@ -55,6 +55,25 @@ _check_decisions_flat() {
     local unique_decisions
     unique_decisions=$(jq -s 'group_by(.id) | map(.[-1])[] | {id, decision, rationale}' -c "$decisions_file" 2>/dev/null) || return 0
 
+    # Exact-title match: emit as 100% match before Jaccard loop
+    local content_lower
+    content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
+
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local eid etext
+        eid=$(echo "$line" | jq -r '.id')
+        etext=$(echo "$line" | jq -r '.decision // ""')
+        local etext_lower
+        etext_lower=$(echo "$etext" | tr '[:upper:]' '[:lower:]')
+
+        if [[ "$etext_lower" == "$content_lower" ]]; then
+            local short_text
+            short_text=$(echo "$line" | jq -r '.decision[0:80]')
+            echo "${eid}|100|${short_text}"
+        fi
+    done <<< "$unique_decisions"
+
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         local id existing_text

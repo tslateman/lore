@@ -7,11 +7,31 @@ LORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export LORE_DIR
 PATTERNS_SCRIPT="$LORE_DIR/patterns/patterns.sh"
 
+# Isolate test data in a temp directory so production files stay clean
+TEST_DATA_DIR="$(mktemp -d)"
+export LORE_DATA_DIR="$TEST_DATA_DIR"
+
+cleanup() {
+    rm -rf "$TEST_DATA_DIR"
+}
+trap cleanup EXIT
+
+# Set up the directory structure patterns.sh expects
+mkdir -p "$TEST_DATA_DIR/patterns/data"
+cat > "$TEST_DATA_DIR/patterns/data/patterns.yaml" <<'YAML'
+# Pattern Learner Database
+# Captures lessons learned, anti-patterns, and reusable solutions
+
+patterns: []
+
+anti_patterns: []
+YAML
+
 echo "=== Testing Anti-Pattern Inversion ==="
 
 # 1. Create a dummy pattern
 echo "1. Creating dummy pattern..."
-OUTPUT=$("$PATTERNS_SCRIPT" capture "Risky Business" --context "Always" --solution "Do it dangerous" --category "testing")
+OUTPUT=$("$PATTERNS_SCRIPT" capture "Risky Business" --context "Always" --solution "Do it dangerous" --category "testing" --force)
 echo "$OUTPUT"
 PATTERN_ID=$(echo "$OUTPUT" | grep "ID:" | awk '{print $2}' | tr -d '[:space:]')
 echo "Created Pattern ID: $PATTERN_ID"
