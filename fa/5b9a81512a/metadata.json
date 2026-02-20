@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "fa5b9a81512a",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "Makefile",
+    "plans/plan-curated-resume.md",
+    "tests/test-curated-resume.sh",
+    "transfer/lib/resume.sh"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fa/5b9a81512a/0/metadata.json",
+      "transcript": "/fa/5b9a81512a/0/full.jsonl",
+      "context": "/fa/5b9a81512a/0/context.md",
+      "content_hash": "/fa/5b9a81512a/0/content_hash.txt",
+      "prompt": "/fa/5b9a81512a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2185,
+    "cache_creation_tokens": 1525131,
+    "cache_read_tokens": 33699759,
+    "output_tokens": 16427,
+    "api_call_count": 337
+  }
+}
