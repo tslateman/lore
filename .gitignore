@@ -24,6 +24,7 @@ failures/data/failures.jsonl
 inbox/data/observations.jsonl
 graph/data/graph.json
 intent/data/goals/*.yaml
+registry/data/*.yaml
 
 # Research reports
 .research/
