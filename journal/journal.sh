@@ -233,6 +233,12 @@ cmd_record() {
     if [[ -n "$entities" && "$entities" != "" ]]; then
         echo -e "  ${CYAN}Entities:${NC} $entities"
     fi
+
+    local sq
+    sq=$(echo "$record" | jq -r '.spec_quality // empty')
+    if [[ -n "$sq" ]]; then
+        echo -e "  ${CYAN}Spec quality:${NC} $sq"
+    fi
 }
 
 cmd_query() {

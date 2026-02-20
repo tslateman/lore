@@ -156,6 +156,22 @@ create_decision_record() {
         tags_array=$(echo "$tags" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -R . | jq -s .)
     fi
 
+    # Compute spec quality score (0.0-1.0) based on field completeness
+    local spec_quality
+    spec_quality=$(awk \
+        -v rat="$rationale" \
+        -v alts="$alternatives" \
+        -v ents="$(echo "$entities" | jq 'length')" \
+        -v tgs="$(echo "$tags_array" | jq 'length')" \
+        'BEGIN {
+            s = 0.2  # base: decision text always present
+            if (length(rat) > 0) s += 0.3
+            if (length(alts) > 0) s += 0.2
+            if (ents + 0 > 0) s += 0.15
+            if (tgs + 0 > 0) s += 0.15
+            printf "%.2f", s
+        }')
+
     # Build JSON record (compact for JSONL format)
     jq -c -n \
         --arg id "$id" \
@@ -170,6 +186,7 @@ create_decision_record() {
         --argjson tags "$tags_array" \
         --arg git_commit "$git_commit" \
         --arg valid_at "$valid_at" \
+        --argjson spec_quality "$spec_quality" \
         '{
             id: $id,
             timestamp: $timestamp,
@@ -184,7 +201,8 @@ create_decision_record() {
             lesson_learned: null,
             related_decisions: [],
             git_commit: (if $git_commit == "" then null else $git_commit end),
-            valid_at: (if $valid_at == "" then null else $valid_at end)
+            valid_at: (if $valid_at == "" then null else $valid_at end),
+            spec_quality: $spec_quality
         }'
 }
 

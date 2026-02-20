@@ -437,9 +437,15 @@ journal_update_outcome() {
         return 1
     fi
 
-    # Build updated record
+    # Build updated record with resolved_at timestamp
+    local resolved_at
+    resolved_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
     local updated
-    updated=$(echo "$current" | jq -c --arg outcome "$outcome" '.outcome = $outcome')
+    updated=$(echo "$current" | jq -c \
+        --arg outcome "$outcome" \
+        --arg resolved_at "$resolved_at" \
+        '.outcome = $outcome | .resolved_at = $resolved_at')
 
     if [[ -n "$lesson" ]]; then
         updated=$(echo "$updated" | jq -c --arg lesson "$lesson" '.lesson_learned = $lesson')

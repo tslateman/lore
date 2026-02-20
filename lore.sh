@@ -90,6 +90,8 @@ Capture flags:
 
 Query:
   search <query>      Search all components
+  review              Review pending decisions
+  brief <topic>       Assemble topic-specific context
 
 Run 'lore help' for all commands.
 Run 'lore help <topic>' for: capture, search, intent, registry, components
@@ -130,6 +132,12 @@ QUERY
     --graph-depth N       Follow graph edges (0-3)
   context <project>       Gather full context for a project
   suggest <context>       Suggest relevant patterns
+  review                  List pending decisions older than 3 days
+    --auto                Compact output for programmatic use
+    --resolve <id>        Resolve a decision's outcome
+      --outcome <value>   successful|revised|abandoned
+      --lesson "text"     Optional lesson learned
+  brief <topic>           Assemble topic-specific context briefing
   failures [--type T]     List failures
   triggers                Show recurring failures (Rule of Three)
   promote-failure [type]   Promote recurring failures to anti-patterns
@@ -1443,6 +1451,182 @@ cmd_consolidate() {
     fi
 }
 
+cmd_review() {
+    source "$LORE_DIR/journal/lib/store.sh"
+
+    local mode="default"
+    local resolve_id=""
+    local outcome=""
+    local lesson=""
+    local age_days=3
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --auto)
+                mode="auto"
+                shift
+                ;;
+            --days)
+                age_days="$2"
+                shift 2
+                ;;
+            --resolve)
+                mode="resolve"
+                resolve_id="$2"
+                shift 2
+                ;;
+            --outcome)
+                outcome="$2"
+                shift 2
+                ;;
+            --lesson)
+                lesson="$2"
+                shift 2
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Usage: lore review [--auto] [--resolve <id> --outcome <value> [--lesson \"text\"]]" >&2
+                return 1
+                ;;
+            *)
+                echo -e "${RED}Unexpected argument: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    if [[ "$mode" == "resolve" ]]; then
+        if [[ -z "$resolve_id" || -z "$outcome" ]]; then
+            echo -e "${RED}Error: --resolve requires --outcome${NC}" >&2
+            echo "Usage: lore review --resolve <id> --outcome successful|revised|abandoned [--lesson \"text\"]" >&2
+            return 1
+        fi
+
+        # Update the decision outcome
+        journal_update_outcome "$resolve_id" "$outcome" "$lesson"
+        echo -e "${GREEN}Resolved:${NC} ${BOLD}${resolve_id}${NC} → ${outcome}"
+        [[ -n "$lesson" ]] && echo -e "  ${CYAN}Lesson:${NC} $lesson"
+
+        # Side effects based on outcome
+        if [[ "$outcome" == "successful" ]]; then
+            # Boost confidence of patterns with overlapping tags
+            local decision_tags
+            decision_tags=$(get_decision "$resolve_id" | jq -r '.tags[]?' 2>/dev/null) || true
+
+            if [[ -n "$decision_tags" && -f "$LORE_PATTERNS_FILE" ]]; then
+                local boosted=0
+                while IFS= read -r tag; do
+                    [[ -z "$tag" ]] && continue
+                    # Find patterns matching this tag and boost confidence by 0.1 (cap at 1.0)
+                    local match_count
+                    match_count=$(yq -r \
+                        --arg tag "$tag" \
+                        '[.patterns[] | select(.tags[]? == $tag)] | length' \
+                        "$LORE_PATTERNS_FILE" 2>/dev/null) || continue
+                    if [[ "$match_count" -gt 0 ]]; then
+                        yq -i \
+                            --arg tag "$tag" \
+                            '(.patterns[] | select(.tags[]? == $tag) | .confidence) |= ([. + 0.1, 1.0] | min)' \
+                            "$LORE_PATTERNS_FILE" 2>/dev/null || true
+                        boosted=$((boosted + match_count))
+                    fi
+                done <<< "$decision_tags"
+                [[ "$boosted" -gt 0 ]] && echo -e "  ${GREEN}Boosted confidence on ${boosted} matching pattern(s)${NC}"
+            fi
+        elif [[ "$outcome" == "abandoned" ]]; then
+            # Log as a failure
+            local decision_text
+            decision_text=$(get_decision "$resolve_id" | jq -r '.decision' 2>/dev/null) || true
+            if [[ -n "$decision_text" ]]; then
+                cmd_fail "LogicError" "Abandoned decision: ${decision_text}" 2>/dev/null || true
+            fi
+        fi
+        return 0
+    fi
+
+    # List mode: find pending decisions older than 3 days
+    if [[ ! -f "$LORE_DECISIONS_FILE" ]]; then
+        echo -e "${YELLOW}No decisions file found.${NC}"
+        return 0
+    fi
+
+    local cutoff_ts
+    if [[ "$age_days" -eq 0 ]]; then
+        # Show all pending decisions regardless of age
+        cutoff_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    else
+        cutoff_ts=$(date -u -v-${age_days}d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || \
+            cutoff_ts=$(date -u -d "${age_days} days ago" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null) || \
+            cutoff_ts="1970-01-01T00:00:00Z"
+    fi
+
+    local pending
+    pending=$(jq -s --arg cutoff "$cutoff_ts" '
+        group_by(.id) | map(.[-1])
+        | map(select(
+            ((.outcome // "pending") == "pending")
+            and ((.status // "active") == "active")
+            and (.timestamp < $cutoff)
+        ))
+        | sort_by(.timestamp)
+    ' "$LORE_DECISIONS_FILE" 2>/dev/null) || {
+        echo -e "${RED}Failed to parse decisions file.${NC}" >&2
+        return 1
+    }
+
+    local count
+    count=$(echo "$pending" | jq 'length')
+
+    if [[ "$count" -eq 0 ]]; then
+        echo -e "${GREEN}No decisions pending review.${NC}"
+        return 0
+    fi
+
+    if [[ "$mode" == "auto" ]]; then
+        # Compact one-line-per-decision output
+        echo "$pending" | jq -r '.[] |
+            "\(.id) | \(.timestamp[0:10]) | \(.decision[0:60])"'
+        echo -e "${BOLD}${count} decision(s) pending review${NC}"
+        return 0
+    fi
+
+    # Default mode: full display
+    local now_epoch
+    now_epoch=$(date +%s)
+
+    echo -e "${BOLD}Decisions Pending Review${NC}"
+    echo ""
+
+    echo "$pending" | jq -c '.[]' | while IFS= read -r row; do
+        local did dtimestamp ddecision drationale dquality
+        did=$(echo "$row" | jq -r '.id')
+        dtimestamp=$(echo "$row" | jq -r '.timestamp')
+        ddecision=$(echo "$row" | jq -r '.decision')
+        drationale=$(echo "$row" | jq -r '.rationale // "(none)"')
+        dquality=$(echo "$row" | jq -r '.spec_quality // "(unscored)"')
+
+        # Calculate age in days
+        local dec_epoch age_days
+        dec_epoch=$(date -jf "%Y-%m-%dT%H:%M:%SZ" "$dtimestamp" +%s 2>/dev/null) || \
+            dec_epoch=$(date -d "$dtimestamp" +%s 2>/dev/null) || \
+            dec_epoch=0
+        if [[ "$dec_epoch" -gt 0 ]]; then
+            age_days=$(( (now_epoch - dec_epoch) / 86400 ))
+        else
+            age_days="?"
+        fi
+
+        echo -e "  ${GREEN}${did}${NC}  ${DIM}(${age_days}d old)${NC}"
+        echo -e "    ${BOLD}${ddecision}${NC}"
+        echo -e "    ${DIM}Rationale: ${drationale:0:80}${NC}"
+        echo -e "    ${DIM}Quality: ${dquality}${NC}"
+        echo ""
+    done
+
+    echo -e "${BOLD}${count} decision(s) pending review${NC}"
+    echo -e "${DIM}Resolve with: lore review --resolve <id> --outcome successful|revised|abandoned${NC}"
+}
+
 cmd_init() {
     echo -e "${BOLD}Initializing Lore data directory: ${LORE_DATA_DIR}${NC}"
 
@@ -1527,6 +1711,8 @@ main() {
         failures)   shift; cmd_failures "$@" ;;
         triggers)   shift; cmd_triggers "$@" ;;
         promote-failure) shift; cmd_promote_failure "$@" ;;
+        review)     shift; cmd_review "$@" ;;
+        brief)      shift; source "$LORE_DIR/lib/brief.sh"; cmd_brief "$@" ;;
 
         # Top-level commands
         init)       shift; cmd_init "$@" ;;

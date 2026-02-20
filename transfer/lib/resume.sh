@@ -799,6 +799,20 @@ resume_latest() {
         return 0
     fi
 
+    # Warn if multiple sessions arrived since last resume
+    if [[ -f "${CURRENT_SESSION_FILE}" ]]; then
+        local prev_id prev_file
+        prev_id=$(cat "${CURRENT_SESSION_FILE}")
+        prev_file="${SESSIONS_DIR}/${prev_id}.json"
+        if [[ -f "${prev_file}" ]]; then
+            local newer_count
+            newer_count=$(find "${SESSIONS_DIR}" -name '*.json' -newer "${prev_file}" | wc -l | tr -d ' ')
+            if [[ "${newer_count}" -gt 1 ]]; then
+                echo -e "${YELLOW}Note: ${newer_count} sessions since last resume. Showing latest (${latest}). Run 'lore resume --list' for all.${NC}" >&2
+            fi
+        fi
+    fi
+
     echo "Resuming most recent session: ${latest}"
     resume_session "${latest}"
 }

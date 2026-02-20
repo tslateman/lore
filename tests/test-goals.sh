@@ -53,7 +53,9 @@ YAML
     # Clear any goal files copied from the source tree
     rm -f "$TMPDIR/intent/data/goals/"*.yaml
 
+    unset _LORE_PATHS_LOADED
     export LORE_DIR="$TMPDIR"
+    export LORE_DATA_DIR="$TMPDIR"
 }
 
 teardown() {

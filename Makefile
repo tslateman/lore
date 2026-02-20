@@ -26,7 +26,7 @@ check-mcp:
 
 # Build MCP server
 build-mcp:
-	cd mcp && PATH="/Users/tslater/.nvm/versions/node/v24.1.0/bin:$$PATH" npm run build
+	cd mcp && npm run build
 
 # Run all tests
 test:
@@ -36,6 +36,7 @@ test:
 	@bash tests/verify-retrieval.sh
 	@bash tests/test_inversion.sh
 	@bash tests/test-cognitive-features.sh
+	@bash tests/test-spec-layer.sh
 
 # Check all build freshness
 check: check-mcp

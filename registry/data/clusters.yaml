@@ -1,0 +1,36 @@
+version: "1.0"
+clusters:
+  orchestration:
+    description: "Core coordination and memory layer"
+    components:
+      council:
+        role: governance
+      entire:
+        role: audit
+      geordi:
+        role: api
+      lore:
+        role: memory
+      mirror:
+        role: judgment
+      neo:
+        role: teams
+  council:
+    description: "Council execution pipeline"
+    components:
+      bach:
+        role: workers
+  forge:
+    description: "Spec-to-solution pipeline"
+    components:
+      coalesce:
+        role: synthesis
+      get-shit-done:
+        role: milestones
+      spec-trace:
+        role: traceability
+  cli:
+    description: "CLI tools and plugins"
+    components:
+      duet:
+        role: plugin
