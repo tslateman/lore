@@ -402,6 +402,27 @@ log_access() {
         VALUES ('$type', '$id', datetime('now'));"
 }
 
+cmd_export_access() {
+    local outfile="${1:-${LORE_DATA_DIR}/access_log.jsonl}"
+    sqlite3 "$DB" -json "SELECT * FROM access_log ORDER BY accessed_at;" \
+        | jq -c '.[]' > "$outfile"
+    echo "Exported $(wc -l < "$outfile" | tr -d ' ') access records to $outfile"
+}
+
+cmd_import_access() {
+    local infile="${1:-${LORE_DATA_DIR}/access_log.jsonl}"
+    [[ -f "$infile" ]] || { echo "No access log backup at $infile"; return 1; }
+    while IFS= read -r line; do
+        local type id ts
+        type=$(echo "$line" | jq -r '.record_type')
+        id=$(echo "$line" | jq -r '.record_id')
+        ts=$(echo "$line" | jq -r '.accessed_at')
+        sqlite3 "$DB" "INSERT OR IGNORE INTO access_log(record_type, record_id, accessed_at)
+            VALUES ('$type', '$id', '$ts');"
+    done < "$infile"
+    echo "Imported access log from $infile"
+}
+
 # --- Utilities ---
 
 sql_quote() {
@@ -748,6 +769,12 @@ cmd_build() {
 
     echo "Building search index at $DB ..."
 
+    # Backup access_log before rebuild (survives DROP but protects against
+    # accidental file deletion)
+    if [[ -f "$DB" ]]; then
+        cmd_export_access "${LORE_DATA_DIR}/access_log.jsonl" 2>/dev/null || true
+    fi
+
     # Drop existing FTS tables for clean rebuild
     if [[ -f "$DB" ]]; then
         sqlite3 "$DB" <<'SQL'
@@ -953,6 +980,8 @@ main() {
         echo "  search <query>              FTS5 ranked search"
         echo "  graph <query>               Graph-enhanced search (expands via relationships)"
         echo "  log-access <type> <id>      Log access for reinforcement"
+        echo "  export-access [file]        Export access_log to JSONL (default: access_log.jsonl)"
+        echo "  import-access [file]        Import access_log from JSONL (default: access_log.jsonl)"
         echo "  stats                       Show index statistics"
         echo ""
         echo "Search options:"
@@ -966,14 +995,16 @@ main() {
     }
 
     case "$1" in
-        build)      shift; cmd_build "$@" ;;
-        search)     shift; cmd_search "$@" ;;
-        graph)      shift; cmd_graph_search "$@" ;;
-        log-access) shift; cmd_log_access "$@" ;;
-        stats)      shift; cmd_stats "$@" ;;
+        build)         shift; cmd_build "$@" ;;
+        search)        shift; cmd_search "$@" ;;
+        graph)         shift; cmd_graph_search "$@" ;;
+        log-access)    shift; cmd_log_access "$@" ;;
+        export-access) shift; cmd_export_access "$@" ;;
+        import-access) shift; cmd_import_access "$@" ;;
+        stats)         shift; cmd_stats "$@" ;;
         *)
             echo "Unknown command: $1" >&2
-            echo "Usage: search-index.sh <build|search|graph|log-access|stats>"
+            echo "Usage: search-index.sh <build|search|graph|log-access|export-access|import-access|stats>"
             exit 1
             ;;
     esac

@@ -95,6 +95,25 @@ These origins appear in component READMEs but are implementation history, not in
 - Failures: JSONL (append-only in `failures/data/`)
 - Registry: YAML (`registry/data/metadata.yaml`, `clusters.yaml`, `relationships.yaml`, `contracts.yaml`)
 
+## Storage Architecture
+
+Three tiers with different write contracts:
+
+| Tier      | Format    | Write rule           | Examples                   |
+| --------- | --------- | -------------------- | -------------------------- |
+| Event     | JSONL     | Append-only          | Decisions, failures, inbox |
+| Reference | YAML/JSON | Mutable, curated     | Patterns, goals, sessions  |
+| Derived   | SQLite    | Rebuilt from sources | FTS5 index, graph SQL      |
+
+Event tier stores never edit in place. Updates append new versions; reads
+take the latest. Reference tier stores are human-editable projections.
+Derived tier stores are caches rebuilt by `search-index.sh build` and
+`graph/sync.sh`.
+
+The `access_log` table in `search.db` is the exception: persistent state
+in the derived tier. It accumulates reinforcement signal and survives FTS5
+rebuilds. Do not delete `search.db` without backing up `access_log`.
+
 ## Coding Conventions
 
 - Shell scripts use `set -euo pipefail`
