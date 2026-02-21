@@ -170,3 +170,23 @@ Add to your Claude Code configuration:
 ```
 
 Tools exposed: `lore_search`, `lore_context`, `lore_related`, `lore_remember`, `lore_learn`, `lore_resume`
+
+## ClaudeMemory Sync
+
+Lore can project its records into [ClaudeMemory](https://github.com/jsflax/ClaudeMemory) as shadow memories. ClaudeMemory is a persistent semantic memory system (MCP server + SQLite) that Claude Code queries automatically before each turn via an advise hook. Without the bridge, Lore data stays invisible to that hook.
+
+```bash
+# Preview what would sync
+lore sync --dry-run
+
+# Sync recent records
+lore sync --since 8h
+
+# Sync only decisions
+lore sync --type decisions
+
+# Sync everything
+lore sync
+```
+
+Shadow memories carry a `[lore:{id}]` prefix for deduplication — running sync repeatedly is safe. Four sources are bridged: decisions, patterns, failure triggers, and session handoffs. See `plans/bridge-lore-to-claude-memory.md` for architecture details
