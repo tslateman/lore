@@ -5,6 +5,7 @@
   "branch": "main",
   "checkpoints_count": 1,
   "files_touched": [
+    "Makefile",
     "lib/bridge.sh",
     "lore.sh",
     "plans/bridge-lore-to-claude-memory.md"
