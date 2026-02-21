@@ -1,0 +1,2432 @@
+Implement the following plan:
+
+# Plan: Replace DEV_PATH with location-derived workspace root
+
+## Context
+
+`DEV_PATH` is an unnecessary indirection. Every lore script already computes
+`SCRIPT_DIR` from `${BASH_SOURCE[0]}`. Since lore always lives one level below
+the workspace root (`~/dev/lore/`), the workspace root is just
+`dirname(dirname(SCRIPT_DIR))`. No environment variable needed.
+
+## Approach
+
+Introduce `LORE_ROOT` (explicit) and derive `WORKSPACE_ROOT` from it. Remove
+`DEV_PATH` from all scripts and docs. Keep `MANI_FILE` and `LINEAGE_DIR`
+overrides for edge cases.
+
+## Changes
+
+### 1. `scripts/lore-cli.sh` (lines 28-37)
+
+Replace:
+```bash
+DEV_PATH="${DEV_PATH:-$HOME/dev}"
+MANI_FILE="${MANI_FILE:-$DEV_PATH/mani.yaml}"
+```
+
+With:
+```bash
+LORE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
+MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
+```
+
+Update line 606 (`$DEV_PATH/${path}` -> `$WORKSPACE_ROOT/${path}`) and
+line 769 (`$DEV_PATH/lineage` -> `$WORKSPACE_ROOT/lineage`).
+
+### 2. `scripts/validate-registry.sh` (lines 24-32)
+
+Same pattern. Replace DEV_PATH setup with:
+```bash
+LORE_ROOT="$(dirname "$SCRIPT_DIR")"
+WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
+MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
+```
+
+Update lines 189, 439 (`$DEV_PATH/` -> `$WORKSPACE_ROOT/`) and
+line 524 (`$DEV_PATH/lineage` -> `$WORKSPACE_ROOT/lineage`).
+
+### 3. `lib/lineage-client.sh` (lines 7-8)
+
+This is a sourced library. `BASH_SOURCE[0]` still works. Replace:
+```bash
+DEV_PATH="${DEV_PATH:-$HOME/dev}"
+LINEAGE_DIR="${LINEAGE_DIR:-$DEV_PATH/lineage}"
+```
+
+With:
+```bash
+_LINEAGE_CLIENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(dirname "$(dirname "$_LINEAGE_CLIENT_DIR")")}"
+LINEAGE_DIR="${LINEAGE_DIR:-$WORKSPACE_ROOT/lineage}"
+```
+
+Uses `WORKSPACE_ROOT` if already set by the sourcing script; derives it
+independently otherwise.
+
+### 4. `scripts/migrate-to-mani.sh` (line 17)
+
+Already hardcodes `$HOME/dev/mani.yaml`. One-time migration script, historical
+reference only. Leave as-is.
+
+### 5. Documentation updates
+
+**CLAUDE.md**: Replace `$DEV_PATH` references with `~/dev` (the actual path).
+The variable was documentation noise -- readers want to know the real location.
+
+**README.md**: Same replacement. Remove the `DEV_PATH` row from the environment
+variables table. Keep the `MANI_FILE` row.
+
+**plans/plan-wire-lineage-functions.md**: Update the sourcing example.
+
+## Files touched
+
+| File | Change |
+|------|--------|
+| `scripts/lore-cli.sh` | Replace DEV_PATH with WORKSPACE_ROOT (4 lines) |
+| `scripts/validate-registry.sh` | Replace DEV_PATH with WORKSPACE_ROOT (5 lines) |
+| `lib/lineage-client.sh` | Replace DEV_PATH with derived WORKSPACE_ROOT (3 lines) |
+| `CLAUDE.md` | Replace `$DEV_PATH` with `~/dev` in prose |
+| `README.md` | Replace `$DEV_PATH` with `~/dev`, drop env var row |
+| `plans/plan-wire-lineage-functions.md` | Update path reference |
+
+## Not touched
+
+- `scripts/migrate-to-mani.sh` -- historical, already hardcoded
+- `hooks/pre-commit` -- already uses relative resolution, no DEV_PATH
+
+## Verification
+
+```bash
+# 1. Run lore commands
+./scripts/lore-cli.sh show oracle
+./scripts/lore-cli.sh context flow
+./scripts/lore-cli.sh validate
+./scripts/lore-cli.sh sync
+
+# 2. Run validator directly
+./scripts/validate-registry.sh
+
+# 3. Verify MANI_FILE override still works
+MANI_FILE=~/dev/mani.yaml ./scripts/lore-cli.sh show oracle
+```
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/tslater/.REDACTED.jsonl
+
+If this plan can be broken down into multiple independent tasks, consider using the TeamCreate tool to create a team and parallelize the work.
+
+---
+
+Reflect on the work just completed in this conversation.
+
+## What I Learned
+
+Identify 2-4 concrete technical insights from this session:
+
+- Patterns discovered or reinforced
+- Gotchas or surprises encountered
+- Techniques that worked well (or didn't)
+- Connections to other parts of the codebase
+
+Focus on _insights_, not a summary of actions taken.
+
+## What to Think About Next
+
+Surface 2-4 open threads worth considering:
+
+- Unfinished work or TODOs
+- Edge cases or risks not yet addressed
+- Potential improvements or refactors
+- Questions that came up but weren't resolved
+
+Be specific—name files, functions, or concepts rather than speaking abstractly.
+
+---
+
+After generating the retro, ask the user if any insights are worth persisting to auto memory. Use AskUserQuestion with options like "Yes, update MEMORY.md" and "No, just this session".
+
+If yes, read the current MEMORY.md from the project's auto memory directory and intelligently merge the new insights—don't duplicate existing points, add new ones under the appropriate sections.
+
+---
+
+## Context
+
+- Current git status: On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   CLAUDE.md
+	modified:   README.md
+	modified:   lib/lineage-client.sh
+	modified:   plans/plan-wire-lineage-functions.md
+	modified:   scripts/lore-cli.sh
+	modified:   scripts/validate-registry.sh
+
+no changes added to commit (use "git add" and/or "git commit -a")
+- Current git diff (staged and unstaged changes): diff --git a/CLAUDE.md b/CLAUDE.md
+index 2d9e65c..2dc005c 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -1,33 +1,34 @@
+ # Lore - System Hub
+ 
+-You are entering the meta-layer that coordinates all projects in `$DEV_PATH` (default: `~/dev`).
++You are entering the meta-layer that coordinates all projects in `~/dev`.
+ 
+ ## Quick Navigation
+ 
+-| Need                        | Location                      |
+-| --------------------------- | ----------------------------- |
+-| Find a project              | `$DEV_PATH/mani.yaml`         |
+-| Project metadata            | `registry/metadata.yaml`      |
+-| Understand clusters         | `registry/clusters.yaml`      |
+-| Cross-project relationships | `registry/relationships.yaml` |
+-| Full architecture           | `SYSTEM.md`                   |
+-| Reusable patterns           | `patterns/`                   |
+-| Operational checklist       | `context/CHECKLIST.md`        |
+-| Current handoff state       | `context/HANDOFF.md`          |
++| Need                        | Location                              |
++| --------------------------- | ------------------------------------- |
++| Find a project              | `~/dev/mani.yaml`                     |
++| Project metadata            | `registry/metadata.yaml`              |
++| Understand clusters         | `registry/clusters.yaml`              |
++| Cross-project relationships | `registry/relationships.yaml`         |
++| Full architecture           | `SYSTEM.md`                           |
++| Ecosystem architecture      | `~/dev/council/mainstay/ecosystem.md` |
++| Reusable patterns           | `patterns/`                           |
++| Operational checklist       | `context/CHECKLIST.md`                |
++| Current handoff state       | `context/HANDOFF.md`                  |
+ 
+ ## Architecture: mani + lore
+ 
+ **mani** knows _what exists_. **Lore** knows _why it matters_.
+ 
+-- **mani** (`$DEV_PATH/mani.yaml`): project names, paths, tags. Use mani to list, filter, and run commands across repos.
++- **mani** (`~/dev/mani.yaml`): project names, paths, tags. Use mani to list, filter, and run commands across repos.
+ - **lore** (`registry/`): roles, contracts, cluster choreography, dependency rationale, context assembly. Use lore when you need the story behind a project.
+ 
+ ```
+-$DEV_PATH/mani.yaml          (source of truth for project existence)
++~/dev/mani.yaml          (source of truth for project existence)
+     |
+     +-- mani CLI             list, filter, exec, TUI
+     |
+-$DEV_PATH/lore/
++~/dev/lore/
+     +-- registry/
+     |   +-- metadata.yaml    role, contracts, components, links
+     |   +-- clusters.yaml    pipeline choreography, data flow, principles
+@@ -98,9 +99,9 @@ Lore does NOT execute work. It:
+ 
+ ## When to Update What
+ 
+-**Edit `$DEV_PATH/mani.yaml`** (mani's file) when:
++**Edit `~/dev/mani.yaml`** (mani's file) when:
+ 
+-- A new project is created in `$DEV_PATH`
++- A new project is created in `~/dev`
+ - A project's path, description, or tags change
+ 
+ **Edit lore files** (`registry/`) when:
+@@ -113,7 +114,7 @@ Lore does NOT execute work. It:
+ Record significant decisions in Lineage:
+ 
+ ```bash
+-$DEV_PATH/lineage/lineage.sh remember "<decision>" --rationale "<why>" --tags "lore,<topic>"
++~/dev/lineage/lineage.sh remember "<decision>" --rationale "<why>" --tags "lore,<topic>"
+ ```
+ 
+ ## Pending Plans
+diff --git a/README.md b/README.md
+index d7b3445..0661ab0 100644
+--- a/README.md
++++ b/README.md
+@@ -15,14 +15,14 @@ Lore is the hub that knows about all projects in your development directory:
+ 
+ **mani** knows _what exists_. **Lore** knows _why it matters_.
+ 
+-Project existence and basic metadata live in **mani** (`$DEV_PATH/mani.yaml`). Lore adds the enrichment layer: roles, contracts, cluster choreography, relationship tracking, and context assembly.
++Project existence and basic metadata live in **mani** (`~/dev/mani.yaml`). Lore adds the enrichment layer: roles, contracts, cluster choreography, relationship tracking, and context assembly.
+ 
+ ```
+-$DEV_PATH/mani.yaml          Source of truth for project existence
++~/dev/mani.yaml          Source of truth for project existence
+     |
+     +-- mani CLI             list, sync, exec, TUI
+     |
+-$DEV_PATH/lore/
++~/dev/lore/
+     +-- registry/
+     |   +-- metadata.yaml    Role, contracts, components, links
+     |   +-- clusters.yaml    Pipeline choreography, data flow
+@@ -39,12 +39,11 @@ brew install yq jq mani
+ 
+ ## Configuration
+ 
+-| Variable    | Default               | Purpose                     |
+-| ----------- | --------------------- | --------------------------- |
+-| `DEV_PATH`  | `~/dev`               | Root directory for projects |
+-| `MANI_FILE` | `$DEV_PATH/mani.yaml` | Override mani.yaml location |
++| Variable    | Default           | Purpose                     |
++| ----------- | ----------------- | --------------------------- |
++| `MANI_FILE` | `~/dev/mani.yaml` | Override mani.yaml location |
+ 
+-All lore scripts resolve paths through `DEV_PATH`. Set it in your shell profile to use a different root.
++Scripts derive the workspace root from lore's own location. Override `MANI_FILE` to point elsewhere.
+ 
+ - `yq` (Go version, https://github.com/mikefarah/yq) v4.52+
+ - `jq` (https://jqlang.github.io/jq/) v1.7+
+@@ -54,7 +53,7 @@ All lore scripts resolve paths through `DEV_PATH`. Set it in your shell profile
+ 
+ ```bash
+ # List all projects (mani)
+-cd "$DEV_PATH" && mani list projects
++cd "~/dev" && mani list projects
+ 
+ # Filter by type, cluster, or tag
+ mani list projects --tags type:orchestrator
+@@ -71,7 +70,7 @@ mani list projects --tags "lang:rust"
+ Or explore the raw YAML files directly:
+ 
+ ```bash
+-cat "$DEV_PATH/mani.yaml"            # All projects with tags
++cat "~/dev/mani.yaml"            # All projects with tags
+ cat registry/metadata.yaml          # Roles, contracts, components
+ cat registry/clusters.yaml          # Cluster definitions
+ cat registry/relationships.yaml     # Dependencies
+@@ -84,7 +83,7 @@ Read `CLAUDE.md` first -- it's your entry point to the system.
+ ## Structure
+ 
+ ```
+-$DEV_PATH/mani.yaml            # Project existence, paths, tags (outside lore repo)
++~/dev/mani.yaml            # Project existence, paths, tags (outside lore repo)
+ 
+ lore/
+ +-- CLAUDE.md              # Agent entry point
+@@ -110,7 +109,7 @@ lore/
+ 
+ ### Add to mani
+ 
+-Edit `$DEV_PATH/mani.yaml` directly. For projects with a `url` field, `mani sync` clones them locally.
++Edit `~/dev/mani.yaml` directly. For projects with a `url` field, `mani sync` clones them locally.
+ 
+ ```yaml
+ projects:
+diff --git a/lib/lineage-client.sh b/lib/lineage-client.sh
+index b9b4bb0..9130044 100644
+--- a/lib/lineage-client.sh
++++ b/lib/lineage-client.sh
+@@ -4,8 +4,9 @@
+ # Syncs relationships and patterns to Lineage graph, enriches context output.
+ # All functions fail silently if Lineage is unavailable.
+ 
+-DEV_PATH="${DEV_PATH:-$HOME/dev}"
+-LINEAGE_DIR="${LINEAGE_DIR:-$DEV_PATH/lineage}"
++_LINEAGE_CLIENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(dirname "$(dirname "$_LINEAGE_CLIENT_DIR")")}"
++LINEAGE_DIR="${LINEAGE_DIR:-$WORKSPACE_ROOT/lineage}"
+ 
+ # Source the shared base library
+ if [[ -f "$LINEAGE_DIR/lib/lineage-client-base.sh" ]]; then
+diff --git a/plans/plan-wire-lineage-functions.md b/plans/plan-wire-lineage-functions.md
+index 361c999..2625948 100644
+--- a/plans/plan-wire-lineage-functions.md
++++ b/plans/plan-wire-lineage-functions.md
+@@ -23,7 +23,7 @@ likely lives in `scripts/lore-cli.sh` or a registry management script. When a
+ new project entry is added to `registry/metadata.yaml`, call:
+ 
+ ```bash
+-source "$DEV_PATH/lore/lib/lineage-client.sh"
++source "~/dev/lore/lib/lineage-client.sh"
+ lineage_record_project_added "$project_name" "$project_type" "$description"
+ ```
+ 
+diff --git a/scripts/lore-cli.sh b/scripts/lore-cli.sh
+index 859d7e4..341c405 100755
+--- a/scripts/lore-cli.sh
++++ b/scripts/lore-cli.sh
+@@ -27,9 +27,10 @@ set -euo pipefail
+ 
+ # Resolve the script's directory to find the registry
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+-REGISTRY_DIR="${SCRIPT_DIR}/../registry"
+-DEV_PATH="${DEV_PATH:-$HOME/dev}"
+-MANI_FILE="${MANI_FILE:-$DEV_PATH/mani.yaml}"
++LORE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
++WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
++REGISTRY_DIR="${LORE_ROOT}/registry"
++MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
+ METADATA_FILE="${REGISTRY_DIR}/metadata.yaml"
+ CLUSTERS_FILE="${REGISTRY_DIR}/clusters.yaml"
+ RELATIONSHIPS_FILE="${REGISTRY_DIR}/relationships.yaml"
+@@ -603,7 +604,7 @@ context_flow_state() {
+     local path
+     path=$(yqj ".projects.\"${project}\".path" "$MANI_FILE")
+ 
+-    local state_file="$DEV_PATH/${path}/.flow/state.json"
++    local state_file="$WORKSPACE_ROOT/${path}/.flow/state.json"
+     [[ -f "$state_file" ]] || return
+ 
+     local data
+@@ -766,7 +767,7 @@ context_judgments() {
+ context_lineage() {
+     local project="$1"
+ 
+-    LINEAGE_DIR="${LINEAGE_DIR:-$DEV_PATH/lineage}"
++    LINEAGE_DIR="${LINEAGE_DIR:-$WORKSPACE_ROOT/lineage}"
+     if [[ -f "${SCRIPT_DIR}/../lib/lineage-client.sh" ]]; then
+         source "${SCRIPT_DIR}/../lib/lineage-client.sh" 2>/dev/null && \
+             lineage_enrich_context "$project" 2>/dev/null || true
+diff --git a/scripts/validate-registry.sh b/scripts/validate-registry.sh
+index 596e74e..c593d8a 100755
+--- a/scripts/validate-registry.sh
++++ b/scripts/validate-registry.sh
+@@ -24,8 +24,9 @@ set -euo pipefail
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ REGISTRY_DIR="$(dirname "$SCRIPT_DIR")/registry"
+ 
+-DEV_PATH="${DEV_PATH:-$HOME/dev}"
+-MANI_FILE="${MANI_FILE:-$DEV_PATH/mani.yaml}"
++LORE_ROOT="$(dirname "$SCRIPT_DIR")"
++WORKSPACE_ROOT="$(dirname "$LORE_ROOT")"
++MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
+ METADATA_FILE="$REGISTRY_DIR/metadata.yaml"
+ CLUSTERS_FILE="$REGISTRY_DIR/clusters.yaml"
+ RELATIONSHIPS_FILE="$REGISTRY_DIR/relationships.yaml"
+@@ -185,11 +186,11 @@ validate_paths() {
+         local path
+         path=$(yqj ".projects.\"${project}\".path" "$MANI_FILE")
+ 
+-        # mani paths are relative to DEV_PATH
+-        local expanded_path="$DEV_PATH/${path}"
++        # mani paths are relative to WORKSPACE_ROOT
++        local expanded_path="$WORKSPACE_ROOT/${path}"
+ 
+         if [[ ! -d "$expanded_path" ]]; then
+-            warn "Path not accessible: $DEV_PATH/${path} (project: $project)"
++            warn "Path not accessible: $WORKSPACE_ROOT/${path} (project: $project)"
+             all_accessible=false
+         fi
+     done < <(get_all_projects)
+@@ -436,9 +437,9 @@ validate_contracts() {
+             continue
+         fi
+ 
+-        local full_path="$DEV_PATH/$location"
++        local full_path="$WORKSPACE_ROOT/$location"
+         if [[ ! -f "$full_path" ]]; then
+-            fail "Contract '$contract' file not found: $DEV_PATH/$location"
++            fail "Contract '$contract' file not found: $WORKSPACE_ROOT/$location"
+             contracts_valid=false
+         fi
+     done <<< "$contract_names"
+@@ -521,7 +522,7 @@ main() {
+ 
+     # Sync relationships to Lineage on successful validation
+     if [[ $FAIL_COUNT -eq 0 ]]; then
+-        LINEAGE_DIR="${LINEAGE_DIR:-$DEV_PATH/lineage}"
++        LINEAGE_DIR="${LINEAGE_DIR:-$WORKSPACE_ROOT/lineage}"
+         if [[ -f "$(dirname "$SCRIPT_DIR")/lib/lineage-client.sh" ]]; then
+             source "$(dirname "$SCRIPT_DIR")/lib/lineage-client.sh" 2>/dev/null && \
+                 lineage_sync_relationships "$RELATIONSHIPS_FILE" 2>/dev/null || true
+- Current branch: main
+- Recent commits: 05dd671 Merge branch 'main' of github.com:tslateman/lore
+0958a39 Fix formatting of container relationship in SYSTEM.md
+329b57f docs: Add plan to wire unused Lineage client functions
+a1233b7 feat: Register Geordi, parameterize paths, add stale-name validator
+c6fed50 docs: Add 2026-02-13 handoff -- patterns, Ralph cleanup, SDK hold Entire-Checkpoint: 9931faa268d3
+256d617 fix: Align right-side pipe chars in SYSTEM.md overview diagram Entire-Checkpoint: 03e4d1dc4ad6
+916bb70 docs: Convert Mermaid diagrams to ASCII in SYSTEM.md
+7b3acff docs: Update SYSTEM.md -- remove stale Ralph ref, reorder known gaps
+410c422 fix: Add narrow-interfaces pattern adopters
+628e7ff docs: Track Pipeline pattern in checklist and pattern library
+
+## Your task
+
+Based on the above changes, create a single git commit.
+
+You have the capability to call multiple tools in a single response. Stage and create the commit using a single message. Do not use any other tools or do anything else. Do not send any other text or messages besides these tool calls.
+
+---
+
+Analyze this project and suggest what to work on next.
+
+1. Review the current structure (README.md, directories, files)
+2. Identify gaps or opportunities in these categories:
+   - **Content** — Missing topics, incomplete guides
+   - **Tooling** — CI/CD, automation, developer experience
+   - **Polish** — Cross-references, consistency, organization
+
+3. Present 2-3 concrete suggestions per category, briefly explained
+
+Keep suggestions actionable and relevant to the project's purpose.
+
+---
+
+use agent teams to handle all
+
+---
+
+Analyze this project and suggest what to work on next.
+
+1. Review the current structure (README.md, directories, files)
+2. Identify gaps or opportunities in these categories:
+   - **Content** — Missing topics, incomplete guides
+   - **Tooling** — CI/CD, automation, developer experience
+   - **Polish** — Cross-references, consistency, organization
+
+3. Present 2-3 concrete suggestions per category, briefly explained
+
+Keep suggestions actionable and relevant to the project's purpose.
+
+---
+
+Reflect on the work just completed in this conversation.
+
+## What I Learned
+
+Identify 2-4 concrete technical insights from this session:
+
+- Patterns discovered or reinforced
+- Gotchas or surprises encountered
+- Techniques that worked well (or didn't)
+- Connections to other parts of the codebase
+
+Focus on _insights_, not a summary of actions taken.
+
+## What to Think About Next
+
+Surface 2-4 open threads worth considering:
+
+- Unfinished work or TODOs
+- Edge cases or risks not yet addressed
+- Potential improvements or refactors
+- Questions that came up but weren't resolved
+
+Be specific—name files, functions, or concepts rather than speaking abstractly.
+
+---
+
+After generating the retro, ask the user if any insights are worth persisting to auto memory. Use AskUserQuestion with options like "Yes, update MEMORY.md" and "No, just this session".
+
+If yes, read the current MEMORY.md from the project's auto memory directory and intelligently merge the new insights—don't duplicate existing points, add new ones under the appropriate sections.
+
+---
+
+consider:
+Here is the synthesized specification for Project Praxis. You can save this directly as PRAXIS_ARCH.md.Project Praxis: The Dynastic Development EnvironmentVersion: 1.0.0Date: 2026-02-14Status: Architecture Definition1. Overview & PhilosophyPraxis is a development environment designed to cure AI Amnesia.Current AI agents suffer from "Context Death"—every session starts cold, repeating past mistakes and hallucinating context. Praxis creates a Dynasty: a persistent, file-system-based memory backbone where intent, context, and wisdom survive the death of individual sessions.Core ConceptsAnamnesis: The act of "remembering" previous wisdom. An agent inherits the dynasty's full context upon initialization.The Golden Rule: "Patterns learned are never lost."The Collapsed Core: The system is simplified into three pillars: Data (Lineage), Control (Neo), and Action (Bach).2. ArchitectureThe system operates on a strict separation of concerns: Memory is the Filesystem, Logic is the Engine, Execution is Stateless.Plaintext       [ User ]
+          |
+          v
++-----------------------+
+|        LINEAGE        |  <-- THE SOUL (Database)
+| (Intent, Registry)    |      "The Single Source of Truth"
++-----------------------+
+     ^    |
+     |    v (reads)
++-----------------------+
+|          NEO          |  <-- THE BRAIN (Engine)
+| (Manager & Proxy)     |      "The Active Sovereign"
++-----------------------+
+          |
+          v (delegates)
++-----------------------+
+|         BACH          |  <-- THE HANDS (Worker)
+| (Aider / MCP / Tools) |      "The Execution Layer"
++-----------------------+
+2.1 Lineage (The Memory)Role: The passive, persistent storage of the Dynasty.Location: ~/dev/lineage/Structure:ComponentPathFormatDescriptionIntentintent/YAMLThe Future. Missions, Goals, and Success Criteria (formerly "Telos").Registryregistry/YAMLThe Present. Project context, capabilities, and entity relationships (formerly "Lore").Journaljournal/JSONLThe Past. Immutable logs of decisions and actions.Patternspatterns/YAMLThe Wisdom. Learned lessons ("If X, do Y").Failuresfailures/YAMLThe Evidence. Structured logs of broken builds and rejected plans.Inboxinbox/JSONLThe Staging. Raw inputs synced from local mirrors (~/.mirror).2.2 Neo (The Sovereign)Role: The active process that manages state, synchronization, and safety.Location: ~/dev/neo/Responsibilities:Plan-and-Solve: Reads Intent $\to$ Generates plan.json $\to$ Pauses for Approval $\to$ Executes.User Proxy: Intercepts all shell commands. Safe-lists innocuous tools (ls, grep); blocks dangerous ones (rm, git push) until approved.Sync: Harvests local notes $\to$ sanitizes $\to$ pushes to lineage/inbox.Promote: Converts raw inbox items into formal intent (Missions) or patterns.2.3 Bach (The Hands)Role: Stateless execution.Location: ~/dev/bach/ (or wrapped external tools like Aider).Strategy:Don't Rebuild: Use state-of-the-art tools (Aider, Claude Code, Cursor) as the underlying engine.Wrapper: Neo drives these tools via CLI or MCP to ensure they adhere to Lineage's constraints.3. Key Data SchemasMission (Intent)Location: lineage/intent/mission-001.yamlYAMLid: "mission-001"
+status: "active"
+intent: "Refactor Auth Module"
+telos: # The "Final Cause" / Definition of Done
+  - "Eliminate race conditions in token refresh"
+  - "Response time < 50ms"
+workflow:
+  - step: "plan"
+    sensitive: true # Requires human approval
+  - step: "execute"
+constraints:
+  - "Must use existing Redis instance"
+Failure Log (The "Wisdom Generator")Location: lineage/failures/2026-02-14-auth.yamlYAMLid: "fail-20260214-001"
+timestamp: "2026-02-14T14:30:00Z"
+mission: "mission-001"
+step: 2
+tool: "edit_file"
+error_type: "UserBlock"
+error_message: "User denied 'rm -rf src/'"
+context: "Agent attempted to clean directory."
+correction: "Skipped step"
+4. Workflows4.1 The "Sync" Loop (Mirror to Lineage)Capture: Developer writes rough notes to ~/.mirror/notes.md.Harvest: neo sync parses these files.Store: Content is appended to ~/dev/lineage/inbox/observations.jsonl.Archive: Local files are moved to ~/.mirror/archive/.4.2 The "Promote" Loop (R&D to Production)Analyze: neo promote scans lineage/inbox for clusters (e.g., 3 failures on "Vector Search").Formalize: User converts the cluster into a Mission Candidate.Commit: The Mission is validated against the Registry and saved to intent/.4.3 The "Execution" Loop (Intent to Action)Initialize: neo start mission-001.Hydrate: Neo reads lineage/intent/mission-001.yaml and relevant registry/ files.Plan: Neo generates a plan.json. [PAUSE FOR APPROVAL]Execute: Neo dispatches tasks to Bach (Aider/Tools).Record: Results are written to lineage/journal/decisions.jsonl. Failures go to lineage/failures/.5. Implementation Roadmap (The "Build Now" Spec)We focus on the "Wall Hitters"—features that solve immediate pain points.Phase 1: The Core (Lineage)Goal: Establish the single source of truth.Tasks:Create directory structure (intent, registry, journal, patterns, failures).Define strict JSON/YAML schemas for the entities above.Create lineage.py (CRUD library) to read/write these files safely.Phase 2: The Brain (Neo)Goal: Safe, planned execution.Tasks:Planner: neo plan <mission> outputting plan.json.Proxy: neo execute <plan> with a hard whitelist for shell commands.Failure Logger: Catch exceptions/denials and write to lineage/failures/.Phase 3: The Hands (Bach Integration)Goal: Leverage existing SOTA tools.Tasks:Integrate Aider or Claude Code as the worker node.Neo constructs the prompt: SYSTEM_PROMPT = Lineage Context + Mission Constraints.Future: Expose Lineage as an MCP Server so Cursor/Aider can query it natively.6. Strategic AnalysisBuild vs. Buy:Build: Lineage & Neo. This is the unique value proposition (Memory & Management).Buy: Bach. Use Aider/Cursor. Do not build a custom code editor from scratch.Stolen Patterns (The "Good Parts"):Reflexion: Implemented via reflexion: true flag in missions (forces a critique step).User Proxy: Implemented via Neo's shell interceptor.Plan-and-Solve: Implemented via the neo plan -> neo execute split.Common Traps to Avoid:"Framework Envy": Do not build hierarchical team definitions (CrewAI style) until you have a proven need."Write-Only Memory": Ensure Neo reads the failures/ log before starting a new task to warn the agent of past mistakes.
+
+---
+
+lore becomes both intent and registry
+we need a simplification
+council remains as an optional plugin for praxis, but not a requirement
+similarly the contracts are an optional operation model for neo, but not a required one. similar to how GSD was before
+
+---
+
+another team is working on the following:
+  ---
+  The Grand Simplification
+
+  Current State: 16 active projects
+
+  DATA LAYER                 CONTROL LAYER              ACTION LAYER
+  ──────────                 ─────────────              ────────────
+  Lineage (memory)           Oracle/Telos (goals)       Bach (workers)
+  Lore (registry)            Neo (teams, sync)          Flow (state/phases)
+  Mirror (capture)           Council (governance)       Ralph (loop)
+                             Forge (prototyping)
+
+  APPLICATIONS               TOOLS                      REFERENCE
+  ────────────               ─────                      ─────────
+  Canary (prod app)          Duet (plugin)              Tutor (cheatsheets)
+  Agent-of-Empires (TUI)     l3m (local LLMs)
+  Geordi (API/GUI)
+
+  What Praxis showed
+
+  Praxis proved that the data layer is one thing and the control layer is one thing. The separation into Lineage/Lore/Oracle was artificial — it split
+   a single concern (persistent knowledge) across three repos with overlapping contracts.
+
+  The collapses
+
+  1. Telos (Oracle) → Lineage
+
+  Telos holds goals and missions. Praxis put intent/ inside Lineage. Goals are just a type of structured knowledge — same as decisions, patterns, and
+  observations. Lineage already has the storage primitives (JSONL for logs, JSON/YAML for documents, inbox for staging). Add intent/ as a sixth
+  component.
+
+  Lineage absorbs:
+    oracle/goals/     →  lineage/intent/
+    oracle/missions/  →  lineage/intent/  (missions are decomposed goals)
+
+  2. Lore → Lineage
+
+  Lore holds the project registry — metadata about what exists, capabilities, relationships. Praxis put registry/ inside Lineage. The graph component
+  already tracks project nodes and edges. Lore's registry is the graph's source data.
+
+  Lineage absorbs:
+    lore/registry/    →  lineage/registry/
+    lore/metadata/    →  lineage/registry/
+
+  3. Flow → Neo
+
+  Flow tracks milestones, phases, and task state. Neo already does team management and now sync/promote/start. Both are orchestration. Praxis replaced
+   Flow with Neo's workflow commands. The .flow/state.json pattern moves into Neo's domain.
+
+  Neo absorbs:
+    flow/state.json   →  neo/state/
+    flow/commands/     →  neo/scripts/  (plan, execute, status)
+
+  4. Mirror → convention, not project
+
+  Mirror is a capture location (~/.mirror/*.md). Neo's sync.sh already harvests from it. Mirror doesn't need to be a project — it's a directory
+  convention. Document it in Neo's README and retire the repo.
+
+  ~/.mirror/          stays as a directory convention
+  mirror/ repo        archived
+
+  What stays separate
+  ┌─────────┬──────────────────────────────────────────────────────────────────┐
+  │ Project │                         Why it survives                          │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Lineage │ The data layer. Absorbs Telos, Lore. Single source of truth.     │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Neo     │ The control layer. Absorbs Flow. Orchestrates, delegates, syncs. │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Bach    │ The execution layer. Stateless workers. Clean contract boundary. │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Ralph   │ The loop driver. Thin, stateless, drives iteration.              │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Council │ Governance. Advisory, not operational. Different concern.        │
+  ├─────────┼──────────────────────────────────────────────────────────────────┤
+  │ Duet    │ Developer tooling plugin. Orthogonal to the stack.               │
+  └─────────┴──────────────────────────────────────────────────────────────────┘
+  What gets archived
+  ┌──────────────┬─────────────┬───────────────────────────────────────────────┐
+  │   Project    │ Absorbed by │                   Migration                   │
+  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
+  │ Telos/Oracle │ Lineage     │ Move intent/ directory, update contracts      │
+  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
+  │ Lore         │ Lineage     │ Move registry/, retire bridge contract        │
+  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
+  │ Flow         │ Neo         │ Move state management, retire signal contract │
+  ├──────────────┼─────────────┼───────────────────────────────────────────────┤
+  │ Mirror       │ Convention  │ Document in Neo, archive repo                 │
+  └──────────────┴─────────────┴───────────────────────────────────────────────┘
+  What's unaffected
+  ┌──────────────────┬──────────────────────────────────────────────────┐
+  │     Project      │                      Reason                      │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Canary           │ Production app, independent                      │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Agent-of-Empires │ Rust TUI, independent                            │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Geordi           │ API layer, reads from whatever the data layer is │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ l3m              │ Local LLM tooling, independent                   │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Forge            │ Prototyping pipeline, independent                │
+  ├──────────────────┼──────────────────────────────────────────────────┤
+  │ Tutor            │ Reference material, independent                  │
+  └──────────────────┴──────────────────────────────────────────────────┘
+  After: 6 core projects
+
+  Lineage  ──→  Neo  ──→  Bach
+  (data)       (control)   (action)
+     ↑            ↑
+     │            │
+  Council      Ralph
+  (governance)  (loop)
+
+  Duet (tooling, orthogonal)
+
+  The contracts simplify too
+  ┌────────────────────────────────┬───────────────────────────────┐
+  │             Before             │             After             │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ SIGNAL_CONTRACT (Ralph ↔       │ SIGNAL_CONTRACT (Ralph ↔      │
+  │ Flow)                          │ Neo)                          │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ TASK_CONTRACT (Flow → Bach)    │ TASK_CONTRACT (Neo → Bach)    │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ LINEAGE_CONTRACT               │ LINEAGE_CONTRACT (expanded)   │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ ENTIRE_BRIDGE_CONTRACT (Lore)  │ Retired                       │
+  ├────────────────────────────────┼───────────────────────────────┤
+  │ CONTAINER_CONTRACT (Neo)       │ Stays                         │
+  └────────────────────────────────┴───────────────────────────────┘
+  Migration order
+
+  Same pattern as the Praxis decomposition — inbox before sync:
+
+  1. Lineage absorbs Telos    (add intent/, update contract)
+  2. Lineage absorbs Lore     (add registry/, retire bridge contract)
+  3. Neo absorbs Flow          (move state management, update signal contract)
+  4. Archive Mirror            (document convention in Neo)
+  5. Update Geordi             (point reads at consolidated Lineage)
+
+  Each step is independently valuable. Stop at any point and the system still works.
+
+✻ Baked for 1m 28s
+
+❯ in addition lineage will get a rename to lore
+
+⏺ That's cleaner. Lore means "accumulated knowledge" — better name for the unified data layer than Lineage.
+
+  Updated map:
+
+  The collapses with rename
+
+  Current Lore (registry)  ─┐
+                             ├──→  Lore (unified data layer)
+  Current Lineage (memory) ─┤      ├── journal/    (decisions)
+                             │      ├── graph/      (knowledge graph)
+  Telos/Oracle (goals)     ─┘      ├── patterns/   (learned wisdom)
+                                    ├── transfer/   (session handoff)
+                                    ├── inbox/      (staging)
+                                    ├── intent/     (goals, missions)
+                                    └── registry/   (project metadata, relationships)
+
+  After: the stack
+
+  Lore  ──→  Neo  ──→  Bach
+  (data)    (control)  (action)
+    ↑          ↑
+    │          │
+  Council    Ralph
+  (govern)   (loop)
+
+  Duet (tooling, orthogonal)
+
+  Migration order changes
+
+  The rename adds a step and reorders:
+
+  1. Lineage absorbs Telos     (add intent/)
+  2. Lineage absorbs Lore      (add registry/)
+  3. Rename Lineage → Lore     (repo, CLI, contracts, aliases, references)
+  4. Neo absorbs Flow           (state management)
+  5. Archive Mirror             (document convention in Neo)
+
+  Step 3 is the big one. The rename touches:
+
+  - Repo name (~/dev/lineage/ → ~/dev/lore/)
+  - CLI (lineage.sh → lore.sh, lineage observe → lore observe)
+  - Contract (LINEAGE_CONTRACT.md → LORE_CONTRACT.md)
+  - Neo's scripts (all lineage.sh calls become lore.sh)
+  - Ralph's config (if it references lineage)
+  - .zshrc alias
+  - Graph node named "lineage"
+  - Every CLAUDE.md that mentions Lineage
+  - Council docs (lifecycle pattern, architecture overview)
+
+  Steps 1 and 2 are best done before the rename — less moving while renaming.
+
+❯ agreed, we can rename later
+
+⏺ Good. The plan stands as:
+
+  1. Lineage absorbs Telos (add intent/)
+  2. Lineage absorbs Lore (add registry/)
+  3. Rename Lineage → Lore (later)
+  4. Neo absorbs Flow
+  5. Archive Mirror
+
+  Want to start on step 1?
+
+❯ let's not archive mirror - still useful
+
+⏺ Noted. Mirror stays as a standalone capture tool. Updated plan:
+
+  1. Lineage absorbs Telos (add intent/)
+  2. Lineage absorbs Lore (add registry/)
+  3. Rename Lineage → Lore (later)
+  4. Neo absorbs Flow
+
+  Four steps. Want to start on step 1?
+
+❯ use a team of agents to execute all all 4
+
+
+anything to add?
+
+---
+
+check on progress
+
+---
+
+good point, both praxis and mani will need updates to note how lore is replacing lineage
+
+---
+
+between council, lore, and lineage... which project context should carry this through? lore?
+
+---
+
+Analyze this project and suggest what to work on next.
+
+1. Review the current structure (README.md, directories, files)
+2. Identify gaps or opportunities in these categories:
+   - **Content** — Missing topics, incomplete guides
+   - **Tooling** — CI/CD, automation, developer experience
+   - **Polish** — Cross-references, consistency, organization
+
+3. Present 2-3 concrete suggestions per category, briefly explained
+
+Keep suggestions actionable and relevant to the project's purpose.
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me go through the conversation chronologically:
+
+1. **Session start**: Lineage resume was run, then the user asked to implement a plan to replace DEV_PATH with location-derived workspace root.
+
+2. **Plan implementation**: I read 6 files (lore-cli.sh, validate-registry.sh, lineage-client.sh, CLAUDE.md, README.md, plan-wire-lineage-functions.md) and made edits to replace DEV_PATH with LORE_ROOT/WORKSPACE_ROOT derived from script locations. Key changes:
+   - `scripts/lore-cli.sh`: Added LORE_ROOT and WORKSPACE_ROOT, replaced DEV_PATH references
+   - `scripts/validate-registry.sh`: Same pattern
+   - `lib/lineage-client.sh`: Used defensive pattern `WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(derived)}"`
+   - CLAUDE.md, README.md: Replaced `$DEV_PATH` with `~/dev`
+   - plan-wire-lineage-functions.md: Updated sourcing example
+
+3. **Post-implementation cleanup**: Fixed redundant `~/dev (default: ~/dev)` in CLAUDE.md. Removed DEV_PATH row from README.md config table. Ran prettier. Verified all commands work.
+
+4. **Retro**: Reflected on insights. User said to update MEMORY.md. Added path resolution, sourced library pattern, bulk replace_all lesson, git grep lesson.
+
+5. **Commit**: Created commit with `/commit-commands:commit` skill.
+
+6. **What's next analysis**: Explored project with agent, produced recommendations across Content/Tooling/Polish categories.
+
+7. **Agent team work**: User said "use agent teams to handle all". Created team with 5 tasks:
+   - Task 1: Fix README tilde bug + clean stale ralph refs (completed by polish agent)
+   - Task 2: Wire Lineage functions (completed by team-lead after lineage-wiring agent was unresponsive)
+   - Task 3: Write docs pattern at council/mainstay/docs.md (completed by docs-pattern agent)
+   - Task 4: Write config pattern at council/mainstay/config.md (completed by docs-pattern agent)
+   - Task 5: Reconcile contracts.yaml with SYSTEM.md (completed by contracts agent)
+
+8. **Second retro**: User asked for retro. Updated MEMORY.md with agent team lessons, fixed stale open threads.
+
+9. **Second what's next**: Produced updated recommendations.
+
+10. **Praxis architecture discussion**: User shared PRAXIS_ARCH.md spec. I analyzed it against existing architecture, noting conflicts and alignments.
+
+11. **User correction**: "lore becomes both intent and registry" - correcting my analysis. Council remains optional plugin, contracts optional operational model.
+
+12. **Grand Simplification**: User shared detailed plan from another team:
+    - Lineage absorbs Telos (intent/)
+    - Lineage absorbs Lore (registry/)
+    - Rename Lineage → Lore (later)
+    - Neo absorbs Flow
+    - Mirror stays (user corrected: don't archive)
+    
+13. **User asked "anything to add?"**: I provided concerns about uncommitted work, CLI tooling migration, WORKSPACE_ROOT derivation, mani.yaml integration, Ralph un-archival, name collision, and pattern docs.
+
+14. **Check on progress**: User asked to check. Found:
+    - ~/dev/lineage/ is GONE
+    - ~/dev/lore/ is now the unified data layer (formerly lineage repo, renamed and expanded)
+    - _archive/lore-old/ has the old lore
+    - mani.yaml symlink was broken
+    - Neo got sync/promote/start scripts
+    - praxis/ exists as failure journals project
+
+15. **Praxis and mani updates**: User said both need updates for lore replacing lineage. I:
+    - Updated praxis config.py: LINEAGE_DIR → LORE_DIR, path ~/dev/lineage → ~/dev/lore
+    - Updated praxis CLAUDE.md, README.md, failure.py: all lineage → lore references
+    - Restored mani.yaml from _archive/lore-old/ to ~/dev/lore/mani.yaml (fixes broken symlink)
+    - Updated mani.yaml: lore entry updated to unified data layer, lineage archived, oracle archived, flow archived, praxis added
+
+16. **Project context discussion**: User asked which project should carry this through. I said lore. User agreed.
+
+17. **Final what's next**: User asked for analysis of the NEW lore project. I read CLAUDE.md, README.md, and LORE_CONTRACT.md of the new unified lore at ~/dev/lore/. Was about to produce recommendations when the summary was requested.
+
+Key errors/issues:
+- mani.yaml was a broken symlink (pointed to ~/dev/lore/mani.yaml which didn't exist because old lore was archived). Fixed by copying from _archive/lore-old/.
+- lineage-wiring agent never claimed its task. Fixed by claiming and executing it myself.
+- config.md pattern had stale DEV_PATH example. Fixed by updating the example.
+- README.md had tilde-in-quotes bug (`cd "~/dev"` won't expand). Fixed by agents.
+
+Uncommitted changes exist in multiple repos:
+- ~/dev/lore/ (the new unified lore): mani.yaml added
+- ~/dev/praxis/: config.py, CLAUDE.md, README.md, failure.py updated
+- ~/dev/council/: mainstay/config.md updated
+- The OLD lore changes from earlier in the session are in _archive/lore-old/ or lost
+
+The user's last request was `/whats-next` on the new unified lore project. I had just read the three main files (CLAUDE.md, README.md, LORE_CONTRACT.md) and was about to produce the analysis when the summary was requested.
+
+Summary:
+1. Primary Request and Intent:
+   The session began with implementing a plan to replace `DEV_PATH` environment variable with location-derived `WORKSPACE_ROOT` in all lore scripts and docs. This was completed and committed. The user then asked for `/whats-next` analysis, which led to spawning an agent team to handle 5 improvement tasks (README fix, wire Lineage functions, write 2 patterns, reconcile contracts). Mid-session, the user shared a major architectural proposal ("Project Praxis" / "Grand Simplification") where another team was collapsing the ecosystem from ~16 projects to 6 core projects: Lineage absorbs Oracle+Lore → renamed to Lore, Neo absorbs Flow, Mirror stays. The user then asked me to update `praxis` and `mani.yaml` to reflect that lore is replacing lineage. The user confirmed lore should carry the project context going forward. The final request was `/whats-next` to analyze the NEW unified lore project at `~/dev/lore/`.
+
+2. Key Technical Concepts:
+   - **WORKSPACE_ROOT derivation**: Scripts compute paths from `BASH_SOURCE[0]` instead of relying on `DEV_PATH` env var. `LORE_ROOT = dirname(SCRIPT_DIR)`, `WORKSPACE_ROOT = dirname(LORE_ROOT)`.
+   - **Sourced library defensive pattern**: `WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(derived)}"` reuses caller's value or self-derives.
+   - **The Grand Simplification**: Collapsing 16 projects into 6 core (Lore, Neo, Bach, Ralph, Council, Duet). Lore = unified data layer (memory + intent + registry). Neo = control. Bach = execution.
+   - **mani.yaml**: Project registry at `~/dev/mani.yaml` (symlink → `~/dev/lore/mani.yaml`). Source of truth for project existence.
+   - **Agent team coordination**: `blockedBy` for shared edit targets, fallback for unresponsive agents.
+   - **Seven-component Lore**: journal, graph, patterns, transfer, inbox, intent, registry -- each answering a different question about accumulated knowledge.
+   - **Contract model**: LORE_CONTRACT.md defines write/read interfaces. Contracts are optional operational model, not required.
+
+3. Files and Code Sections:
+
+   - **`~/dev/lore/mani.yaml`** (the NEW lore, restored from archive)
+     - Critical: was missing, causing broken symlink at `~/dev/mani.yaml`. Copied from `_archive/lore-old/mani.yaml`.
+     - Updated: `lore` entry desc changed to "Persistent knowledge layer -- memory, intent, registry, patterns", tags updated. `lineage` and `oracle` marked `status:archived`. `flow` marked `status:archived`. `praxis` entry added.
+     - Current state has these archived entries:
+     ```yaml
+     lineage:
+       path: lore
+       desc: Unified memory backbone (renamed to lore)
+       tags: [type:library, lang:shell, status:archived, memory]
+     oracle:
+       path: oracle
+       desc: Intent and goals layer (absorbed by lore)
+       tags: [type:orchestrator, lang:shell, status:archived, goals, intent]
+     flow:
+       path: cli/flow
+       desc: State management for agent coordination (absorbed by neo)
+       tags: [type:library, lang:go, status:archived, state, agents]
+     praxis:
+       path: praxis
+       desc: Structured failure journals and analysis
+       tags: [type:tool, lang:python, status:active, failures, analysis, wisdom]
+     ```
+
+   - **`~/dev/praxis/src/praxis/config.py`** (updated this session)
+     - Changed LINEAGE_DIR → LORE_DIR, path ~/dev/lineage → ~/dev/lore
+     ```python
+     LORE_DIR = Path(os.environ.get("LORE_DIR", Path.home() / "dev/lore"))
+     FAILURES_DIR = LORE_DIR / "failures" / "data"
+     FAILURES_FILE = FAILURES_DIR / "failures.jsonl"
+     ```
+
+   - **`~/dev/praxis/CLAUDE.md`** (updated: lineage→lore references, LINEAGE_DIR→LORE_DIR)
+   - **`~/dev/praxis/README.md`** (updated: lineage→lore paths, LINEAGE_DIR→LORE_DIR env var)
+   - **`~/dev/praxis/src/praxis/failure.py`** (updated: all Lineage→Lore in docstrings, ~/dev/lineage→~/dev/lore)
+
+   - **`~/dev/council/mainstay/config.md`** (updated: fixed stale DEV_PATH example to use WORKSPACE_ROOT derivation pattern)
+
+   - **`~/dev/lore/CLAUDE.md`** (the NEW unified lore) - Read for what's-next analysis. Describes 7 components (journal, graph, patterns, transfer, inbox, intent, registry). CLI is `lore.sh`.
+   - **`~/dev/lore/README.md`** (the NEW lore) - Read. Architecture section only shows 4 original components (journal, graph, patterns, transfer), missing inbox/intent/registry in the tree diagram.
+   - **`~/dev/lore/LORE_CONTRACT.md`** - Read. Full integration contract with write/read interfaces for all 7 components. Has a stale "Monarch" reference in section on cross-project patterns (line 270).
+
+   - **Earlier session work (now in _archive/lore-old/ or committed before migration)**:
+     - `scripts/lore-cli.sh`: Replaced DEV_PATH with LORE_ROOT/WORKSPACE_ROOT
+     - `scripts/validate-registry.sh`: Same, plus added `lineage_sync_pattern_sharing` call
+     - `lib/lineage-client.sh`: Defensive WORKSPACE_ROOT derivation
+     - `plans/plan-wire-lineage-functions.md`: Updated acceptance criteria, noted lore register gap
+     - Old CLAUDE.md, README.md, SYSTEM.md, CHECKLIST.md, patterns/README.md: Various updates from agent team
+
+4. Errors and Fixes:
+   - **Broken mani.yaml symlink**: `~/dev/mani.yaml` → `~/dev/lore/mani.yaml` was broken because old lore was archived. Fixed by copying mani.yaml from `_archive/lore-old/` to `~/dev/lore/`.
+   - **Unresponsive agent**: lineage-wiring agent never claimed task #2 despite two messages. Fixed by claiming and executing the task myself (team-lead).
+   - **Stale DEV_PATH in config.md pattern**: Agent-generated `council/mainstay/config.md` included old `DEV_PATH` example. Fixed by editing to show WORKSPACE_ROOT derivation pattern.
+   - **Tilde-in-quotes bug**: `cd "~/dev"` in README.md (tilde won't expand inside double quotes). Fixed by polish agent to `cd ~/dev`.
+   - **Redundant phrasing after bulk replace**: `$DEV_PATH` → `~/dev` left "coordinates all projects in `~/dev` (default: `~/dev`)" in CLAUDE.md. Fixed manually.
+   - **Oracle/lineage paths in mani.yaml**: Initially set paths to `_archive/` but those directories don't exist. Corrected lineage path to `lore` (actual location) and oracle to `oracle` (still at original location).
+
+5. Problem Solving:
+   - Successfully replaced DEV_PATH indirection with location-derived paths across all scripts
+   - Wired `lineage_sync_pattern_sharing()` into validate-registry.sh success path
+   - Completed Phase 4 patterns (docs.md, config.md) via agent team
+   - Reconciled contracts.yaml with SYSTEM.md
+   - Cleaned stale "ralph" references (validator now shows 0 stale warnings)
+   - Adapted praxis project to new lore naming/paths
+   - Restored mani.yaml to fix ecosystem-wide project discovery
+   - Updated mani.yaml to reflect the Grand Simplification (archiving lineage, oracle, flow; adding praxis; updating lore's role)
+
+6. All User Messages:
+   - "Implement the following plan: # Plan: Replace DEV_PATH with location-derived workspace root [detailed plan]"
+   - `/retro` (first retro request)
+   - User answered: "Yes, update MEMORY.md" for persisting insights
+   - `/commit-commands:commit` (commit request)
+   - `/whats-next` (first analysis)
+   - "use agent teams to handle all"
+   - `/retro` (second retro request)
+   - User answered: "Yes, update MEMORY.md" again
+   - `/whats-next` (second analysis, post-team-work)
+   - "consider: [pasted PRAXIS_ARCH.md specification]"
+   - "lore becomes both intent and registry / we need a simplification / council remains as an optional plugin for praxis, but not a requirement / similarly the contracts are an optional operation model for neo, but not a required one. similar to how GSD was before"
+   - "another team is working on the following: [pasted Grand Simplification plan with full migration details, including the decision that lineage will be renamed to lore, mirror stays, and all 4 steps]... anything to add?"
+   - "check on progress"
+   - "good point, both praxis and mani will need updates to note how lore is replacing lineage"
+   - "between council, lore, and lineage... which project context should carry this through? lore?"
+   - `/whats-next` (third analysis, on the new unified lore)
+
+7. Pending Tasks:
+   - **Uncommitted changes in multiple repos**: praxis (4 files), council/mainstay/config.md (1 file), ~/dev/lore/mani.yaml (1 file). These need committing.
+   - **MEMORY.md rewrite**: Current auto memory at `~/.claude/projects/-Users-tslater-dev-lore/memory/MEMORY.md` describes the OLD lore architecture. The path will match the new lore project, but content is entirely stale. Needs rewriting for the unified lore.
+   - **What's-next analysis for new lore**: The last `/whats-next` request was in progress -- files were read but analysis was not yet delivered.
+
+8. Current Work:
+   The user invoked `/whats-next` to analyze the NEW unified lore project at `~/dev/lore/`. I had just read three files:
+   - `~/dev/lore/CLAUDE.md` (7 components, lore.sh CLI, orchestration hub description)
+   - `~/dev/lore/README.md` (architecture diagram only shows 4 of 7 components, origin story)
+   - `~/dev/lore/LORE_CONTRACT.md` (full write/read interface for all 7 components, has stale "Monarch" reference)
+   
+   The analysis was not yet produced when the summary was requested. Notable gaps already spotted: README.md architecture tree is missing inbox/, intent/, registry/. LORE_CONTRACT.md has a stale "Monarch" section header. The failures/ component (where praxis writes) is not mentioned in CLAUDE.md's component list.
+
+9. Optional Next Step:
+   Produce the `/whats-next` analysis for the new unified lore project. The user's most recent explicit request was this skill invocation. I had completed the file reads and was about to generate the Content/Tooling/Polish recommendations. Key observations to surface:
+   - README.md architecture diagram is out of date (missing 3 of 7 components)
+   - LORE_CONTRACT.md references "Monarch" (retired name)
+   - failures/ component (praxis writes here) not documented in CLAUDE.md
+   - mani.yaml and uncommitted changes across repos need committing
+   - MEMORY.md needs rewriting for new lore context
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/tslater/.claude/projects/-Users-tslater-dev-lore/08a76340-7adb-4b8e-abc6-81eb6964ed03.jsonl
+Please continue the conversation from where we left it off without asking the user any further questions. Continue with the last task that you were asked to work on.
+
+---
+
+Analyze this project and suggest what to work on next.
+
+1. Review the current structure (README.md, directories, files)
+2. Identify gaps or opportunities in these categories:
+   - **Content** — Missing topics, incomplete guides
+   - **Tooling** — CI/CD, automation, developer experience
+   - **Polish** — Cross-references, consistency, organization
+
+3. Present 2-3 concrete suggestions per category, briefly explained
+
+Keep suggestions actionable and relevant to the project's purpose.
+
+---
+
+use agent teams to handle all items
+
+---
+
+<teammate-message teammate_id="readme-agent" color="blue" summary="Task #1 done: README.md shows all 7 components">
+Task #1 complete. README.md updated:
+
+1. **Components table**: Expanded from 4 to all 7 components (added inbox, intent, registry) with key questions
+2. **ASCII tree**: Rebuilt to show all 7 component directories plus `failures/`, `lib/`, and `~/dev/mani.yaml` reference
+3. **Stale refs**: Replaced "Monarch/Neo/Oracle/Council session" with "first orchestration session" in Origin section
+4. **Prettier**: Ran, file confirmed clean
+</teammate-message>
+
+<teammate-message teammate_id="readme-agent" color="blue">
+{"type":"idle_notification","from":"readme-agent","timestamp":"2026-02-15T16:07:13.403Z","idleReason":"available"}
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="tooling-agent" color="yellow" summary="Task #3 done: client wrappers + search + ingest fix">
+Task #3 complete. Here's what I did:
+
+**A. lore-client-base.sh** — Added 3 fail-silent wrappers following the existing pattern:
+- `lore_observe()` → routes to `lore.sh observe`
+- `lore_create_goal()` → routes to `lore.sh goal create`
+- `lore_registry_show()` → routes to `lore.sh registry show`
+
+All use `check_lore || return 0` guard + `2>/dev/null || true` tail, matching the 8 existing functions.
+
+**B. cmd_search() in lore.sh** — Extended with 3 new sections:
+- **Inbox**: greps `observations.jsonl`, pipes matches through jq to show id/status/content
+- **Goals**: greps `intent/data/goals/*.yaml`, prints matching filenames (handles empty dir gracefully)
+- **Registry**: loops over `registry/data/*.yaml`, shows filename + match count per file
+
+**C. ingest.sh** — Fixed 2 stale "Monarch" references (lines 4 and 11) to generic descriptions.
+
+Smoke-tested `lore search "vector"` (found inbox hits) and `lore search "mirror"` (found journal hits). All 3 files pass `bash -n` syntax check.
+</teammate-message>
+
+<teammate-message teammate_id="contract-agent" color="green" summary="Task #2 done: LORE_CONTRACT.md fixed">
+Task #2 complete. LORE_CONTRACT.md changes:
+
+1. **Components table**: Added `failures` row (JSONL, written by Praxis, storage at `failures/data/failures.jsonl`)
+2. **Line 246**: `### Telos (goal outcomes)` → `### Goal Outcomes (intent)`, updated tag from `telos` to `intent` in the example
+3. **Line 271**: `### Monarch (cross-project patterns)` → `### Cross-Project Patterns`
+4. **Line 284**: Replaced `telos` with `praxis` in the tags convention example
+5. **Data Locations**: Added `failures/data/failures.jsonl` entry
+6. **Full sweep**: No remaining Monarch, Telos, or DEV_PATH references found
+7. **Prettier**: Ran, file unchanged (already formatted).
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="contract-agent" color="green">
+{"type":"idle_notification","from":"contract-agent","timestamp":"2026-02-15T16:07:27.346Z","idleReason":"available"}
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="tooling-agent" color="yellow">
+{"type":"idle_notification","from":"tooling-agent","timestamp":"2026-02-15T16:07:28.625Z","idleReason":"available"}
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="plans-agent" color="orange" summary="Plans triaged, oracle inventory complete">
+Task #5 complete. Here's the summary:
+
+## Part A: Plans Triage (7 files)
+
+| File | Status | Notes |
+|------|--------|-------|
+| `adr-review.md` | **Active** | Recommendations for fixing ingested commit hashes still actionable |
+| `research-lore.md` | **Complete** | Research consumed by api-architecture.md. Contains historical `DEV_PATH` refs (left intact as historical record) |
+| `research-council.md` | **Complete** | Research consumed by api-architecture.md. No stale refs |
+| `research-lineage.md` | **Complete** | Research consumed by api-architecture.md. No stale refs |
+| `api-architecture.md` | **Active** | Plan not yet implemented. **Fixed stale refs**: `DEV_PATH` → `WORKSPACE_ROOT`, `LINEAGE_DIR` → `LORE_DIR`, `lineage.sh` → `lore.sh` in write paths |
+| `plan-wire-resume.md` | **Superseded** | Lineage absorbed into Lore. Step 3 (CLAUDE.md convention) already done with `lore.sh resume` |
+| `plan-wire-handoff.md` | **Superseded** | Same reason -- all `~/dev/lineage/` paths now under `~/dev/lore/` |
+
+All status lines added at top of each file. Stale references updated in the two active plans. Research docs left intact as historical records.
+
+## Part B: Oracle Goals/Missions Inventory
+
+Found **3 goal files** and **2 mission files** in `~/dev/oracle/`:
+
+### Goals (`~/dev/oracle/goals/`)
+1. `goal-1770704838-a3f27ef9.yaml` -- **Template file** (placeholder `{{uuid}}` etc.). Not real data.
+2. `goal-1770704985-d501ceb2.yaml` -- "Fix awk multiline bug in Lineage patterns capture" (status: draft, empty description). Duplicate of goal 3 but less complete. Still references `# Linked projects from Monarch` (stale).
+3. `goal-1770705037-7cc707db.yaml` -- "Fix awk multiline bug in Lineage patterns capture" (status: active, priority: high). Fully fleshed out with success criteria. References `lore-id: lineage`. **This bug was already fixed** per MEMORY.md ("Patterns capture fixed: awk multiline bug resolved, committed in lineage 20274ce").
+
+### Missions (`~/dev/oracle/missions/`)
+1. `mission-1770715950-a6cf77ff.yaml` -- Derived from goal 3 sc-1 (status: assigned)
+2. `mission-1770715950-20ac1b01.yaml` -- Derived from goal 3 sc-2 (status: pending, depends on mission 1)
+
+### Migration Assessment
+- **1 real goal** (goal 3) with **2 missions** -- all for the awk multiline bug which is already fixed.
+- Goal 2 is an incomplete duplicate of goal 3.
+- Goal 1 is a template.
+- Oracle's `README.md` and `templates/mission.yaml` still reference "Monarch" (stale).
+- The `lore/intent/data/goals/` and `lore/intent/data/missions/` directories exist but are empty.
+
+**Recommendation**: If ingesting, only goal 3 and its 2 missions are worth migrating, and they should be marked `completed` since the bug is fixed. The duplicate goal 2 and template goal 1 can be skipped.
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="plans-agent" color="orange">
+{"type":"idle_notification","from":"plans-agent","timestamp":"2026-02-15T16:09:32.376Z","idleReason":"available"}
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="registry-agent" color="purple" summary="Task #4 done: cleaned all 4 registry YAMLs">
+Task #4 complete. Cleaned all 4 registry YAML files:
+
+**metadata.yaml**: Removed standalone `lineage:` and `oracle:` entries. Expanded `lore:` with role=memory, contracts (LORE_CONTRACT.md, lore-client-base.sh), and all 6 components (journal, graph, patterns, transfer, intent, registry). Updated entire and geordi to consume `lore/LORE_CONTRACT.md`.
+
+**clusters.yaml**: Changed orchestration root from `~/dev/oracle` to `~/dev/lore`. Removed oracle component and all oracle-related data_flow entries. Removed self-referential lore→lore flow. Renumbered components 1-6.
+
+**relationships.yaml**: Removed oracle dependencies, oracle integrations, oracle from shared/provides_to, and oracle from unified-memory pattern. Merged geordi's duplicate lore dependencies into one.
+
+**contracts.yaml**: Already clean (no changes needed).
+
+One intentional historical comment remains: "Lore absorbed Lineage" in relationships.yaml line 29 — it documents the rationale for lore having no external dependencies.
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="registry-agent" color="purple">
+{"type":"idle_notification","from":"registry-agent","timestamp":"2026-02-15T16:09:59.168Z","idleReason":"available"}
+</teammate-message>
+
+<teammate-message teammate_id="registry-agent" color="purple" summary="Task #4 already complete">
+Task #4 is already complete — I finished it and marked it done a moment ago. All 4 registry YAML files are cleaned. See my earlier message for the full summary.
+</teammate-message>
+
+<teammate-message teammate_id="system">
+{"type":"teammate_terminated","message":"contract-agent has shut down."}
+</teammate-message>
+
+<teammate-message teammate_id="system">
+{"type":"teammate_terminated","message":"tooling-agent has shut down."}
+</teammate-message>
+
+<teammate-message teammate_id="registry-agent" color="purple">
+{"type":"idle_notification","from":"registry-agent","timestamp":"2026-02-15T16:10:06.224Z","idleReason":"available"}
+</teammate-message>
+
+<teammate-message teammate_id="contract-agent" color="green">
+{"type":"shutdown_approved","requestId":"shutdown-1771171801365@contract-agent","from":"contract-agent","timestamp":"2026-02-15T16:10:05.493Z","paneId":"%236","backendType":"tmux"}
+</teammate-message>
+
+<teammate-message teammate_id="tooling-agent" color="yellow">
+{"type":"shutdown_approved","requestId":"shutdown-1771171801979@tooling-agent","from":"tooling-agent","timestamp":"2026-02-15T16:10:06.042Z","paneId":"%238","backendType":"tmux"}
+</teammate-message>
+
+<teammate-message teammate_id="system">
+{"type":"teammate_terminated","message":"readme-agent has shut down."}
+</teammate-message>
+
+<teammate-message teammate_id="readme-agent" color="blue">
+{"type":"shutdown_approved","requestId":"shutdown-1771171800807@readme-agent","from":"readme-agent","timestamp":"2026-02-15T16:10:06.484Z","paneId":"%235","backendType":"tmux"}
+</teammate-message>
+
+<teammate-message teammate_id="system">
+{"type":"teammate_terminated","message":"plans-agent has shut down."}
+</teammate-message>
+
+<teammate-message teammate_id="plans-agent" color="orange">
+{"type":"shutdown_approved","requestId":"shutdown-1771171803044@plans-agent","from":"plans-agent","timestamp":"2026-02-15T16:10:08.368Z","paneId":"%240","backendType":"tmux"}
+</teammate-message>
+
+<teammate-message teammate_id="system">
+{"type":"teammate_terminated","message":"registry-agent has shut down."}
+</teammate-message>
+
+<teammate-message teammate_id="registry-agent" color="purple">
+{"type":"shutdown_approved","requestId":"shutdown-1771171802571@registry-agent","from":"registry-agent","timestamp":"2026-02-15T16:10:09.463Z","paneId":"%239","backendType":"tmux"}
+</teammate-message>
+
+---
+
+what value add does lore provide
+
+---
+
+feels like a more explicit management of agentic context, is that fair?
+
+---
+
+is this made clear in the readme?
+
+---
+
+yes
+
+---
+
+the quickstart should install include installing lore to path and usage without lore.sh
+
+---
+
+'what lore provides' and 'components' could go further down in readme use /ia best practices
+
+---
+
+Base directory for this skill: /Users/tslater/.claude/plugins/cache/local/duet/0.1.1/skills/ia
+
+# Information Architecture
+
+## Overview
+
+Information architecture is the structural design of shared information environments. When someone asks "where does this go?" or "I can't find anything" — that's an IA problem.
+
+Grounded in Rosenfeld, Morville & Arango's _Information Architecture_ (4th ed.) and the Diataxis documentation framework. See `references/rosenfeld-morville.md` for the core systems.
+
+## When to Use This Skill
+
+- Organizing a new project's file structure
+- Restructuring documentation that outgrew its layout
+- Deciding where new content belongs
+- Reviewing a README or docs site for findability
+- Designing navigation (tables of contents, cross-references, indexes)
+- Auditing content for gaps, duplication, and orphans
+
+**If someone can't find what they need, or you can't decide where something belongs, use this skill.**
+
+## The Four Systems
+
+Every information space has four structural systems. Evaluate each when reviewing or designing.
+
+### 1. Organization
+
+How content is grouped and classified.
+
+**Exact schemes** — unambiguous, mutually exclusive:
+
+- Alphabetical (glossaries, API references)
+- Chronological (changelogs, history tables)
+- Geographic (regional docs, locale configs)
+
+**Ambiguous schemes** — subjective, require judgment:
+
+- By topic (most documentation)
+- By task ("How do I...")
+- By audience (developer vs. operator vs. user)
+- By metaphor (domain-driven structures)
+
+**Rule:** Choose one primary scheme per level. Mixing schemes at the same level confuses navigation.
+
+#### Taxonomy Construction
+
+When reviewing a project's organization, evaluate whether the taxonomy is sound:
+
+1. **Can every item be placed in exactly one group?** — If not, categories
+   overlap. Tighten the scheme.
+2. **Are items at the same level comparable in scope?** — "utils" alongside
+   "authentication" mixes granularity.
+3. **Does depth exceed three levels?** — Over-splitting signals the taxonomy
+   is too fine-grained. Flatten by merging related categories.
+4. **Can a newcomer predict where to find something?** — If not, the grouping
+   reflects how the author thinks, not how readers seek.
+5. **Can a newcomer predict where to put something new?** — If not, the scheme
+   has gaps or ambiguous boundaries.
+
+**Card sort heuristic:** If three people disagree on where an item belongs, the
+categories are ambiguous. Rename or restructure until placement is obvious.
+
+### 2. Labeling
+
+What things are called — the names users scan to orient themselves.
+
+- Labels must describe content, not container ("Authentication" not "Section 3")
+- Consistent granularity — don't mix concepts and tasks at the same level
+- Match user vocabulary — use the words people search for
+- Avoid jargon at top levels; introduce it inside
+
+### 3. Navigation
+
+How people move through the space.
+
+- **Global navigation** — always visible, orients the reader (README, sidebar, table of contents)
+- **Local navigation** — within a section (prev/next, related pages, "See Also")
+- **Contextual navigation** — inline links from content to related content
+- **Supplemental navigation** — indexes, site maps, search
+
+**Depth rule:** Three clicks (or three levels) to any content. If deeper, the hierarchy needs flattening or the content needs relocating.
+
+### 4. Search
+
+How people find specific things without browsing.
+
+- File naming that greps well (`signal-contract.md` not `doc-7.md`)
+- Headings that match search terms
+- Cross-references from synonyms to canonical locations
+- Consistent metadata (frontmatter, tags) for programmatic discovery
+
+## Diataxis for Documentation
+
+When the content is documentation, apply the Diataxis framework to classify pages:
+
+| Mode        | Orientation   | Purpose                  | Form           |
+| ----------- | ------------- | ------------------------ | -------------- |
+| Tutorial    | Learning      | Teach through doing      | Lesson         |
+| How-to      | Task          | Solve a specific problem | Recipe         |
+| Explanation | Understanding | Clarify concepts         | Discussion     |
+| Reference   | Information   | Describe the machinery   | Austere, exact |
+
+**Each page serves one mode.** Mixing tutorial prose into a reference page degrades both. When a page feels unfocused, it likely conflates two modes.
+
+## Review Workflow
+
+### 1. Map the Current State
+
+Inventory the information space:
+
+- List all content (files, sections, pages)
+- Identify the primary organization scheme at each level
+- Note orphans (content with no navigation path to it)
+- Note duplicates (same information in multiple places)
+- Note gaps (questions users would ask that have no answer)
+
+### 2. Evaluate the Four Systems
+
+For each system, ask:
+
+| System       | Question                                         |
+| ------------ | ------------------------------------------------ |
+| Organization | Is the grouping scheme consistent at each level? |
+| Labeling     | Can a reader predict content from the label?     |
+| Navigation   | Can someone reach any content in three steps?    |
+| Search       | Do file names and headings match search terms?   |
+
+### 3. Recommend Changes
+
+Structure output as:
+
+```markdown
+## IA Review
+
+### Structure Issues
+
+- [Issue] — [Why it hurts findability] → [Recommended fix]
+
+### Navigation Gaps
+
+- [Missing path] — [Who needs it] → [Where to add it]
+
+### Labeling Problems
+
+- `[current label]` → `[better label]` — [Why]
+
+### Content Gaps
+
+- [Missing topic] — [Who needs it, when]
+```
+
+## Common Patterns
+
+### The Growing README
+
+READMEs that accumulate everything eventually fail. When a README exceeds ~200 lines, extract:
+
+- Setup instructions → `docs/setup.md` (how-to)
+- Architecture overview → `docs/architecture.md` (explanation)
+- API reference → `docs/api.md` (reference)
+- Tutorial walkthrough → `docs/tutorial.md` (tutorial)
+
+The README becomes a signpost: project description, quick start, and links to the rest.
+
+### The Flat Docs Directory
+
+A `docs/` with 20+ files at one level signals missing hierarchy. Group by topic or audience, not by creation date.
+
+### The Deep Nest
+
+More than three directory levels for documentation means the taxonomy is too fine-grained. Flatten by merging related pages or promoting important content.
+
+### The Orphan Page
+
+Content exists but nothing links to it. It might as well not exist. Every page needs at least one navigation path leading to it.
+
+## Placement Decision Tree
+
+When deciding where new content goes:
+
+1. **Does similar content already exist?** → Extend it, don't duplicate
+2. **What question does it answer?** → Place it where someone asking that question would look
+3. **Who needs it?** → Place it in the audience's natural path
+4. **What Diataxis mode is it?** → Group it with the same mode
+5. **Can you name the parent directory in one word?** → If not, the taxonomy needs work
+
+## See Also
+
+- `/naming` — IA labeling problems are naming problems
+- `/design` — IA is structural design for information
+- `/prose` — Clear writing makes content findable through scanning
+- `skills/FRAMEWORKS.md` — Full framework index
+
+---
+
+(written by praxis) wrong - lore can write fail itself
+
+---
+
+## Context
+
+- Current git status: On branch main
+Your branch is ahead of 'origin/main' by 6 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   README.md
+	modified:   SYSTEM.md
+	modified:   lore.sh
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	failures/
+	lore
+
+no changes added to commit (use "git add" and/or "git commit -a")
+- Current git diff (staged and unstaged changes): diff --git a/README.md b/README.md
+index 5fca99d..3c3f1c7 100644
+--- a/README.md
++++ b/README.md
+@@ -1,54 +1,63 @@
+ # Lore
+ 
+-Memory that compounds.
++Explicit context management for multi-agent systems.
+ 
+-A system for AI agents to build persistent, searchable memory across sessions.
++## Setup
+ 
+-## Philosophy
++```bash
++export PATH="$HOME/dev/lore:$PATH"
++```
++
++## Usage
++
++```bash
++lore remember "Use JSONL for storage" \
++  --rationale "Simpler than SQLite, append-only matches our use case"
++
++lore learn "Safe bash arithmetic" \
++  --context "Incrementing variables with set -e" \
++  --solution "Use x=\$((x + 1)) instead of ((x++))"
++
++lore handoff "Auth implementation 80% complete, need OAuth integration"
++
++lore resume
+ 
+-> "The Mentor seat asks: Who will carry this forward?"
++lore search "authentication"
++```
++
++See `lore --help` for the full command list.
++
++## Why Lore
+ 
+-Right now, every session starts cold. Context is compacted, summarized, lost.
+-Lore changes that:
++MEMORY.md gives each agent implicit context -- loaded into the prompt, hoped to
++be relevant. Lore gives explicit context -- structured writes, typed queries,
++cross-project assembly. The difference matters when multiple agents need the
++same context, when context exceeds what fits in a system prompt, or when you
++need to query across time.
+ 
+-- **Decisions have rationale** - not just what was done, but _why_
+-- **Patterns are never lost** - lessons learned persist and prevent repeated mistakes
+-- **Context transfers** - another agent picks up exactly where you left off
+-- **Memory compounds** - knowledge builds over time, not reset each session
++**Registry** is the proven core. It maps 24 projects with roles, contracts,
++cluster membership, and dependencies. `lore registry context neo` assembles an
++onboarding bundle no agent could build from scratch.
++
++**Transfer** provides session continuity. `lore resume` at session start loads
++the previous session's state -- what was done, what's next, what's blocked.
++
++**Journal, patterns, inbox, intent, and graph** provide structured storage for
++decisions, lessons, observations, goals, and relationships. These components
++earn their keep at scale -- when the flat-file approach stops fitting in a
++prompt.
+ 
+ ## Components
+ 
+ | Component     | Purpose               | Key Question                           |
+ | ------------- | --------------------- | -------------------------------------- |
++| **registry/** | Project metadata      | "What exists and how does it connect?" |
++| **transfer/** | Session succession    | "What's next?"                         |
+ | **journal/**  | Decision capture      | "Why did we choose this?"              |
+-| **graph/**    | Knowledge connections | "What relates to this?"                |
+ | **patterns/** | Lessons learned       | "What did we learn?"                   |
+-| **transfer/** | Session succession    | "What's next?"                         |
+ | **inbox/**    | Raw observations      | "What did we notice?"                  |
+ | **intent/**   | Goals and missions    | "What are we trying to achieve?"       |
+-| **registry/** | Project metadata      | "What exists and how does it connect?" |
+-
+-## Quick Start
+-
+-```bash
+-# Record a decision with rationale
+-./lore.sh remember "Use JSONL for storage" \
+-  --rationale "Simpler than SQLite, append-only matches our use case"
+-
+-# Capture a pattern learned
+-./lore.sh learn "Safe bash arithmetic" \
+-  --context "Incrementing variables with set -e" \
+-  --solution "Use x=\$((x + 1)) instead of ((x++))"
+-
+-# Create handoff for next session
+-./lore.sh handoff "Auth implementation 80% complete, need OAuth integration"
+-
+-# Resume from previous session
+-./lore.sh resume
+-
+-# Search across all components
+-./lore.sh search "authentication"
+-```
++| **graph/**    | Knowledge connections | "What relates to this?"                |
+ 
+ ## Architecture
+ 
+@@ -86,32 +95,8 @@ lore/
+     └── data/                # sessions/
+ ```
+ 
+-## Integration with CLAUDE.md
+-
+-Lore can export to CLAUDE.md format:
+-
+-```bash
+-# Export recent decisions as markdown
+-./lore.sh journal export --format markdown --recent 10
+-
+-# Export learned patterns
+-./lore.sh patterns list --format markdown
+-
+-# Generate session retro
+-./lore.sh transfer handoff --format markdown
+-```
+-
+-## The Golden Rule
+-
+-**Patterns learned are never lost.**
+-
+-When compressing context or archiving old sessions, lessons learned are always preserved.
+-This is memory that compounds.
+-
+-## Origin
+-
+-Built during the first orchestration session (2026-02-09) after asking:
+-"If you could build anything, what would it be?"
++## Integration
+ 
+-The answer: memory that persists across sessions, learns from mistakes,
+-and enables true succession between agents.
++Other projects integrate via `lib/lore-client-base.sh` -- fail-silent wrappers
++that record decisions, patterns, and observations without blocking if lore is
++unavailable. See `LORE_CONTRACT.md` for the full write/read interface.
+diff --git a/SYSTEM.md b/SYSTEM.md
+index 20805c2..067b6b8 100644
+--- a/SYSTEM.md
++++ b/SYSTEM.md
+@@ -34,8 +34,9 @@ opt-in via CLI or client library. Any project that calls `lore remember` or
+ 2. lore goal list       See active goals
+ 3. Work happens         Agents read patterns, make decisions
+ 4. lore remember        Capture decisions with rationale
+-5. lore learn           Capture patterns from experience
+-6. lore handoff         Snapshot state for next session
++5. lore fail            Log failures with error type and context
++6. lore learn           Capture patterns from experience
++7. lore handoff         Snapshot state for next session
+ ```
+ 
+ ### The Compounding Loop
+@@ -63,7 +64,7 @@ Each component answers one question. Together they form institutional memory.
+ | `transfer/` | What's next?              | JSON   | Session handoff              |
+ | `inbox/`    | What did we notice?       | JSONL  | Observations from any source |
+ | `intent/`   | What are we trying to do? | YAML   | Goals, mission decomp        |
+-| `failures/` | What went wrong?          | JSONL  | Failure reporters            |
++| `failures/` | What went wrong?          | JSONL  | Any project via CLI          |
+ | `registry/` | What exists?              | YAML   | Project metadata             |
+ 
+ ### Storage Conventions
+@@ -90,15 +91,18 @@ goals, missions, metadata).
+ 
+ Lore exposes one contract: `LORE_CONTRACT.md`.
+ 
+-| Interface | Example                             | Effect                     |
+-| --------- | ----------------------------------- | -------------------------- |
+-| Write     | `lore remember "X" --rationale "Y"` | Appends to journal         |
+-| Write     | `lore learn "X" --context "Y"`      | Appends to patterns        |
+-| Write     | `lore observe "X"`                  | Appends to inbox           |
+-| Write     | `lore goal create "X"`              | Creates goal YAML          |
+-| Read      | `lore search "X"`                   | Searches journal + graph   |
+-| Read      | `lore resume`                       | Loads last session context |
+-| Read      | `lore registry context <project>`   | Assembles project context  |
++| Interface | Example                             | Effect                             |
++| --------- | ----------------------------------- | ---------------------------------- |
++| Write     | `lore remember "X" --rationale "Y"` | Appends to journal                 |
++| Write     | `lore learn "X" --context "Y"`      | Appends to patterns                |
++| Write     | `lore observe "X"`                  | Appends to inbox                   |
++| Write     | `lore fail NonZeroExit "msg"`       | Appends to failures                |
++| Write     | `lore goal create "X"`              | Creates goal YAML                  |
++| Read      | `lore search "X"`                   | Searches all components            |
++| Read      | `lore resume`                       | Loads last session context         |
++| Read      | `lore failures --type X`            | Queries failure reports            |
++| Read      | `lore triggers`                     | Recurring failures (Rule of Three) |
++| Read      | `lore registry context <project>`   | Assembles project context          |
+ 
+ Tags always include the source project name. Decisions from a team orchestrator
+ include its project tag. Governance decisions include theirs. This makes
+diff --git a/lore.sh b/lore.sh
+index a1e6b95..2ec71f5 100755
+--- a/lore.sh
++++ b/lore.sh
+@@ -42,6 +42,9 @@ show_help() {
+     echo "  lore status              Show current session state"
+     echo "  lore observe <text>     Capture a raw observation to inbox"
+     echo "  lore inbox [--status S] List inbox observations"
++    echo "  lore fail <type> <msg>  Log a failure report"
++    echo "  lore failures [opts]    List failures (--type, --mission)"
++    echo "  lore triggers           Show recurring failure types (Rule of Three)"
+     echo "  lore ingest <proj> <type> <file>  Bulk import from external formats"
+     echo ""
+     echo "Intent (Goals & Missions):"
+@@ -98,6 +101,17 @@ cmd_search() {
+     "$LORE_DIR/patterns/patterns.sh" list 2>/dev/null | grep -i "$query" || echo "  (no results)"
+     echo ""
+ 
++    echo -e "${CYAN}Failures:${NC}"
++    local failures_file="$LORE_DIR/failures/data/failures.jsonl"
++    if [[ -f "$failures_file" ]]; then
++        grep -i "$query" "$failures_file" 2>/dev/null \
++            | jq -r '"  \(.id) [\(.error_type)] \(.error_message[0:80])"' 2>/dev/null \
++            || echo "  (no results)"
++    else
++        echo "  (no results)"
++    fi
++    echo ""
++
+     echo -e "${CYAN}Inbox:${NC}"
+     local inbox_file="$LORE_DIR/inbox/data/observations.jsonl"
+     if [[ -f "$inbox_file" ]]; then
+@@ -176,6 +190,129 @@ cmd_context() {
+     fi
+ }
+ 
++cmd_fail() {
++    source "$LORE_DIR/failures/lib/failures.sh"
++
++    local error_type=""
++    local message=""
++    local tool=""
++    local mission=""
++    local step=""
++
++    while [[ $# -gt 0 ]]; do
++        case "$1" in
++            --tool|-t)
++                tool="$2"
++                shift 2
++                ;;
++            --mission|-m)
++                mission="$2"
++                shift 2
++                ;;
++            --step|-s)
++                step="$2"
++                shift 2
++                ;;
++            -*)
++                echo -e "${RED}Unknown option: $1${NC}" >&2
++                return 1
++                ;;
++            *)
++                if [[ -z "$error_type" ]]; then
++                    error_type="$1"
++                elif [[ -z "$message" ]]; then
++                    message="$1"
++                else
++                    message="$message $1"
++                fi
++                shift
++                ;;
++        esac
++    done
++
++    if [[ -z "$error_type" || -z "$message" ]]; then
++        echo -e "${RED}Error: error_type and message required${NC}" >&2
++        echo "Usage: lore fail <error_type> <message> [--tool T] [--mission M] [--step S]" >&2
++        echo "Types: UserDeny HardDeny NonZeroExit Timeout ToolError LogicError" >&2
++        return 1
++    fi
++
++    local id
++    id=$(failures_append "$error_type" "$message" "$tool" "$mission" "$step")
++
++    echo -e "${GREEN}Logged:${NC} ${BOLD}$id${NC}"
++    echo -e "  ${CYAN}Type:${NC} $error_type"
++    echo -e "  ${CYAN}Message:${NC} $message"
++    [[ -n "$tool" ]] && echo -e "  ${CYAN}Tool:${NC} $tool"
++    [[ -n "$mission" ]] && echo -e "  ${CYAN}Mission:${NC} $mission"
++}
++
++cmd_failures() {
++    source "$LORE_DIR/failures/lib/failures.sh"
++
++    local filter_type=""
++    local filter_mission=""
++
++    while [[ $# -gt 0 ]]; do
++        case "$1" in
++            --type)
++                filter_type="$2"
++                shift 2
++                ;;
++            --mission)
++                filter_mission="$2"
++                shift 2
++                ;;
++            -*)
++                echo -e "${RED}Unknown option: $1${NC}" >&2
++                return 1
++                ;;
++            *)
++                echo -e "${RED}Unknown argument: $1${NC}" >&2
++                return 1
++                ;;
++        esac
++    done
++
++    local results
++    results=$(failures_list "$filter_type" "$filter_mission")
++
++    local count
++    count=$(echo "$results" | jq 'length')
++
++    if [[ "$count" -eq 0 ]]; then
++        echo -e "${YELLOW}No failures found${NC}"
++        return 0
++    fi
++
++    echo -e "${GREEN}Failures ($count):${NC}"
++    echo
++
++    echo "$results" | jq -r '.[] | "  \(.id) [\(.error_type)] \(.timestamp[0:16])\n    \(.error_message[0:70])\(.error_message | if length > 70 then "..." else "" end)\n"'
++}
++
++cmd_triggers() {
++    source "$LORE_DIR/failures/lib/failures.sh"
++
++    local threshold="${1:-3}"
++
++    local results
++    results=$(failures_triggers "$threshold")
++
++    local count
++    count=$(echo "$results" | jq 'length')
++
++    if [[ "$count" -eq 0 ]]; then
++        echo -e "${YELLOW}No recurring failure types (threshold: ${threshold})${NC}"
++        return 0
++    fi
++
++    echo -e "${GREEN}Recurring Failures (>= ${threshold} occurrences):${NC}"
++    echo
++
++    echo "$results" | jq -r '.[] | "  \(.error_type): \(.count) occurrences (latest: \(.latest[0:16]))\n    Sample: \(.sample_message[0:70])\n"'
++}
++
+ cmd_observe() {
+     source "$LORE_DIR/inbox/lib/inbox.sh"
+ 
+@@ -278,6 +415,9 @@ main() {
+         status)     shift; cmd_status "$@" ;;
+         observe)    shift; cmd_observe "$@" ;;
+         inbox)      shift; cmd_inbox "$@" ;;
++        fail)       shift; cmd_fail "$@" ;;
++        failures)   shift; cmd_failures "$@" ;;
++        triggers)   shift; cmd_triggers "$@" ;;
+ 
+         # Ingest command
+         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
+- Current branch: main
+- Recent commits: 5113f24 chore: Ingest council ADRs (Config, Ecosystem) Entire-Checkpoint: 4ed8269af54d
+7633382 docs: Add status annotations to plan files and update paths Entire-Checkpoint: 4ed8269af54d
+281c7c4 feat: Extend search, client library, and README for all 7 components
+1435811 docs: Remove consumer project names from Lore docs
+895cf07 refactor: Rename lineage→lore in registry data and mani.yaml Entire-Checkpoint: 4ed8269af54d
+a5a7344 refactor: Consolidate Lineage + Oracle + Lore into unified Lore
+e3ec7c7 docs: Mark inbox plan complete, capture decomposition pattern
+3e1be79 chore: Ingest council ADRs and graph timestamp updates
+bc38c42 feat: Add inbox staging for raw observations
+bb8afeb chore: ingest new decisions, patterns, and graph timestamp updates
+
+## Your task
+
+Based on the above changes, create a single git commit.
+
+You have the capability to call multiple tools in a single response. Stage and create the commit using a single message. Do not use any other tools or do anything else. Do not send any other text or messages besides these tool calls.
+
+---
+
+compare lore with https://github.com/Pilan-AI/mnemo
+
+---
+
+could mnemo integrate w/ lore?
+
+---
+
+Analyze this project and suggest what to work on next.
+
+1. Review the current structure (README.md, directories, files)
+2. Identify gaps or opportunities in these categories:
+   - **Content** — Missing topics, incomplete guides
+   - **Tooling** — CI/CD, automation, developer experience
+   - **Polish** — Cross-references, consistency, organization
+
+3. Present 2-3 concrete suggestions per category, briefly explained
+
+Keep suggestions actionable and relevant to the project's purpose.
+
+---
+
+use agent teams to handle all Content and Polish items
+
+---
+
+<teammate-message teammate_id="claude-md-agent" color="blue" summary="Task 1 done: CLAUDE.md updated">
+Task #1 complete. CLAUDE.md updated with all four changes:
+
+1. **Framing**: "Explicit context management for multi-agent systems" (matches README)
+2. **Bare `lore`**: All code examples use `lore` instead of `./lore.sh`
+3. **Failures added**: 8th component in the table ("What went wrong?") plus Failures entry in Data Formats
+4. **Component prose replaced**: Removed the 7-item bullet list, replaced with the table and a one-line reference to SYSTEM.md for full architecture details
+5. **Integration section**: Updated to match README's phrasing about `lib/lore-client-base.sh`
+
+Prettier ran automatically via hook.
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="claude-md-agent" color="blue">
+{"type":"idle_notification","from":"claude-md-agent","timestamp":"2026-02-15T17:39:38.850Z","idleReason":"available"}
+</teammate-message>
+
+<teammate-message teammate_id="uncommit-checker" color="orange" summary="Git status: lore trivial, praxis 4 dirty, council 17 dirty">
+Task #5 complete. Here are the findings:
+
+## 1. ~/dev/lore/ — DIRTY (minor)
+- **Branch**: main, **8 commits ahead of origin** (unpushed)
+- **Modified**: `lore.sh` — trivial whitespace change only (trailing space removed on line 440)
+- **Staged**: nothing
+- **Note**: CLAUDE.md was also modified by another teammate during this session (task #1)
+
+## 2. ~/dev/mani.yaml — CLEAN
+- **Symlink**: points to `/Users/tslater/dev/lore/mani.yaml`
+- **Status**: committed and tracked in the lore repo, clean
+
+## 3. ~/dev/praxis/ — DIRTY (significant)
+- **4 modified files** (unstaged):
+  - `CLAUDE.md` (+10/-3)
+  - `README.md` (+6/-3)
+  - `src/praxis/config.py` (+6/-3)
+  - `src/praxis/failure.py` (+6/-3)
+- **1 untracked directory**: `plans/`
+- **Staged**: nothing
+- These look like edits from the earlier agent session that were never committed.
+
+## 4. ~/dev/council/ — DIRTY (significant)
+- **Branch**: main, **3 commits ahead of origin** (unpushed)
+- **15 modified files** (unstaged):
+  - `.lycheeignore`, `CLAUDE.md`, `README.md`
+  - `initiatives/agent-optimization.md`, `initiatives/feedback-loop.md`, `initiatives/orchestration.md`
+  - `mainstay/docs.md`, `mainstay/ecosystem.md`, `mainstay/lifecycle.md`, `mainstay/yeoman.md`
+  - `mentor/sessions.md`, `mentor/transfer.md`
+  - `plans/plan-architecture-view.md`, `plans/plan-lifecycle-pattern.md`, `plans/whats-next.md`
+- **2 untracked files**: `initiatives/praxis-analysis.md`, `marshal/security-architecture.md`
+- **Staged**: nothing
+
+## Summary
+| Repo | Status | Unpushed | Modified | Untracked |
+|------|--------|----------|----------|-----------|
+| lore | dirty (trivial) | 8 commits | 1 (whitespace) | 0 |
+| mani.yaml | clean (symlink) | — | 0 | 0 |
+| praxis | dirty | 0 | 4 | 1 dir |
+| council | dirty | 3 commits | 15 | 2 |
+
+**Praxis and council have substantial uncommitted work from earlier sessions.** The lore whitespace diff in `lore.sh` is trivial.
+</teammate-message>
+
+<teammate-message teammate_id="uncommit-checker" color="orange">
+{"type":"idle_notification","from":"uncommit-checker","timestamp":"2026-02-15T17:39:51.374Z","idleReason":"available"}
+</teammate-message>
+
+<teammate-message teammate_id="readme-agent" color="purple" summary="Task #4 done: 4 component READMEs written">
+Task #4 complete. Created READMEs for all four components:
+
+- `inbox/README.md` -- staging area for raw observations, JSONL format, 6 library functions
+- `intent/README.md` -- goals and missions, YAML file-per-entity, 5 library functions
+- `registry/README.md` -- project metadata and context assembly, 4 data files, 7 library functions
+- `failures/README.md` -- structured failure reports, JSONL format, Rule of Three triggers, 5 library functions
+
+Each follows the same structure: Overview, Quick Start, CLI Commands table, Data Format with schema example, Key Functions table, Dependencies. Concise and consistent with the existing journal/graph READMEs but shorter (no installation or tips sections -- those felt like padding for library components).
+
+Prettier already reformatted all four files.
+</teammate-message>
+
+<teammate-message teammate_id="readme-agent" color="purple">
+{"type":"idle_notification","from":"readme-agent","timestamp":"2026-02-15T17:40:39.668Z","idleReason":"available"}
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="hook-planner" color="green" summary="Task #2 done: auto-context hook plan written">
+Task #2 complete. Wrote `plans/plan-auto-context-hook.md` (Status: Proposed).
+
+The plan covers:
+- **Hook mechanism**: UserPromptSubmit command hook with 5s timeout, fail-silent design
+- **What to inject**: 6 sources ranked by priority (patterns > journal > failures > transfer > registry > inbox), with graph and intent excluded by default
+- **Keyword extraction**: Fast bash-based approach -- project detection from cwd, stopword removal, synonym expansion via config YAML. No LLM call (adds latency for marginal gain)
+- **Relevance ranking**: `score = source_weight * recency_factor * match_strength` with configurable weights
+- **Token budgeting**: 2,000 token default (configurable), 4-chars-per-token heuristic, progressive disclosure with IDs for drill-down
+- **Integration point**: Settings hook initially, migrate to plugin once stable
+- **Phased delivery**: 4 phases from project-only context to metrics tracking
+- **Prior art**: References claude-mem's approach (recency-based SQLite + additionalContext injection) and explains how lore's structured data enables type-aware ranking
+
+Open questions flagged: SessionStart complementary hook, caching across prompts, plugin vs settings, overlap with manual `lore resume`.
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="hook-planner" color="green">
+{"type":"idle_notification","from":"hook-planner","timestamp":"2026-02-15T17:42:54.506Z","idleReason":"available"}
+</teammate-message>
+
+---
+
+<teammate-message teammate_id="validate-agent" color="yellow" summary="Task 3 done: validate.sh with 8 checks, wired into CLI">
+Task #3 complete. Created `lib/validate.sh` with 8 comprehensive checks:
+
+1. metadata.yaml projects exist in mani.yaml
+2. clusters.yaml components exist in mani.yaml
+3. relationships.yaml targets exist in mani.yaml
+4. contracts.yaml paths exist on disk
+5. Stale names (monarch, lineage, lens) in active files
+6. Cluster tag consistency (tag ↔ clusters.yaml)
+7. Archived projects have no cluster tags
+8. Required tags (type:, status:) present
+
+Wired into `lore.sh` as `lore validate` and added `lore_validate` to `lib/lore-client-base.sh`.
+
+The validator found 2 real issues: `cli/bach/TASK_CONTRACT.md` and `lore/contracts/ENTIRE_BRIDGE_CONTRACT.md` are referenced in contracts.yaml but missing from disk. The old `lore registry validate` (3 checks only) still works alongside.
+
+Key `set -e` lesson: `[[ cond ]] && cmd` returns 1 when false and kills the script. Changed to `if [[ cond ]]; then cmd; fi` throughout.
+</teammate-message>
+
+---
+
+## Context
+
+- Current git status: On branch main
+Your branch is ahead of 'origin/main' by 8 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   CLAUDE.md
+	modified:   lib/lore-client-base.sh
+	modified:   lore.sh
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	failures/README.md
+	inbox/README.md
+	intent/README.md
+	lib/validate.sh
+	plans/plan-auto-context-hook.md
+	registry/README.md
+
+no changes added to commit (use "git add" and/or "git commit -a")
+- Current git diff (staged and unstaged changes): diff --git a/CLAUDE.md b/CLAUDE.md
+index 5b68c86..8bd387e 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -1,53 +1,40 @@
+ # Lore
+ 
+-Memory that compounds. Persistent, queryable knowledge across agent sessions.
++Explicit context management for multi-agent systems.
+ 
+ ## Quick Start
+ 
+ ```bash
+ # Record a decision
+-./lore.sh remember "Use JSONL for storage" --rationale "Append-only, simple"
++lore remember "Use JSONL for storage" --rationale "Append-only, simple"
+ 
+ # Capture a pattern
+-./lore.sh learn "Safe bash arithmetic" --context "set -e scripts" --solution "Use x=\$((x+1))"
++lore learn "Safe bash arithmetic" --context "set -e scripts" --solution "Use x=\$((x+1))"
+ 
+ # End a session (capture context for next time)
+-./lore.sh handoff "Finished X, next steps: Y, blocked on Z"
++lore handoff "Finished X, next steps: Y, blocked on Z"
+ 
+ # Resume previous session
+-./lore.sh resume
++lore resume
+ 
+ # Search everything
+-./lore.sh search "authentication"
++lore search "authentication"
+ ```
+ 
+-## Project Structure
+-
+-- `lore.sh`: Main entry point, dispatches to components
+-- `journal/`: Decision capture with rationale and outcome tracking
+-  - `journal.sh`, `lib/`, `data/decisions.jsonl`
+-- `graph/`: Knowledge graph connecting concepts, files, decisions, lessons
+-  - `graph.sh`, `lib/`, `data/graph.json`
+-- `patterns/`: Scored patterns and anti-patterns
+-  - `patterns.sh`, `lib/`, `data/patterns.yaml`
+-- `transfer/`: Session snapshots and handoff
+-  - `transfer.sh`, `lib/`, `data/sessions/`
+-- `intent/`: Goals and missions
+-  - `lib/intent.sh`, `data/goals/`, `data/missions/`
+-- `registry/`: Project metadata and context
+-  - `lib/registry.sh`, `data/metadata.yaml`, `data/clusters.yaml`, etc.
+-
+-## Key Concepts
+-
+-**Seven components, one CLI.** Each component handles a different aspect of memory:
+-
+-- Journal answers "why did we choose this?"
+-- Graph answers "what relates to this?"
+-- Patterns answers "what did we learn?"
+-- Transfer answers "what's next?"
+-- Inbox answers "what did we notice?"
+-- Intent answers "what are we trying to achieve?" (goals and missions)
+-- Registry answers "what exists and how does it connect?" (project metadata)
++## Components
++
++Eight components, one CLI. See `SYSTEM.md` for architecture, data flow, and the component table.
++
++| Component     | Key Question                     |
++| ------------- | -------------------------------- |
++| **registry/** | "What exists and how connected?" |
++| **transfer/** | "What's next?"                   |
++| **journal/**  | "Why did we choose this?"        |
++| **patterns/** | "What did we learn?"             |
++| **failures/** | "What went wrong?"               |
++| **inbox/**    | "What did we notice?"            |
++| **intent/**   | "What are we trying to achieve?" |
++| **graph/**    | "What relates to this?"          |
+ 
+ **Append-only.** Decisions and patterns are never deleted, only marked revised or abandoned.
+ 
+@@ -65,6 +52,7 @@ See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags
+ - Sessions: JSON (one file per session in `transfer/data/sessions/`)
+ - Goals: YAML (one file per goal in `intent/data/goals/`)
+ - Missions: YAML (one file per mission in `intent/data/missions/`)
++- Failures: JSONL (append-only in `failures/data/`)
+ - Registry: YAML (`registry/data/metadata.yaml`, `clusters.yaml`, `relationships.yaml`, `contracts.yaml`)
+ 
+ ## Coding Conventions
+@@ -76,4 +64,4 @@ See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags
+ 
+ ## Integration
+ 
+-Lore is the shared memory backbone. Projects write decisions, patterns, and observations; they read context, patterns, and goals. Contract: `LORE_CONTRACT.md`
++Other projects integrate via `lib/lore-client-base.sh` -- fail-silent wrappers that record decisions, patterns, and observations without blocking if lore is unavailable. See `LORE_CONTRACT.md` for the full write/read interface.
+diff --git a/lib/lore-client-base.sh b/lib/lore-client-base.sh
+index f48b6f4..6b5a30f 100755
+--- a/lib/lore-client-base.sh
++++ b/lib/lore-client-base.sh
+@@ -93,3 +93,10 @@ lore_registry_show() {
+     check_lore || return 0
+     "$LORE_DIR/lore.sh" registry show "$@" 2>/dev/null || true
+ }
++
++# Run comprehensive registry validation
++# Returns 0 even on failure (fail-silent for integration)
++lore_validate() {
++    check_lore || return 0
++    "$LORE_DIR/lore.sh" validate "$@" 2>/dev/null || true
++}
+diff --git a/lore.sh b/lore.sh
+index 2ec71f5..2a2733a 100755
+--- a/lore.sh
++++ b/lore.sh
+@@ -45,6 +45,7 @@ show_help() {
+     echo "  lore fail <type> <msg>  Log a failure report"
+     echo "  lore failures [opts]    List failures (--type, --mission)"
+     echo "  lore triggers           Show recurring failure types (Rule of Three)"
++    echo "  lore validate            Run comprehensive registry checks"
+     echo "  lore ingest <proj> <type> <file>  Bulk import from external formats"
+     echo ""
+     echo "Intent (Goals & Missions):"
+@@ -419,7 +420,8 @@ main() {
+         failures)   shift; cmd_failures "$@" ;;
+         triggers)   shift; cmd_triggers "$@" ;;
+ 
+-        # Ingest command
++        # Top-level commands
++        validate)   shift; source "$LORE_DIR/lib/validate.sh"; cmd_validate "$@" ;;
+         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
+ 
+         # Component dispatch
+@@ -437,7 +439,7 @@ main() {
+ 
+         # Help
+         -h|--help|help) show_help ;;
+-        
++
+         *)
+             echo -e "${RED}Unknown command: $1${NC}" >&2
+             show_help >&2
+- Current branch: main
+- Recent commits: cceb085 chore: Gitignore session-example.json — perpetually dirty Entire-Checkpoint: 4ed8269af54d
+7fc6b43 feat: Add failure tracking CLI, rewrite README for clarity
+5113f24 chore: Ingest council ADRs (Config, Ecosystem) Entire-Checkpoint: 4ed8269af54d
+7633382 docs: Add status annotations to plan files and update paths Entire-Checkpoint: 4ed8269af54d
+281c7c4 feat: Extend search, client library, and README for all 7 components
+1435811 docs: Remove consumer project names from Lore docs
+895cf07 refactor: Rename lineage→lore in registry data and mani.yaml Entire-Checkpoint: 4ed8269af54d
+a5a7344 refactor: Consolidate Lineage + Oracle + Lore into unified Lore
+e3ec7c7 docs: Mark inbox plan complete, capture decomposition pattern
+3e1be79 chore: Ingest council ADRs and graph timestamp updates
+
+## Your task
+
+Based on the above changes, create a single git commit.
+
+You have the capability to call multiple tools in a single response. Stage and create the commit using a single message. Do not use any other tools or do anything else. Do not send any other text or messages besides these tool calls.
+
+---
+
+should lore be rewritten in golang, python, or some other language?
+
+---
+
+great! let's write a plan for the auto-context hook
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me go through the conversation chronologically:
+
+1. **Session start/continuation**: The conversation was continued from a previous session. The summary described extensive prior work including DEV_PATH replacement, agent team work, the Grand Simplification (collapsing projects), updating praxis and mani.yaml.
+
+2. **First /whats-next**: I analyzed the new unified lore project at ~/dev/lore/. Read CLAUDE.md, README.md, LORE_CONTRACT.md, explored directory structure, checked component files. Produced a 9-item analysis across Content/Tooling/Polish categories.
+
+3. **"use agent teams to handle all items"**: Created team "lore-polish" with 5 tasks and 5 agents:
+   - readme-agent: Update README.md (7 components)
+   - contract-agent: Fix LORE_CONTRACT.md stale names
+   - tooling-agent: Extend client lib + search
+   - registry-agent: Clean registry YAML stale refs
+   - plans-agent: Triage plans + check oracle
+   
+   All completed successfully. Fixed plan-praxis-inbox.md deletion (agent deleted instead of annotating). Committed changes.
+
+4. **"what value add does lore provide"**: Honest assessment - registry is proven value, transfer is useful, other 5 components are theoretical/unused. Overlap with MEMORY.md.
+
+5. **"feels like a more explicit management of agentic context, is that fair?"**: Confirmed - MEMORY.md is implicit, lore is explicit. Matters for multi-agent, large context, temporal queries.
+
+6. **"is this made clear in the readme?"**: No - README led with philosophy, not value proposition.
+
+7. **Rewrote README opening**: Led with "Explicit context management for multi-agent systems", moved philosophy down.
+
+8. **User feedback**: "the quickstart should install include installing lore to path and usage without lore.sh"
+   - Added PATH export instruction
+   - Created `lore` symlink to `lore.sh`
+   - Updated all examples to use bare `lore`
+
+9. **User feedback on IA**: "what lore provides and components could go further down in readme use /ia best practices"
+   - Loaded /ia skill
+   - Restructured README: Setup → Usage → Why Lore → Components → Architecture → Integration
+   - Reordered components table by proven value (registry first, graph last)
+
+10. **User correction**: "(written by praxis) wrong - lore can write fail itself"
+    - Fixed failures/ comment in architecture tree
+
+11. **Committed**: feat: Add failure tracking CLI, rewrite README for clarity
+
+12. **"compare lore with mnemo"**: Fetched GitHub repo info. Detailed comparison table. mnemo = retrieval (passive indexing, BM25 search). lore = representation (structured writes, typed data, registry). Complementary tools.
+
+13. **"could mnemo integrate w/ lore?"**: Two integration points: mnemo indexes lore's data files, lore steals mnemo's auto-context injection hook.
+
+14. **Second /whats-next**: 9 items across Content/Tooling/Polish.
+
+15. **"use agent teams to handle all Content and Polish items"**: Created team "lore-content-polish" with 5 tasks:
+    - claude-md-agent: Update CLAUDE.md framing (task 1)
+    - hook-planner: Write auto-context hook plan (task 2)
+    - validate-agent: Port lore validate (task 3)
+    - readme-agent: Write 4 component READMEs (task 4)
+    - uncommit-checker: Check uncommitted work (task 5)
+    
+    All completed. Findings:
+    - Validator found 2 real issues: missing contract files on disk
+    - Uncommitted work: praxis (4 files), council (15 files + 2 untracked)
+    - Committed: feat: Add lore validate, component READMEs, and auto-context hook plan
+
+16. **"should lore be rewritten in golang, python, or some other language?"**: No. The bottleneck isn't the language, it's that 5 of 8 components have thin usage. Build the auto-context hook first (bash prototype), prove value, then rewrite search if grep isn't enough.
+
+17. **"great! let's write a plan for the auto-context hook"**: Read the existing plan from hook-planner agent. Read the hooks API docs from Claude Code. Was about to rewrite the plan when the summary was requested.
+
+Key errors/corrections:
+- plans-agent deleted plan-praxis-inbox.md instead of annotating → restored via `git restore`
+- User corrected "failures/ (written by praxis)" → lore can write failures itself
+- User said quickstart should include PATH setup and bare `lore` usage
+- User said What Lore Provides and Components should go further down per IA best practices
+- UserPromptSubmit hook input field is `prompt` not `user_prompt` (confirmed via docs)
+
+Current state:
+- ~/dev/lore/ is clean (all committed)
+- ~/dev/praxis/ has 4 uncommitted files
+- ~/dev/council/ has 15 uncommitted files + 2 untracked
+- The existing plan at plans/plan-auto-context-hook.md is overengineered (4 phases, 6 sources with weighted scoring, synonym expansion, metrics)
+- I had just fetched the Claude Code hooks API docs and read the existing plan, and was about to rewrite it
+
+Summary:
+1. Primary Request and Intent:
+   The session covered multiple phases of work on the unified lore project at ~/dev/lore/:
+   
+   - **First /whats-next analysis** and agent team execution of all 9 improvement items (README, LORE_CONTRACT, client lib, search, registry YAMLs, plans triage)
+   - **Strategic discussion** about lore's value proposition -- user guided the framing from "memory that compounds" to "explicit context management for multi-agent systems"
+   - **README rewrite** following IA best practices: Setup → Usage → Why → Components → Architecture
+   - **Comparison with mnemo** (github.com/Pilan-AI/mnemo) and discussion of integration potential
+   - **Second /whats-next analysis** and agent team execution of Content + Polish items (CLAUDE.md, validate command, component READMEs, auto-context hook plan, uncommitted work check)
+   - **Language rewrite discussion** -- user asked if lore should be rewritten in Go/Python. Answer: no, prove the auto-context hook first, earn the rewrite.
+   - **Most recent request**: "great! let's write a plan for the auto-context hook" -- user wants to sharpen/rewrite the existing plan at `plans/plan-auto-context-hook.md`
+
+2. Key Technical Concepts:
+   - **Lore**: Unified data layer with 8 components (journal, graph, patterns, transfer, inbox, intent, failures, registry) -- explicit context management for multi-agent systems
+   - **MEMORY.md vs Lore**: MEMORY.md is implicit (loaded into prompt), lore is explicit (structured writes, typed queries, cross-project assembly)
+   - **mnemo**: Go-based tool that passively indexes conversations from 12 AI coding tools into SQLite with BM25/FTS5 search. Complementary to lore (retrieval vs representation)
+   - **Claude Code UserPromptSubmit hook**: Receives JSON on stdin with `prompt`, `cwd`, `session_id`, `transcript_path` fields. Returns `hookSpecificOutput.additionalContext` for silent context injection
+   - **SessionStart hook**: Also supports `additionalContext` injection. Has `CLAUDE_ENV_FILE` for persisting env vars
+   - **Auto-context injection**: Pattern where a hook extracts keywords from the user prompt, queries lore components, and injects relevant context (~200-500 tokens) before Claude processes the prompt
+   - **mani.yaml**: Project registry at ~/dev/mani.yaml (symlink → ~/dev/lore/mani.yaml), source of truth for project existence
+   - **Fail-silent integration**: All lore client functions use `check_lore || return 0` + `2>/dev/null || true`
+   - **IA best practices**: README as signpost (Setup → Usage → Why → Reference), not encyclopedia
+
+3. Files and Code Sections:
+
+   - **~/dev/lore/README.md** (rewritten multiple times this session)
+     - Key file: project's public face, rewritten to lead with value proposition
+     - Final structure: Setup (PATH export) → Usage (bare `lore` commands) → Why Lore → Components (ordered by proven value) → Architecture → Integration
+     - User correction: "(written by praxis) wrong - lore can write fail itself" fixed in architecture tree
+
+   - **~/dev/lore/lore** (new symlink)
+     - Created: `ln -s lore.sh lore` so PATH-based `lore` invocation works
+     - Verified: `PATH="...:$HOME/dev/lore:$PATH" lore --help` works
+
+   - **~/dev/lore/lore.sh** (modified by agents)
+     - Added `lore fail`, `lore failures`, `lore triggers` commands (failures CLI)
+     - Extended `cmd_search` to cover all 8 components (was 3)
+     - Added `lore validate` dispatch: `validate) shift; source "$LORE_DIR/lib/validate.sh"; cmd_validate "$@" ;;`
+     - Help text updated with failure and validate commands
+
+   - **~/dev/lore/CLAUDE.md** (updated by agent)
+     - Changed framing from "Memory that compounds" to "Explicit context management for multi-agent systems"
+     - All `./lore.sh` → bare `lore`
+     - Component prose list replaced with 8-row table referencing SYSTEM.md
+     - Added failures to Data Formats section
+
+   - **~/dev/lore/LORE_CONTRACT.md** (updated by agent)
+     - "Monarch" → "Cross-Project Patterns", "Telos" → "Goal Outcomes (intent)"
+     - Added failures row to components table
+     - All stale Monarch/Telos/DEV_PATH references cleaned
+
+   - **~/dev/lore/lib/lore-client-base.sh** (extended)
+     - Added `lore_observe()`, `lore_create_goal()`, `lore_registry_show()`, `lore_validate()` fail-silent wrappers
+     - Missing: `lore_fail()` wrapper (noted in second what's-next but not yet added)
+
+   - **~/dev/lore/lib/validate.sh** (new, created by agent)
+     - 8 comprehensive checks: metadata vs mani, clusters vs mani, relationships vs mani, contracts paths on disk, stale names (monarch/lineage/lens), cluster tag consistency, archived project tags, required tags
+     - Found 2 real issues: `cli/bach/TASK_CONTRACT.md` and `lore/contracts/ENTIRE_BRIDGE_CONTRACT.md` missing from disk
+
+   - **~/dev/lore/lib/ingest.sh** (cleaned)
+     - "Monarch" references on lines 4, 11 replaced with generic descriptions
+
+   - **~/dev/lore/failures/lib/failures.sh** (new, created by agent)
+     - Shell-native failure tracking: `failures_append`, `failures_list`, `failures_triggers`
+     - 177 lines, JSONL storage at failures/data/failures.jsonl
+
+   - **~/dev/lore/SYSTEM.md** (updated)
+     - Added `lore fail` to session lifecycle
+     - Updated failures/ writers column from "Failure reporters" to "Any project via CLI"
+     - Expanded contracts table with fail/failures/triggers read interfaces
+
+   - **Component READMEs** (4 new files by agent)
+     - `~/dev/lore/inbox/README.md`, `~/dev/lore/intent/README.md`, `~/dev/lore/registry/README.md`, `~/dev/lore/failures/README.md`
+     - Follow journal/graph README pattern: Overview, Quick Start, CLI Commands, Data Format, Key Functions
+
+   - **~/dev/lore/registry/data/*.yaml** (4 files cleaned by agent)
+     - metadata.yaml: Removed lineage/oracle entries, expanded lore entry
+     - clusters.yaml: Changed orchestration root to ~/dev/lore, removed oracle
+     - relationships.yaml: Removed oracle dependencies and integrations
+     - contracts.yaml: lineage → lore contract references
+
+   - **~/dev/lore/plans/*.md** (7 plans annotated by agent)
+     - 3 marked Complete (research-lineage, research-lore, research-council)
+     - 2 marked Superseded (plan-wire-resume, plan-wire-handoff)
+     - 2 marked Active (adr-review, api-architecture -- stale refs updated)
+
+   - **~/dev/lore/plans/plan-auto-context-hook.md** (written by hook-planner agent)
+     - The existing plan that needs rewriting -- overengineered with 4 phases, 6 weighted sources, synonym expansion, metrics
+     - Key issues: `user_prompt` field name is wrong (should be `prompt` per API docs), too many phases before proving value
+
+   - **Claude Code Hooks API** (fetched from https://code.claude.com/docs/en/hooks)
+     - UserPromptSubmit input: `{ session_id, transcript_path, cwd, permission_mode, hook_event_name, prompt }`
+     - UserPromptSubmit output: `{ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: "..." } }`
+     - Plain text stdout also works (shown as hook output in transcript)
+     - UserPromptSubmit does NOT support matchers (always fires)
+     - Exit 0 with no output = allow, no injection
+     - 5s timeout reasonable (default is 600s for command hooks)
+
+4. Errors and fixes:
+   - **plans-agent deleted plan-praxis-inbox.md** instead of annotating status: Restored via `git restore plans/plan-praxis-inbox.md`. The file already had "Status: Complete" in the committed version.
+   - **User correction on failures/ comment**: README architecture tree said "Failure tracking (written by praxis)" -- user said "wrong - lore can write fail itself." Fixed to just "Failure tracking".
+   - **lore symlink needed for PATH usage**: `lore.sh` won't resolve as `lore` on PATH. Created symlink `ln -s lore.sh lore`. Verified with `PATH=... lore --help`. Initial test failed due to stripped PATH missing bash -- fixed by including full PATH.
+   - **Existing plan has wrong field name**: Plan says `user_prompt` but API docs confirm the field is `prompt`. Needs fixing in rewrite.
+   - **Existing plan says matcher: "*"**: API docs say UserPromptSubmit does not support matchers. Needs fixing.
+
+5. Problem Solving:
+   - **Lore value proposition**: Identified that README led with aspirational philosophy instead of concrete value. Rewrote to lead with what lore actually provides (registry = proven, transfer = useful, rest = aspirational).
+   - **IA restructure**: Applied signpost pattern -- Setup and Usage first, explanation and reference later. Components reordered by proven value.
+   - **mnemo comparison**: Identified complementary relationship (retrieval vs representation) and the auto-context injection pattern as the key feature to steal.
+   - **Language rewrite question**: Argued against rewriting by identifying the real bottleneck (usage, not language). Proposed: prove the hook, then earn the rewrite.
+   - **Two agent teams** successfully coordinated with no file conflicts by assigning distinct file ownership per agent.
+
+6. All user messages:
+   - `/whats-next` (first analysis of new unified lore)
+   - "use agent teams to handle all items"
+   - "what value add does lore provide"
+   - "feels like a more explicit management of agentic context, is that fair?"
+   - "is this made clear in the readme?"
+   - "yes" (to rewriting README opening)
+   - "the quickstart should install include installing lore to path and usage without lore.sh"
+   - `/ia` (requesting IA skill for README restructuring)
+   - "(written by praxis) wrong - lore can write fail itself"
+   - `/commit-commands:commit` (first commit)
+   - "compare lore with https://github.com/Pilan-AI/mnemo"
+   - "could mnemo integrate w/ lore?"
+   - `/whats-next` (second analysis)
+   - "use agent teams to handle all Content and Polish items"
+   - `/commit-commands:commit` (second commit)
+   - "should lore be rewritten in golang, python, or some other language?"
+   - "great! let's write a plan for the auto-context hook"
+   - "'what lore provides' and 'components' could go further down in readme use /ia best practices"
+
+7. Pending Tasks:
+   - **Rewrite the auto-context hook plan** at ~/dev/lore/plans/plan-auto-context-hook.md -- the existing plan is overengineered, needs to be sharpened based on actual API docs
+   - **Uncommitted work in other repos**: praxis (4 files), council (15 files + 2 untracked) -- noted but not lore's responsibility
+   - **Missing `lore_fail` wrapper** in lib/lore-client-base.sh (noted in second what's-next Tooling #3)
+   - **Missing contract files on disk**: cli/bach/TASK_CONTRACT.md and lore/contracts/ENTIRE_BRIDGE_CONTRACT.md referenced in contracts.yaml but don't exist
+
+8. Current Work:
+   The user said "great! let's write a plan for the auto-context hook." I read the existing plan at `~/dev/lore/plans/plan-auto-context-hook.md` (284 lines, written by the hook-planner agent) and noted it was overengineered. I then fetched the Claude Code hooks API documentation from https://code.claude.com/docs/en/hooks to get the exact input/output schema. I confirmed:
+   - UserPromptSubmit input field is `prompt` (not `user_prompt` as in the existing plan)
+   - UserPromptSubmit does NOT support matchers
+   - Output uses `hookSpecificOutput.additionalContext`
+   - Plain text stdout also works for context injection
+   
+   I was about to rewrite the plan to be "sharp and buildable" when the summary was requested.
+
+9. Optional Next Step:
+   Rewrite `~/dev/lore/plans/plan-auto-context-hook.md` with a focused, buildable plan. The user said "great! let's write a plan for the auto-context hook." I had read the existing plan and the API docs, and noted the plan was "overengineered. Four phases, six sources with weighted scoring, synonym expansion, metrics tracking -- for a hook that needs to prove grep + project detection is worth anything." The rewrite should fix the wrong field names (`user_prompt` → `prompt`, remove matcher), simplify to a single deliverable phase (project detection + grep), and defer ranking/synonyms/metrics until the basic hook proves value.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/tslater/.claude/projects/-Users-tslater-dev-lore/08a76340-7adb-4b8e-abc6-81eb6964ed03.jsonl
+Please continue the conversation from where we left it off without asking the user any further questions. Continue with the last task that you were asked to work on.
+
+---
+
+use agent teams to execute the plan
