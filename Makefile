@@ -1,4 +1,4 @@
-.PHONY: install sync-entire sync-graph sync-all check-mcp build-mcp check test
+.PHONY: install sync-entire sync-graph sync-all check-mcp build-mcp run-mcp check test
 
 # Install lore CLI
 install:
@@ -27,6 +27,10 @@ check-mcp:
 # Build MCP server
 build-mcp:
 	cd mcp && npm run build
+
+# Run MCP server (stdio, for Claude Code plugin use)
+run-mcp: build-mcp
+	node mcp/build/index.js
 
 # Run all tests
 test:
