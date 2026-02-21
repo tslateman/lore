@@ -258,7 +258,33 @@ EOF
     fi
 fi
 
-# Step 4: Rebuild search index
+# Step 4: Symlink lore to PATH
+BIN_DIR="${HOME}/.local/bin"
+mkdir -p "$BIN_DIR"
+SYMLINK="${BIN_DIR}/lore"
+
+if [[ -L "$SYMLINK" || -f "$SYMLINK" ]]; then
+    existing="$(readlink -f "$SYMLINK" 2>/dev/null || echo "$SYMLINK")"
+    if [[ "$existing" == "${LORE_DIR}/lore.sh" ]]; then
+        log "Symlink already exists: ${SYMLINK} → lore.sh"
+    else
+        warn "Existing ${SYMLINK} points to ${existing}. Skipping."
+        warn "Remove it manually and re-run to create the symlink."
+    fi
+elif [[ "$DRY_RUN" == true ]]; then
+    dry "ln -sf ${LORE_DIR}/lore.sh ${SYMLINK}"
+else
+    ln -sf "${LORE_DIR}/lore.sh" "$SYMLINK"
+    log "Symlinked: ${SYMLINK} → lore.sh"
+fi
+
+# Check PATH
+if ! echo "$PATH" | tr ':' '\n' | grep -qx "$BIN_DIR"; then
+    warn "${BIN_DIR} is not in your PATH. Add it to ~/.zshrc:"
+    echo "  export PATH=\"\${HOME}/.local/bin:\${PATH}\""
+fi
+
+# Step 5: Rebuild search index
 echo ""
 if [[ "$DRY_RUN" == true ]]; then
     dry "LORE_DATA_DIR=${DATA_DIR} lore index build"
@@ -281,11 +307,15 @@ else
     fi
 fi
 
-# Step 5: Print shell config instructions
+# Step 6: Print shell config instructions
 echo ""
 echo -e "${BOLD}Almost done!${NC} Add this to your shell profile (~/.bashrc or ~/.zshrc):"
 echo ""
 echo "  export LORE_DATA_DIR=${DATA_DIR}"
+echo ""
+echo "Then verify:"
+echo ""
+echo "  lore --help"
 echo ""
 if [[ "$DRY_RUN" != true && "$SKIP_MIGRATE" != true ]]; then
     echo -e "${DIM}Repo data files were copied (not moved). After confirming everything"

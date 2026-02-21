@@ -5,7 +5,10 @@
 
 set -euo pipefail
 
-LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+_lore_source="${BASH_SOURCE[0]}"
+[[ -L "$_lore_source" ]] && _lore_source="$(readlink -f "$_lore_source")"
+LORE_DIR="${LORE_DIR:-$(cd "$(dirname "$_lore_source")" && pwd)}"
+unset _lore_source
 source "${LORE_DIR}/lib/paths.sh"
 
 # Colors

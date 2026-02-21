@@ -24,10 +24,10 @@ patterns, failures, and graph nodes to build a comprehensive context bundle.
 
    ```bash
    # Full-text search across all components
-   ~/dev/lore/lore.sh search "<topic>"
+   lore search "<topic>"
 
    # Project-specific context
-   ~/dev/lore/lore.sh context <project>
+   lore context <project>
    ```
 
 3. For deeper exploration, read the raw data:
@@ -39,7 +39,7 @@ patterns, failures, and graph nodes to build a comprehensive context bundle.
 4. Follow graph edges for related concepts:
 
    ```bash
-   ~/dev/lore/lore.sh related <node_id> --hops 2
+   lore related <node_id> --hops 2
    ```
 
 5. Synthesize a context bundle:

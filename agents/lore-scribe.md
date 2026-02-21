@@ -37,7 +37,7 @@ the Lore CLI.
 4. Check for duplicates by searching existing entries:
 
    ```bash
-   ~/dev/lore/lore.sh recall "<key terms>"
+   lore recall "<key terms>"
    ```
 
 5. If no duplicate exists, call the appropriate command:
@@ -45,7 +45,7 @@ the Lore CLI.
    **Decision:**
 
    ```bash
-   ~/dev/lore/lore.sh remember "<text>" \
+   lore remember "<text>" \
      --rationale "<why>" \
      --alternatives "<opts>" \
      --tags "<tags>" \
@@ -56,7 +56,7 @@ the Lore CLI.
    **Pattern:**
 
    ```bash
-   ~/dev/lore/lore.sh learn "<name>" \
+   lore learn "<name>" \
      --context "<when>" \
      --solution "<what>" \
      --problem "<why>" \
@@ -66,7 +66,7 @@ the Lore CLI.
    **Observation:**
 
    ```bash
-   ~/dev/lore/lore.sh capture "<what was noticed>" \
+   lore capture "<what was noticed>" \
      --tags "<project>,<topic>"
    ```
 
@@ -74,7 +74,7 @@ the Lore CLI.
 
 ## Rules
 
-- Always use the absolute path `~/dev/lore/lore.sh`
+- Always use `lore` (must be on PATH)
 - Do not use `--force` -- let Lore's duplicate detection work
 - If the search reveals an existing entry that covers this decision, report it
   instead of creating a duplicate
