@@ -1,4 +1,4 @@
-.PHONY: install sync-entire sync-graph sync-all check-mcp build-mcp run-mcp check test
+.PHONY: install sync-memory sync-entire sync-graph sync-all check-mcp build-mcp run-mcp check test
 
 # Install lore CLI
 install:
@@ -12,8 +12,12 @@ sync-entire:
 sync-graph:
 	@./graph/sync.sh
 
-# Sync all external sources
-sync-all: sync-entire sync-graph
+# Sync Lore shadows into ClaudeMemory
+sync-memory:
+	@./lib/bridge.sh $(ARGS)
+
+# Sync all sources
+sync-all: sync-entire sync-graph sync-memory
 
 # Check MCP server build freshness
 check-mcp:

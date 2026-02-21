@@ -179,6 +179,10 @@ MAINTENANCE
     --write               Actually create summaries (default: dry-run)
     --promote             Also create concepts from clusters
     --threshold N         Jaccard similarity % (default: 50)
+  sync                    Project Lore shadows into ClaudeMemory
+    --since T             Time window (2h, 8h, 7d, 2024-01-01; default: 8h)
+    --type T              Limit to: decisions, patterns, failures, sessions
+    --dry-run             Print what would be synced without writing
 
 JOURNAL
   journal add             Add structured journal entry (--type, --project, --title, --body)
@@ -2051,6 +2055,7 @@ main() {
         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
         index)      shift; bash "$LORE_DIR/lib/search-index.sh" "$@" ;;
         consolidate) shift; cmd_consolidate "$@" ;;
+        sync)       shift; source "$LORE_DIR/lib/bridge.sh"; sync_to_claude_memory "$@" ;;
 
         # Component dispatch
         journal)    shift
