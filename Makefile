@@ -30,7 +30,7 @@ build-mcp:
 
 # Run MCP server (stdio, for Claude Code plugin use)
 run-mcp: build-mcp
-	node mcp/build/index.js
+	LORE_DIR=$(CURDIR) node mcp/build/index.js
 
 # Run all tests
 test:

@@ -17,15 +17,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { execSync } from "child_process";
-import { readFileSync } from "fs";
+import { readFileSync, realpathSync } from "fs";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 import { z } from "zod";
 import { parse as parseYaml } from "yaml";
 
-const LORE_DIR = process.env.LORE_DIR;
-if (!LORE_DIR) {
-  console.error("[lore-mcp] LORE_DIR environment variable is required");
-  process.exit(1);
-}
+const __filename = realpathSync(fileURLToPath(import.meta.url));
+const __dirname = dirname(__filename);
+
+// Derive LORE_DIR from own location (mcp/build/index.js → repo root), allow env override
+const LORE_DIR = process.env.LORE_DIR || resolve(__dirname, "../..");
+
 
 /**
  * Execute a lore command and return the output.
