@@ -49,6 +49,7 @@ test:
 	@bash tests/test-spec-layer.sh
 	@bash tests/test-curated-resume.sh
 	@bash tests/test-recall-router.sh
+	@bash tests/test-promote.sh
 
 # Check all build freshness
 check: check-mcp

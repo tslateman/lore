@@ -186,6 +186,59 @@ server.tool(
   }
 );
 
+// Tool: lore_promote
+// Promote high-value Engram memories to Lore
+server.tool(
+  "lore_promote",
+  "Promote high-value Engram memories to Lore. Queries Engram for memories with importance >= 4 or accessCount >= 3, presents candidates, and promotes approved ones to Lore as decisions, patterns, or observations. Use --auto for dry-run (no actual promotion).",
+  {
+    limit: z.number().optional().describe("Maximum candidates to review (default: 10)"),
+    auto: z.boolean().optional().describe("Auto-classify and skip prompt (dry-run mode)"),
+  },
+  async ({ limit, auto }) => {
+    const args = ["promote"];
+
+    if (limit) {
+      args.push("--limit", String(limit));
+    }
+
+    if (auto) {
+      args.push("--auto");
+    }
+
+    try {
+      const cmd = `${LORE_DIR}/lore.sh ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")}`;
+      console.error(`[lore-mcp] Running: ${cmd}`);
+
+      const output = execSync(cmd, {
+        encoding: "utf-8",
+        maxBuffer: 10 * 1024 * 1024,
+        env: { ...process.env, LORE_DIR, NO_COLOR: "1" },
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: stripAnsi(output),
+          },
+        ],
+      };
+    } catch (error: unknown) {
+      const execError = error as { stdout?: string; message: string };
+      if (execError.stdout) {
+        return {
+          content: [{ type: "text" as const, text: stripAnsi(execError.stdout) }],
+        };
+      }
+      return {
+        content: [{ type: "text" as const, text: `Promotion failed: ${execError.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
 // Tool: lore_context
 // Full project context: decisions, patterns, graph neighbors
 server.tool(

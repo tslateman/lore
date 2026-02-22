@@ -50,16 +50,24 @@ edits without formal revision.
 
 **Phase 2 (complete):** Query routing via `lib/recall-router.sh`.
 `lore recall --routed` classifies queries by keyword shape and routes to
-Lore-first, ClaudeMemory-first, or both. Shadow memories enriched with full
+Lore-first, Engram-first, or both. Shadow memories enriched with full
 Lore records (rationale, alternatives, tags). Dedup prevents duplicate display.
 Provenance markers `(lore)` / `(mem)` on all results. MCP tool `lore_recall`
 exposes routing to agents. `inject-context.sh` uses routed recall.
 
+**Phase 3 (complete):** Promotion pipeline via `lib/promote.sh`.
+`lore promote` queries Engram for high-value non-shadow memories (importance ≥ 4
+or accessCount ≥ 3), presents them for curation, and promotes approved
+candidates to Lore. Original Engram memories updated with `[lore:{id}]` prefix
+to become shadows. Classification (decision/pattern/observation) inferred from
+content. 15 integration tests. Phase 3c (reinforcement signal) deferred—requires
+cross-MCP communication.
+
 **Remaining:**
 
-- No reverse flow (ClaudeMemory → Lore promotion)
-- No graph edge projection into ClaudeMemory
-- No cross-system graph traversal
+- Phase 3c: Reinforcement signal (log when Lore shadows accessed via Engram)
+- Phase 4: Graph edge projection into Engram
+- Phase 4: Cross-system graph traversal
 
 ## Phase 1: Tighten the Bridge
 

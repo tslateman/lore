@@ -217,6 +217,9 @@ MAINTENANCE
     --since T             Time window (2h, 8h, 7d, 2024-01-01; default: 8h)
     --type T              Limit to: decisions, patterns, failures, sessions
     --dry-run             Print what would be synced without writing
+  promote                 Promote high-value Engram memories to Lore
+    --limit N             Max candidates to review (default: 10)
+    --auto                Auto-classify and skip prompt (dry-run)
 
 JOURNAL
   journal add             Add structured journal entry (--type, --project, --title, --body)
@@ -1837,6 +1840,156 @@ cmd_consolidate() {
     fi
 }
 
+cmd_promote() {
+    source "$LORE_DIR/lib/promote.sh"
+
+    local limit=10
+    local auto_mode=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --limit)
+                limit="$2"
+                shift 2
+                ;;
+            --auto)
+                auto_mode=true
+                shift
+                ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Usage: lore promote [--limit N] [--auto]" >&2
+                return 1
+                ;;
+            *)
+                echo -e "${RED}Unexpected argument: $1${NC}" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Check if Engram DB exists
+    if [[ ! -f "$CLAUDE_MEMORY_DB" ]]; then
+        echo -e "${YELLOW}Engram database not found: ${CLAUDE_MEMORY_DB}${NC}"
+        echo -e "${DIM}No memories to promote.${NC}"
+        return 0
+    fi
+
+    # Count candidates
+    local total_candidates
+    total_candidates=$(count_promotion_candidates)
+
+    if [[ "$total_candidates" -eq 0 ]]; then
+        echo -e "${GREEN}No promotion candidates found.${NC}"
+        echo -e "${DIM}(Looking for importance >= 4 or accessCount >= 3, non-shadow memories)${NC}"
+        return 0
+    fi
+
+    echo -e "${BOLD}Promotion Pipeline: Engram → Lore${NC}"
+    echo -e "${DIM}Found ${total_candidates} candidates (showing top ${limit})${NC}"
+    echo ""
+
+    # Query candidates
+    local candidates
+    candidates=$(query_promotion_candidates "$limit")
+    [[ -z "$candidates" || "$candidates" == "[]" ]] && return 0
+
+    local promoted_count=0
+    local skipped_count=0
+    local candidate_count
+    candidate_count=$(echo "$candidates" | jq 'length')
+
+    # Iterate through candidates with jq
+    for i in $(seq 0 $((candidate_count - 1))); do
+        local engram_id content topic source importance access_count project
+        engram_id=$(echo "$candidates" | jq -r ".[$i].id")
+        content=$(echo "$candidates" | jq -r ".[$i].content")
+        topic=$(echo "$candidates" | jq -r ".[$i].topic")
+        source=$(echo "$candidates" | jq -r ".[$i].source")
+        importance=$(echo "$candidates" | jq -r ".[$i].importance")
+        access_count=$(echo "$candidates" | jq -r ".[$i].accessCount")
+        project=$(echo "$candidates" | jq -r ".[$i].project")
+
+        local candidate_num=$((i + 1))
+
+        echo -e "${BOLD}Candidate ${candidate_num}/${candidate_count}${NC} ${DIM}(id: ${engram_id})${NC}"
+        echo -e "${CYAN}Content:${NC} $content"
+        echo -e "${DIM}Topic: ${topic}  Project: ${project}  Source: ${source}${NC}"
+        echo -e "${DIM}Importance: ${importance}  Access count: ${access_count}${NC}"
+
+        # Classify
+        local suggested_type
+        suggested_type=$(classify_candidate "$content")
+        echo -e "${DIM}Suggested type: ${suggested_type}${NC}"
+
+        if [[ "$auto_mode" == true ]]; then
+            echo -e "${YELLOW}[auto mode: skipping]${NC}"
+            echo ""
+            continue
+        fi
+
+        # Interactive prompt
+        echo -n "[a]pprove  [e]dit  [s]kip  [q]uit: "
+        read -r action
+
+        case "$action" in
+            a|A)
+                # Promote with suggested type
+                echo -e "${DIM}Promoting as ${suggested_type}...${NC}"
+                local lore_id
+                lore_id=$(promote_to_lore "$engram_id" "$suggested_type")
+
+                if [[ -n "$lore_id" ]]; then
+                    mark_as_promoted "$engram_id" "$lore_id"
+                    echo -e "${GREEN}✓ Promoted to Lore:${NC} ${BOLD}${lore_id}${NC}"
+                    promoted_count=$((promoted_count + 1))
+                else
+                    echo -e "${RED}✗ Promotion failed${NC}"
+                fi
+                ;;
+            e|E)
+                # Edit content before promoting
+                echo -n "Enter edited content (or Ctrl-C to cancel): "
+                read -r edited_content
+                [[ -z "$edited_content" ]] && { echo -e "${YELLOW}Skipped (empty content)${NC}"; skipped_count=$((skipped_count + 1)); echo ""; continue; }
+
+                echo -e "${DIM}Promoting as ${suggested_type}...${NC}"
+                local lore_id
+                lore_id=$(promote_to_lore "$engram_id" "$suggested_type" "$edited_content")
+
+                if [[ -n "$lore_id" ]]; then
+                    mark_as_promoted "$engram_id" "$lore_id"
+                    echo -e "${GREEN}✓ Promoted to Lore:${NC} ${BOLD}${lore_id}${NC}"
+                    promoted_count=$((promoted_count + 1))
+                else
+                    echo -e "${RED}✗ Promotion failed${NC}"
+                fi
+                ;;
+            s|S)
+                echo -e "${YELLOW}Skipped${NC}"
+                skipped_count=$((skipped_count + 1))
+                ;;
+            q|Q)
+                echo -e "${YELLOW}Quit${NC}"
+                break
+                ;;
+            *)
+                echo -e "${YELLOW}Unknown action, skipping${NC}"
+                skipped_count=$((skipped_count + 1))
+                ;;
+        esac
+
+        echo ""
+    done
+
+    # Print summary
+    echo -e "${BOLD}---${NC}"
+    echo -e "Promoted: ${BOLD}${promoted_count}${NC}"
+    echo -e "Skipped: ${skipped_count}"
+    [[ $((candidate_num)) -lt "$total_candidates" ]] && \
+        echo -e "${DIM}${total_candidates} candidates remain. Run again to review more.${NC}"
+}
+
 cmd_review() {
     source "$LORE_DIR/journal/lib/store.sh"
 
@@ -2119,6 +2272,7 @@ main() {
         index)      shift; bash "$LORE_DIR/lib/search-index.sh" "$@" ;;
         consolidate) shift; cmd_consolidate "$@" ;;
         sync)       shift; source "$LORE_DIR/lib/bridge.sh"; sync_to_claude_memory "$@" ;;
+        promote)    shift; cmd_promote "$@" ;;
 
         # Component dispatch
         journal)    shift
