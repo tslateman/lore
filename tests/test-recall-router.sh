@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Integration tests for the recall router (lib/recall-router.sh)
 #
-# Tests query classification, ClaudeMemory querying, shadow enrichment,
+# Tests query classification, Engram querying, shadow enrichment,
 # routed recall paths, dedup, provenance marking, and backward compat.
 # Uses a temporary directory so production data is untouched.
 
@@ -278,7 +278,7 @@ test_enrich_no_lore_prefix() {
 }
 
 test_lore_first_without_memory_db() {
-    echo "Test: lore-first path works without ClaudeMemory DB"
+    echo "Test: lore-first path works without Engram DB"
     setup
 
     rm -f "$TMPDIR/memory.sqlite"
@@ -298,7 +298,7 @@ test_lore_first_without_memory_db() {
 }
 
 test_memory_first_fallback_to_lore() {
-    echo "Test: memory-first falls back to Lore when ClaudeMemory DB missing"
+    echo "Test: memory-first falls back to Lore when Engram DB missing"
     setup
 
     rm -f "$TMPDIR/memory.sqlite"
@@ -327,7 +327,7 @@ test_both_mode_dedup() {
     local dec_id
     dec_id=$(jq -r '.id' "$TMPDIR/journal/data/decisions.jsonl" | tail -1)
 
-    # Seed the same as a shadow in ClaudeMemory
+    # Seed the same as a shadow in Engram
     sqlite3 "$TMPDIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, content) VALUES (3, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', '[lore:${dec_id}] Use JSONL for storage. Why: Append-only <!-- hash:abc123 -->');"
 

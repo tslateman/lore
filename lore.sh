@@ -172,7 +172,7 @@ CAPTURE
 RECALL
   recall <query>          Universal read — mode inferred from flags:
     (no flags)            → search across all components
-    --routed              → smart routing across Lore and ClaudeMemory
+    --routed              → smart routing across Lore and Engram
     --project <name>      → full project context assembly
     --patterns [context]  → suggest relevant patterns
     --failures [--type T] → list failures
@@ -305,7 +305,7 @@ RECALL COMMANDS
 Read from memory with a single verb. Flags select the read mode.
 
   lore recall "authentication"              → search (default)
-  lore recall --routed "authentication"    → smart Lore + ClaudeMemory routing
+  lore recall --routed "authentication"    → smart Lore + Engram routing
   lore recall --project council             → full project context
   lore recall --patterns "API design"       → relevant patterns
   lore recall --failures --type Timeout     → filtered failure list

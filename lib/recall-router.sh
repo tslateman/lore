@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# recall-router.sh - Tiered query routing across Lore and ClaudeMemory
+# recall-router.sh - Tiered query routing across Lore and Engram
 #
 # Routes queries to the right system based on query shape, enriches shadow
 # memories with full Lore records, and marks provenance on all results.
@@ -40,7 +40,7 @@ classify_query() {
 }
 
 # --- query_claude_memory ---
-# LIKE query against ClaudeMemory's memory.sqlite.
+# LIKE query against Engram's memory.sqlite.
 # Outputs tab-separated: id, snippet, topic, source, importance.
 # Returns 0 if DB missing or query fails.
 query_claude_memory() {
@@ -179,7 +179,7 @@ _emit_lore_line() {
     fi
 }
 
-# Format a ClaudeMemory result with provenance
+# Format a Engram result with provenance
 _emit_mem_line() {
     local id="$1" snippet="$2" topic="$3" source="$4" importance="$5" compact="$6"
 
@@ -236,7 +236,7 @@ _route_lore_first() {
 
     [[ "$lore_count" -ge "$limit" ]] && return 0
 
-    # Fallback to ClaudeMemory
+    # Fallback to Engram
     local mem_results
     mem_results=$(query_claude_memory "$query" "$limit")
     [[ -z "$mem_results" ]] && return 0

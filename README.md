@@ -173,7 +173,7 @@ Tools exposed: `lore_search`, `lore_context`, `lore_related`, `lore_remember`, `
 
 ## Engram Sync
 
-Lore can project its records into [Engram](https://github.com/jsflax/ClaudeMemory) as shadow memories. Engram is a persistent semantic memory system (MCP server + SQLite) that Claude Code queries automatically before each turn via an advise hook. Without the bridge, Lore data stays invisible to that hook.
+Lore can project its records into [Engram](https://github.com/jsflax/Engram) as shadow memories. Engram is a persistent semantic memory system (MCP server + SQLite) that Claude Code queries automatically before each turn via an advise hook. Without the bridge, Lore data stays invisible to that hook.
 
 ```bash
 # Preview what would sync

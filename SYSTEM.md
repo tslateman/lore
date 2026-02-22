@@ -214,7 +214,7 @@ the full context of previous work.
 
 ## Engram Bridge
 
-[Engram](https://github.com/jsflax/ClaudeMemory) provides working memory — semantic recall, graph traversal, and episodic grouping via an MCP server backed by SQLite. Claude Code's advise hook queries Engram before every turn.
+[Engram](https://github.com/jsflax/Engram) provides working memory — semantic recall, graph traversal, and episodic grouping via an MCP server backed by SQLite. Claude Code's advise hook queries Engram before every turn.
 
 Lore provides the written record — append-only decisions, curated patterns, failure analysis, session handoffs. Two databases, distinct roles.
 
