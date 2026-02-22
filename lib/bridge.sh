@@ -26,7 +26,7 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-CLAUDE_MEMORY_DB="${HOME}/.claude/memory.sqlite"
+CLAUDE_MEMORY_DB="${CLAUDE_MEMORY_DB:-${HOME}/.claude/memory.sqlite}"
 
 # Counters
 _SYNCED_DECISIONS=0
@@ -84,10 +84,10 @@ _is_after() {
 _capture_and_drop_triggers() {
     local db="$1"
 
-    # Query for triggers that reference sync_disabled() or embedding_vec
+    # Query for triggers that reference sync_disabled() or embedding_vec on Memory and Edge tables
     local trigger_data
     trigger_data=$(sqlite3 "$db" \
-        "SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name='Memory' AND (sql LIKE '%sync_disabled%' OR name LIKE '%embedding_vec%');" \
+        "SELECT name, sql FROM sqlite_master WHERE type='trigger' AND (tbl_name='Memory' OR tbl_name='Edge') AND (sql LIKE '%sync_disabled%' OR name LIKE '%embedding_vec%');" \
         2>/dev/null) || true
 
     if [[ -z "$trigger_data" ]]; then
@@ -650,6 +650,145 @@ shadow_health_check() {
     return 0
 }
 
+# --- Graph edge projection ---
+
+# Map Lore relation types to Engram relation types
+_map_lore_relation_to_engram() {
+    local lore_relation="$1"
+
+    case "$lore_relation" in
+        relates_to)     echo "relates_to" ;;
+        learned_from)   echo "derived_from" ;;
+        references)     echo "relates_to" ;;
+        derived_from)   echo "derived_from" ;;
+        contradicts)    echo "contradicts" ;;
+        supersedes)     echo "supersedes" ;;
+        part_of)        echo "part_of" ;;
+        implements)     echo "relates_to" ;;
+        *)              echo "relates_to" ;;  # Default fallback
+    esac
+}
+
+# Get Engram Memory.id for a Lore shadow by lore_id
+# Returns empty if not found
+_get_shadow_memory_id() {
+    local db="$1"
+    local lore_id="$2"
+
+    sqlite3 "$db" "SELECT id FROM Memory WHERE content LIKE '[lore:${lore_id}]%' LIMIT 1;" 2>/dev/null || echo ""
+}
+
+# Create an edge in Engram between two shadows
+# Returns 0 if successful, 1 if edge already exists or nodes not found
+_create_engram_edge() {
+    local db="$1"
+    local source_id="$2"
+    local target_id="$3"
+    local relation="$4"
+    local dry_run="$5"
+
+    # Check if both nodes exist
+    [[ -z "$source_id" || -z "$target_id" ]] && return 1
+
+    # Check if edge already exists
+    local existing
+    existing=$(sqlite3 "$db" \
+        "SELECT COUNT(*) FROM Edge WHERE sourceId = $source_id AND targetId = $target_id AND relation = '$relation';" \
+        2>/dev/null) || existing=0
+
+    if [[ "$existing" -gt 0 ]]; then
+        return 1  # Edge already exists
+    fi
+
+    if [[ "$dry_run" == true ]]; then
+        echo "Would create edge: $source_id --[$relation]--> $target_id"
+        return 0
+    fi
+
+    # Create the edge
+    sqlite3 "$db" <<SQL
+INSERT INTO Edge (sourceId, targetId, relation, createdAt)
+VALUES ($source_id, $target_id, '$relation', unixepoch('subsec'));
+SQL
+
+    return 0
+}
+
+# Sync graph edges from Lore to Engram
+# Projects edges between shadow memories
+_sync_graph_edges() {
+    local db="$1"
+    local dry_run="$2"
+
+    local graph_file="${LORE_GRAPH_FILE:-$LORE_DIR/graph/data/graph.json}"
+    [[ ! -f "$graph_file" ]] && return 0
+
+    local edges_created=0
+    local edges_skipped=0
+
+    # Read all edges from Lore graph
+    local edges
+    edges=$(jq -c '.edges[]' "$graph_file" 2>/dev/null) || return 0
+
+    while IFS= read -r edge; do
+        [[ -z "$edge" ]] && continue
+
+        # Extract edge data
+        local from to lore_relation
+        from=$(echo "$edge" | jq -r '.from')
+        to=$(echo "$edge" | jq -r '.to')
+        lore_relation=$(echo "$edge" | jq -r '.relation')
+
+        # Skip if nodes are not decision or pattern types (only those get synced as shadows)
+        [[ ! "$from" =~ ^(decision|pattern)- ]] && continue
+        [[ ! "$to" =~ ^(decision|pattern)- ]] && continue
+
+        # Get Lore record IDs from node names
+        # Need to look up the node in the graph to get its name (journal_id)
+        local from_lore_id to_lore_id
+        from_lore_id=$(jq -r --arg nid "$from" '.nodes[$nid].name // empty' "$graph_file" 2>/dev/null)
+        to_lore_id=$(jq -r --arg nid "$to" '.nodes[$nid].name // empty' "$graph_file" 2>/dev/null)
+
+        [[ -z "$from_lore_id" || -z "$to_lore_id" ]] && continue
+
+        # Get Engram Memory IDs for the shadows
+        local from_mem_id to_mem_id
+        from_mem_id=$(_get_shadow_memory_id "$db" "$from_lore_id")
+        to_mem_id=$(_get_shadow_memory_id "$db" "$to_lore_id")
+
+        # Skip if either shadow doesn't exist
+        [[ -z "$from_mem_id" || -z "$to_mem_id" ]] && { edges_skipped=$((edges_skipped + 1)); continue; }
+
+        # Map Lore relation to Engram relation
+        local engram_relation
+        engram_relation=$(_map_lore_relation_to_engram "$lore_relation")
+
+        # Create the edge
+        if _create_engram_edge "$db" "$from_mem_id" "$to_mem_id" "$engram_relation" "$dry_run"; then
+            edges_created=$((edges_created + 1))
+        else
+            edges_skipped=$((edges_skipped + 1))
+        fi
+
+        # If bidirectional, create reverse edge
+        local bidirectional
+        bidirectional=$(echo "$edge" | jq -r '.bidirectional // false')
+        if [[ "$bidirectional" == "true" ]]; then
+            if _create_engram_edge "$db" "$to_mem_id" "$from_mem_id" "$engram_relation" "$dry_run"; then
+                edges_created=$((edges_created + 1))
+            else
+                edges_skipped=$((edges_skipped + 1))
+            fi
+        fi
+    done <<< "$edges"
+
+    if [[ "$dry_run" == true ]]; then
+        [[ "$edges_created" -gt 0 ]] && echo "Would create $edges_created graph edges (${edges_skipped} skipped)"
+    else
+        [[ "$edges_created" -gt 0 ]] && echo -e "${GREEN}Projected${NC} ${edges_created} graph edges ${DIM}(${edges_skipped} skipped)${NC}" >&2
+    fi
+}
+
 # --- Main entry point ---
 
 sync_to_claude_memory() {
@@ -741,6 +880,11 @@ sync_to_claude_memory() {
     fi
     if [[ -z "$type_filter" || "$type_filter" == "sessions" ]]; then
         _sync_sessions "$CLAUDE_MEMORY_DB" "$cutoff" "$dry_run"
+    fi
+
+    # Sync graph edges (only if no type filter or full sync)
+    if [[ -z "$type_filter" ]]; then
+        _sync_graph_edges "$CLAUDE_MEMORY_DB" "$dry_run"
     fi
 
     if [[ "$dry_run" != true ]]; then

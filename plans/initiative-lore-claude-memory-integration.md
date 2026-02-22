@@ -63,11 +63,18 @@ to become shadows. Classification (decision/pattern/observation) inferred from
 content. 15 integration tests. Phase 3c (reinforcement signal) deferred—requires
 cross-MCP communication.
 
+**Phase 4a (complete):** Graph edge projection via `lib/bridge.sh`.
+`lore sync` projects Lore graph edges between shadow memories into Engram Edge
+table. Maps Lore relations to Engram relations (learned_from→derived_from,
+references→relates_to, etc.). Handles bidirectional edges, deduplication, and
+trigger management. 12 integration tests. Real-world sync projected 28 edges
+across 14 decision/pattern relationships.
+
 **Remaining:**
 
 - Phase 3c: Reinforcement signal (log when Lore shadows accessed via Engram)
-- Phase 4: Graph edge projection into Engram
-- Phase 4: Cross-system graph traversal
+- Phase 4b: Cross-system graph traversal
+- Phase 4c: Concept promotion from Engram clusters
 
 ## Phase 1: Tighten the Bridge
 
