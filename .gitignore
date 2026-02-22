@@ -26,5 +26,9 @@ graph/data/graph.json
 intent/data/goals/*.yaml
 registry/data/*.yaml
 
+# Environment and secrets
+.env
+.env.*
+
 # Research reports
 .research/

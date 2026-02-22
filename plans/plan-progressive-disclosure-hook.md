@@ -170,7 +170,7 @@ lore search "architecture"
 # Expected: same as before this change
 
 # Verify hook output (simulate UserPromptSubmit)
-echo '{"cwd": "/Users/tslater/dev/lore", "prompt": "search architecture"}' \
+echo '{"cwd": "~/dev/lore", "prompt": "search architecture"}' \
     | bash hooks/inject-context.sh
 # Expected: compact index with header, more items than before
 
@@ -180,13 +180,13 @@ echo '{"query": "architecture", "compact": true}' | \
 
 # Verify fallback when no search.db
 mv ~/.lore/search.db ~/.lore/search.db.bak
-echo '{"cwd": "/Users/tslater/dev/lore", "prompt": "search architecture"}' \
+echo '{"cwd": "~/dev/lore", "prompt": "search architecture"}' \
     | bash hooks/inject-context.sh
 # Expected: old-style verbose output from query_patterns/query_journal/query_transfer
 mv ~/.lore/search.db.bak ~/.lore/search.db
 
 # Count items injected (should be 12+ vs old 5-8)
-echo '{"cwd": "/Users/tslater/dev/lore", "prompt": "review all decisions"}' \
+echo '{"cwd": "~/dev/lore", "prompt": "review all decisions"}' \
     | bash hooks/inject-context.sh 2>&1 | grep "injected"
 # Expected: "lore: injected 12+ items ..."
 ```

@@ -21,6 +21,39 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
+# --- Bridge helpers (lazy-sourced, fail-silent) ---
+# Each helper sources bridge.sh on demand so it's not loaded on every lore invocation.
+
+_bridge_sync_last_decision() {
+    source "$LORE_DIR/lib/bridge.sh" || return 0
+    local record
+    record=$(tail -1 "$LORE_DECISIONS_FILE") || return 0
+    sync_single_decision "$record"
+}
+
+_bridge_sync_last_pattern() {
+    source "$LORE_DIR/lib/bridge.sh" || return 0
+    command -v yq &>/dev/null || return 0
+    local idx id name problem solution
+    idx=$(yq '.patterns | length - 1' "$LORE_PATTERNS_FILE" 2>/dev/null) || return 0
+    [[ "$idx" -lt 0 ]] && return 0
+    id=$(yq -r ".patterns[$idx].id // \"\"" "$LORE_PATTERNS_FILE" 2>/dev/null) || return 0
+    name=$(yq -r ".patterns[$idx].name // \"\"" "$LORE_PATTERNS_FILE" 2>/dev/null) || return 0
+    problem=$(yq -r ".patterns[$idx].problem // \"\"" "$LORE_PATTERNS_FILE" 2>/dev/null) || return 0
+    solution=$(yq -r ".patterns[$idx].solution // \"\"" "$LORE_PATTERNS_FILE" 2>/dev/null) || return 0
+    sync_single_pattern "$id" "$name" "$problem" "$solution"
+}
+
+_bridge_retract_shadow() {
+    source "$LORE_DIR/lib/bridge.sh" || return 0
+    retract_shadow "$1"
+}
+
+_bridge_health_check() {
+    source "$LORE_DIR/lib/bridge.sh" || return 0
+    shadow_health_check
+}
+
 # Infer capture type from command-line flags
 # Returns: "decision", "pattern", "failure", or "observation"
 infer_capture_type() {
@@ -484,11 +517,17 @@ cmd_remember() {
 
     # Sync decision to graph (background, fail-silent)
     "$LORE_DIR/graph/sync.sh" &>/dev/null &
+
+    # Write-through to ClaudeMemory (background, fail-silent)
+    _bridge_sync_last_decision &>/dev/null &
 }
 
 cmd_learn() {
     # Dedup check now lives in patterns/patterns.sh cmd_capture (--force passes through)
     "$LORE_DIR/patterns/patterns.sh" capture "$@"
+
+    # Write-through to ClaudeMemory (background, fail-silent)
+    _bridge_sync_last_pattern &>/dev/null &
 }
 
 # Unified capture command — routes to remember/learn/fail based on flags
@@ -589,6 +628,9 @@ cmd_handoff() {
 
 cmd_resume() {
     "$LORE_DIR/transfer/transfer.sh" resume "$@"
+
+    # Check shadow sync health (advisory, fail-silent)
+    _bridge_health_check 2>/dev/null || true
 }
 
 SEARCH_DB="${LORE_SEARCH_DB}"
@@ -1833,6 +1875,11 @@ cmd_review() {
         journal_update_outcome "$resolve_id" "$outcome" "$lesson"
         echo -e "${GREEN}Resolved:${NC} ${BOLD}${resolve_id}${NC} → ${outcome}"
         [[ -n "$lesson" ]] && echo -e "  ${CYAN}Lesson:${NC} $lesson"
+
+        # Invalidate shadow in ClaudeMemory (background, fail-silent)
+        if [[ "$outcome" == "revised" || "$outcome" == "abandoned" ]]; then
+            _bridge_retract_shadow "$resolve_id" &>/dev/null &
+        fi
 
         # Side effects based on outcome
         if [[ "$outcome" == "successful" ]]; then

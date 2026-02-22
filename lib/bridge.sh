@@ -134,6 +134,16 @@ _recreate_triggers() {
 
 # --- Dedup helpers ---
 
+# Compute md5 hash of a string (macOS md5, fallback to md5sum).
+_content_hash() {
+    local input="$1"
+    if command -v md5 &>/dev/null; then
+        echo -n "$input" | md5
+    else
+        echo -n "$input" | md5sum | cut -d' ' -f1
+    fi
+}
+
 # Check if a shadow memory with the given lore ID prefix exists.
 # Returns: "id|content" if found, empty if not.
 _find_shadow() {
@@ -143,6 +153,14 @@ _find_shadow() {
     sqlite3 -separator '|' "$db" \
         "SELECT id, content FROM Memory WHERE content LIKE '[${safe_id}]%' LIMIT 1;" \
         2>/dev/null || true
+}
+
+# Extract the hash from a shadow content string with trailing <!-- hash:... -->
+_extract_hash() {
+    local content="$1"
+    if [[ "$content" =~ \<!--\ hash:([a-f0-9]+)\ --\>$ ]]; then
+        echo "${BASH_REMATCH[1]}"
+    fi
 }
 
 # --- Sync functions per source type ---
@@ -175,7 +193,10 @@ _sync_decisions() {
         timestamp=$(echo "$row" | jq -r '.timestamp')
 
         local lore_id="lore:${id}"
-        local content="[${lore_id}] ${decision}. Why: ${rationale}"
+        local body="[${lore_id}] ${decision}. Why: ${rationale}"
+        local hash
+        hash=$(_content_hash "$body")
+        local content="${body} <!-- hash:${hash} -->"
         local epoch
         epoch=$(_iso_to_epoch "$timestamp")
 
@@ -195,10 +216,12 @@ _sync_decisions() {
                     sqlite3 "$db" "UPDATE Memory SET importance = 0, content = '${safe_content}' WHERE id = ${existing_id};"
                     _UPDATED=$((_UPDATED + 1))
                 fi
-            elif [[ "$existing_content" == "$content" ]]; then
-                _SKIPPED=$((_SKIPPED + 1))
             else
-                if [[ "$dry_run" == true ]]; then
+                local existing_hash
+                existing_hash=$(_extract_hash "$existing_content")
+                if [[ "$existing_hash" == "$hash" ]]; then
+                    _SKIPPED=$((_SKIPPED + 1))
+                elif [[ "$dry_run" == true ]]; then
                     echo -e "  ${CYAN}[update]${NC} ${id}: ${decision:0:60}"
                 else
                     local safe_content="${content//\'/\'\'}"
@@ -257,7 +280,10 @@ _sync_patterns() {
         fi
 
         local lore_id="lore:${id}"
-        local content="[${lore_id}] ${name}: ${problem} -> ${solution}"
+        local body="[${lore_id}] ${name}: ${problem} -> ${solution}"
+        local hash
+        hash=$(_content_hash "$body")
+        local content="${body} <!-- hash:${hash} -->"
         local epoch
         epoch=$(_iso_to_epoch "${created_at:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}")
 
@@ -269,16 +295,16 @@ _sync_patterns() {
             existing_id="${existing%%|*}"
             existing_content="${existing#*|}"
 
-            if [[ "$existing_content" == "$content" ]]; then
+            local existing_hash
+            existing_hash=$(_extract_hash "$existing_content")
+            if [[ "$existing_hash" == "$hash" ]]; then
                 _SKIPPED=$((_SKIPPED + 1))
+            elif [[ "$dry_run" == true ]]; then
+                echo -e "  ${CYAN}[update]${NC} ${id}: ${name:0:60}"
             else
-                if [[ "$dry_run" == true ]]; then
-                    echo -e "  ${CYAN}[update]${NC} ${id}: ${name:0:60}"
-                else
-                    local safe_content="${content//\'/\'\'}"
-                    sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};"
-                    _UPDATED=$((_UPDATED + 1))
-                fi
+                local safe_content="${content//\'/\'\'}"
+                sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};"
+                _UPDATED=$((_UPDATED + 1))
             fi
         else
             if [[ "$dry_run" == true ]]; then
@@ -436,6 +462,192 @@ _sync_sessions() {
             _SYNCED_SESSIONS=$((_SYNCED_SESSIONS + 1))
         fi
     done <<< "$session_files"
+}
+
+# --- Single-record sync functions ---
+
+# Sync one decision immediately after capture.
+# Args: JSON record (as argument or piped via stdin)
+# Fail-silent: returns 0 on any error.
+sync_single_decision() {
+    local record="${1:-$(cat)}"
+    [[ -z "$record" ]] && return 0
+    [[ ! -f "$CLAUDE_MEMORY_DB" ]] && return 0
+
+    local id decision rationale outcome timestamp
+    id=$(echo "$record" | jq -r '.id // ""' 2>/dev/null) || return 0
+    [[ -z "$id" ]] && return 0
+    decision=$(echo "$record" | jq -r '.decision // ""' 2>/dev/null) || return 0
+    rationale=$(echo "$record" | jq -r '.rationale // ""' 2>/dev/null) || return 0
+    outcome=$(echo "$record" | jq -r '.outcome // "pending"' 2>/dev/null) || return 0
+    timestamp=$(echo "$record" | jq -r '.timestamp // ""' 2>/dev/null) || return 0
+
+    local lore_id="lore:${id}"
+    local body="[${lore_id}] ${decision}. Why: ${rationale}"
+    local hash
+    hash=$(_content_hash "$body") || return 0
+    local content="${body} <!-- hash:${hash} -->"
+    local epoch
+    epoch=$(_iso_to_epoch "${timestamp:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}") || return 0
+
+    local db="$CLAUDE_MEMORY_DB"
+
+    _capture_and_drop_triggers "$db" 2>/dev/null
+    trap '_recreate_triggers 2>/dev/null' RETURN
+
+    local existing
+    existing=$(_find_shadow "$db" "$lore_id")
+
+    if [[ -n "$existing" ]]; then
+        local existing_id existing_content
+        existing_id="${existing%%|*}"
+        existing_content="${existing#*|}"
+
+        if [[ "$outcome" == "retracted" || "$outcome" == "abandoned" ]]; then
+            local safe_content="${content//\'/\'\'}"
+            sqlite3 "$db" "UPDATE Memory SET importance = 0, content = '${safe_content}' WHERE id = ${existing_id};" 2>/dev/null || true
+        else
+            local existing_hash
+            existing_hash=$(_extract_hash "$existing_content")
+            if [[ "$existing_hash" != "$hash" ]]; then
+                local safe_content="${content//\'/\'\'}"
+                sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};" 2>/dev/null || true
+            fi
+        fi
+    else
+        local importance=3
+        [[ "$outcome" == "retracted" || "$outcome" == "abandoned" ]] && importance=0
+        local safe_content="${content//\'/\'\'}"
+        sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (${importance}, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', 0, '${safe_content}');" 2>/dev/null || true
+    fi
+}
+
+# Sync one pattern immediately after capture.
+# Args: id, name, problem, solution
+# Fail-silent: returns 0 on any error.
+sync_single_pattern() {
+    local id="${1:-}" name="${2:-}" problem="${3:-}" solution="${4:-}"
+    [[ -z "$id" || -z "$name" ]] && return 0
+    [[ ! -f "$CLAUDE_MEMORY_DB" ]] && return 0
+
+    local lore_id="lore:${id}"
+    local body="[${lore_id}] ${name}: ${problem} -> ${solution}"
+    local hash
+    hash=$(_content_hash "$body") || return 0
+    local content="${body} <!-- hash:${hash} -->"
+    local epoch
+    epoch=$(date +%s)
+
+    local db="$CLAUDE_MEMORY_DB"
+
+    _capture_and_drop_triggers "$db" 2>/dev/null
+    trap '_recreate_triggers 2>/dev/null' RETURN
+
+    local existing
+    existing=$(_find_shadow "$db" "$lore_id")
+
+    if [[ -n "$existing" ]]; then
+        local existing_id existing_content
+        existing_id="${existing%%|*}"
+        existing_content="${existing#*|}"
+
+        local existing_hash
+        existing_hash=$(_extract_hash "$existing_content")
+        if [[ "$existing_hash" != "$hash" ]]; then
+            local safe_content="${content//\'/\'\'}"
+            sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};" 2>/dev/null || true
+        fi
+    else
+        local safe_content="${content//\'/\'\'}"
+        sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (3, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-patterns', 0, '${safe_content}');" 2>/dev/null || true
+    fi
+}
+
+# Invalidate a shadow when its Lore record is revised or abandoned.
+# Args: lore_id (e.g., "dec-abc123")
+# Fail-silent: returns 0 on any error.
+retract_shadow() {
+    local lore_id="${1:-}"
+    [[ -z "$lore_id" ]] && return 0
+    [[ ! -f "$CLAUDE_MEMORY_DB" ]] && return 0
+
+    local db="$CLAUDE_MEMORY_DB"
+
+    local existing
+    existing=$(_find_shadow "$db" "lore:${lore_id}")
+    [[ -z "$existing" ]] && return 0
+
+    local existing_id
+    existing_id="${existing%%|*}"
+
+    _capture_and_drop_triggers "$db" 2>/dev/null
+    trap '_recreate_triggers 2>/dev/null' RETURN
+
+    sqlite3 "$db" "UPDATE Memory SET importance = 0 WHERE id = ${existing_id};" 2>/dev/null || true
+}
+
+# Compare shadow count against Lore record counts.
+# Prints a summary only when mismatch detected.
+# Returns 0 always (advisory).
+shadow_health_check() {
+    [[ ! -f "$CLAUDE_MEMORY_DB" ]] && { echo -e "${YELLOW}ClaudeMemory database not found${NC}" >&2; return 0; }
+
+    local db="$CLAUDE_MEMORY_DB"
+
+    # Count shadows by topic
+    local shadow_decisions shadow_patterns shadow_failures shadow_sessions
+    shadow_decisions=$(sqlite3 "$db" "SELECT COUNT(*) FROM Memory WHERE source='lore-bridge' AND topic='lore-decisions';" 2>/dev/null) || shadow_decisions=0
+    shadow_patterns=$(sqlite3 "$db" "SELECT COUNT(*) FROM Memory WHERE source='lore-bridge' AND topic='lore-patterns';" 2>/dev/null) || shadow_patterns=0
+    shadow_failures=$(sqlite3 "$db" "SELECT COUNT(*) FROM Memory WHERE source='lore-bridge' AND topic='lore-failures';" 2>/dev/null) || shadow_failures=0
+    shadow_sessions=$(sqlite3 "$db" "SELECT COUNT(*) FROM Memory WHERE source='lore-bridge' AND topic='lore-sessions';" 2>/dev/null) || shadow_sessions=0
+
+    # Count source records
+    local src_decisions=0 src_patterns=0 src_failures=0 src_sessions=0
+
+    if [[ -f "$LORE_DECISIONS_FILE" && -s "$LORE_DECISIONS_FILE" ]]; then
+        src_decisions=$(jq -sc 'group_by(.id) | length' "$LORE_DECISIONS_FILE" 2>/dev/null) || src_decisions=0
+    fi
+
+    if [[ -f "$LORE_PATTERNS_FILE" ]]; then
+        if command -v yq &>/dev/null; then
+            src_patterns=$(yq '.patterns | length' "$LORE_PATTERNS_FILE" 2>/dev/null) || src_patterns=0
+        fi
+    fi
+
+    local failures_file="${LORE_FAILURES_DATA}/failures.jsonl"
+    if [[ -f "$failures_file" && -s "$failures_file" ]]; then
+        src_failures=$(jq -sc 'group_by(.error_type) | map(select(length >= 3)) | length' "$failures_file" 2>/dev/null) || src_failures=0
+    fi
+
+    local sessions_dir="${LORE_TRANSFER_DATA}/sessions"
+    if [[ -d "$sessions_dir" ]]; then
+        src_sessions=$(ls "$sessions_dir"/*.json 2>/dev/null | wc -l | tr -d ' ') || src_sessions=0
+    fi
+
+    local total_shadows=$((shadow_decisions + shadow_patterns + shadow_failures + shadow_sessions))
+    local total_sources=$((src_decisions + src_patterns + src_failures + src_sessions))
+    local missing=$((total_sources - total_shadows))
+    [[ "$missing" -lt 0 ]] && missing=0
+
+    if [[ "$total_shadows" -eq "$total_sources" ]]; then
+        # All synced, print nothing
+        return 0
+    fi
+
+    echo -e "${BOLD}shadows:${NC} ${total_shadows}/${total_sources} synced (${missing} missing)"
+    # Per-type delta
+    local details=()
+    [[ "$shadow_decisions" -ne "$src_decisions" ]] && details+=("decisions: ${shadow_decisions}/${src_decisions}")
+    [[ "$shadow_patterns" -ne "$src_patterns" ]] && details+=("patterns: ${shadow_patterns}/${src_patterns}")
+    [[ "$shadow_failures" -ne "$src_failures" ]] && details+=("failures: ${shadow_failures}/${src_failures}")
+    [[ "$shadow_sessions" -ne "$src_sessions" ]] && details+=("sessions: ${shadow_sessions}/${src_sessions}")
+
+    if [[ ${#details[@]} -gt 0 ]]; then
+        local IFS=', '
+        echo -e "  ${DIM}${details[*]}${NC}"
+    fi
+    echo -e "  ${DIM}Run 'lore sync' to reconcile${NC}"
+    return 0
 }
 
 # --- Main entry point ---

@@ -100,30 +100,30 @@ capture_pattern() {
     local examples_yaml=""
     if [[ -n "$example_bad" || -n "$example_good" ]]; then
         examples_yaml="
-      examples:"
+    examples:"
         if [[ -n "$example_bad" ]]; then
             examples_yaml="$examples_yaml
-        - bad: \"$(yaml_escape "$example_bad")\""
+      - bad: \"$(yaml_escape "$example_bad")\""
         fi
         if [[ -n "$example_good" ]]; then
             examples_yaml="$examples_yaml
-        - good: \"$(yaml_escape "$example_good")\""
+      - good: \"$(yaml_escape "$example_good")\""
         fi
     fi
 
     # Build the pattern YAML entry
     local pattern_yaml="
-    - id: \"$id\"
-      name: \"$(yaml_escape "$name")\"
-      context: \"$(yaml_escape "$context")\"
-      problem: \"$(yaml_escape "$problem")\"
-      solution: \"$(yaml_escape "$solution")\"
-      category: \"$category\"
-      origin: \"$origin\"
-      confidence: 0.5
-      validations: 0
-      created_at: \"$created_at\"
-      spec_quality: $(compute_pattern_spec_quality "$name" "$context" "$solution" "$problem")$examples_yaml"
+  - id: \"$id\"
+    name: \"$(yaml_escape "$name")\"
+    context: \"$(yaml_escape "$context")\"
+    problem: \"$(yaml_escape "$problem")\"
+    solution: \"$(yaml_escape "$solution")\"
+    category: \"$category\"
+    origin: \"$origin\"
+    confidence: 0.5
+    validations: 0
+    created_at: \"$created_at\"
+    spec_quality: $(compute_pattern_spec_quality "$name" "$context" "$solution" "$problem")$examples_yaml"
 
     # Insert pattern into YAML file
     # We insert after the "patterns:" line

@@ -191,7 +191,7 @@ register tools that Claude can call explicitly.
 
 ## Implementation: Current Hook Analysis
 
-File: `/Users/tslater/dev/lore/hooks/inject-context.sh` (128 lines)
+File: `~/dev/lore/hooks/inject-context.sh` (128 lines)
 
 **What it does right:**
 

@@ -43,6 +43,7 @@ write_message() {
         --arg role "$role" \
         --arg content "$content" \
         --arg ts "$timestamp" \
+        --arg cwd "$LORE_ROOT" \
         '{
             sessionId: $sid,
             uuid: $uuid,
@@ -52,7 +53,7 @@ write_message() {
                 role: $role,
                 content: $content
             },
-            cwd: "/Users/tslater/dev/lore",
+            cwd: $cwd,
             version: "synthetic",
             isSidechain: false
         }'

@@ -18,7 +18,7 @@ before Claude processes it. The script receives JSON on stdin:
 {
   "session_id": "abc123",
   "prompt": "Why does the deploy script fail on staging?",
-  "cwd": "/Users/tslater/dev/flow",
+  "cwd": "~/dev/flow",
   "hook_event_name": "UserPromptSubmit"
 }
 ```
@@ -209,7 +209,7 @@ extract the handoff message if it mentions the project.
 
 ```bash
 # Simulate a prompt from the flow project
-echo '{"cwd":"/Users/tslater/dev/flow","prompt":"fix the deploy script","session_id":"test"}' \
+echo '{"cwd":"~/dev/flow","prompt":"fix the deploy script","session_id":"test"}' \
   | bash hooks/inject-context.sh
 
 # Should output JSON with additionalContext, or nothing if no matches
@@ -219,7 +219,7 @@ echo '{"cwd":"/tmp","prompt":"hello","session_id":"test"}' \
   | bash hooks/inject-context.sh
 
 # Dry run: check timing
-time echo '{"cwd":"/Users/tslater/dev/lore","prompt":"bash patterns","session_id":"test"}' \
+time echo '{"cwd":"~/dev/lore","prompt":"bash patterns","session_id":"test"}' \
   | bash hooks/inject-context.sh
 ```
 
