@@ -1893,14 +1893,13 @@ cmd_review() {
                     [[ -z "$tag" ]] && continue
                     # Find patterns matching this tag and boost confidence by 0.1 (cap at 1.0)
                     local match_count
+                    export LORE_TAG="$tag"
                     match_count=$(yq -r \
-                        --arg tag "$tag" \
-                        '[.patterns[] | select(.tags[]? == $tag)] | length' \
+                        '[.patterns[] | select(.tags[]? == strenv(LORE_TAG))] | length' \
                         "$LORE_PATTERNS_FILE" 2>/dev/null) || continue
                     if [[ "$match_count" -gt 0 ]]; then
                         yq -i \
-                            --arg tag "$tag" \
-                            '(.patterns[] | select(.tags[]? == $tag) | .confidence) |= ([. + 0.1, 1.0] | min)' \
+                            '(.patterns[] | select(.tags[]? == strenv(LORE_TAG)) | .confidence) |= ([. + 0.1, 1.0] | min)' \
                             "$LORE_PATTERNS_FILE" 2>/dev/null || true
                         boosted=$((boosted + match_count))
                     fi

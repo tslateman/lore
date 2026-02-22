@@ -133,13 +133,13 @@ capture_pattern() {
     LORE_PATTERN_YAML="$pattern_yaml" awk '
         BEGIN { pattern = ENVIRON["LORE_PATTERN_YAML"] }
         /^patterns:/ {
+            # Handle "patterns: []" (inline empty array) — strip [] so entries nest correctly
+            sub(/[[:space:]]*\[\][[:space:]]*$/, "")
             print
             if (getline nextline > 0) {
                 if (nextline == "" || nextline ~ /^\[\]$/) {
-                    # Empty patterns array, insert our pattern
                     print pattern
                 } else {
-                    # Non-empty, insert before first pattern
                     print pattern
                     print nextline
                 }
@@ -150,6 +150,13 @@ capture_pattern() {
         }
         { print }
     ' "$PATTERNS_FILE" > "$temp_file"
+
+    # Validate before replacing — catch indentation mismatches early
+    if command -v yq &>/dev/null && ! yq '.' "$temp_file" >/dev/null 2>&1; then
+        echo -e "${RED}Error: Pattern insertion produced invalid YAML. Aborting.${NC}" >&2
+        rm -f "$temp_file"
+        return 1
+    fi
 
     mv "$temp_file" "$PATTERNS_FILE"
 
@@ -201,16 +208,16 @@ capture_anti_pattern() {
     local created_at
     created_at=$(get_current_date)
 
-    # Build the anti-pattern YAML entry
+    # Build the anti-pattern YAML entry (2-space indent to match yq output)
     local anti_pattern_yaml="
-    - id: \"$id\"
-      name: \"$(yaml_escape "$name")\"
-      symptom: \"$(yaml_escape "$symptom")\"
-      risk: \"$(yaml_escape "$risk")\"
-      fix: \"$(yaml_escape "$fix")\"
-      category: \"$category\"
-      severity: \"$severity\"
-      created_at: \"$created_at\""
+  - id: \"$id\"
+    name: \"$(yaml_escape "$name")\"
+    symptom: \"$(yaml_escape "$symptom")\"
+    risk: \"$(yaml_escape "$risk")\"
+    fix: \"$(yaml_escape "$fix")\"
+    category: \"$category\"
+    severity: \"$severity\"
+    created_at: \"$created_at\""
 
     # Insert anti-pattern into YAML file
     local temp_file
@@ -219,6 +226,8 @@ capture_anti_pattern() {
     LORE_ANTI_PATTERN_YAML="$anti_pattern_yaml" awk '
         BEGIN { anti_pattern = ENVIRON["LORE_ANTI_PATTERN_YAML"] }
         /^anti_patterns:/ {
+            # Handle "anti_patterns: []" (inline empty array)
+            sub(/[[:space:]]*\[\][[:space:]]*$/, "")
             print
             if (getline nextline > 0) {
                 if (nextline == "" || nextline ~ /^\[\]$/) {
@@ -234,6 +243,13 @@ capture_anti_pattern() {
         }
         { print }
     ' "$PATTERNS_FILE" > "$temp_file"
+
+    # Validate before replacing — catch indentation mismatches early
+    if command -v yq &>/dev/null && ! yq '.' "$temp_file" >/dev/null 2>&1; then
+        echo -e "${RED}Error: Anti-pattern insertion produced invalid YAML. Aborting.${NC}" >&2
+        rm -f "$temp_file"
+        return 1
+    fi
 
     mv "$temp_file" "$PATTERNS_FILE"
 

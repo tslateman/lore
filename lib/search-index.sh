@@ -157,6 +157,13 @@ load_decisions() {
 load_patterns() {
     [[ -f "$PATTERNS_FILE" ]] || return 0
 
+    # Validate YAML before parsing — surface errors instead of silently loading 0
+    if ! yq '.' "$PATTERNS_FILE" >/dev/null 2>&1; then
+        echo -e "  ${RED}Warning: $PATTERNS_FILE is not valid YAML — skipping patterns${NC}" >&2
+        echo -e "  ${RED}Run: yq '.' $PATTERNS_FILE  to see the error${NC}" >&2
+        return 0
+    fi
+
     local count=0
     # Use process substitution to avoid subshell count loss
     while IFS= read -r line; do
