@@ -12,7 +12,7 @@ sync-entire:
 sync-graph:
 	@./graph/sync.sh
 
-# Sync Lore shadows into ClaudeMemory
+# Sync Lore shadows into Engram
 sync-memory:
 	@./lib/bridge.sh $(ARGS)
 
@@ -48,6 +48,7 @@ test:
 	@bash tests/test-cognitive-features.sh
 	@bash tests/test-spec-layer.sh
 	@bash tests/test-curated-resume.sh
+	@bash tests/test-recall-router.sh
 
 # Check all build freshness
 check: check-mcp

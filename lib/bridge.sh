@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bridge.sh - Sync Lore records to ClaudeMemory as shadow memories
+# bridge.sh - Sync Lore records to Engram as shadow memories
 #
 # Projects decisions, patterns, failure triggers, and session handoffs into
 # ~/.claude/memory.sqlite so that Claude's built-in recall surfaces Lore
@@ -61,7 +61,7 @@ _parse_since() {
     fi
 }
 
-# Convert ISO8601 timestamp to Unix epoch (float) for ClaudeMemory.
+# Convert ISO8601 timestamp to Unix epoch (float) for Engram.
 # Handles both "Z" and "+00:00" suffixes.
 _iso_to_epoch() {
     local ts="$1"
@@ -590,7 +590,7 @@ retract_shadow() {
 # Prints a summary only when mismatch detected.
 # Returns 0 always (advisory).
 shadow_health_check() {
-    [[ ! -f "$CLAUDE_MEMORY_DB" ]] && { echo -e "${YELLOW}ClaudeMemory database not found${NC}" >&2; return 0; }
+    [[ ! -f "$CLAUDE_MEMORY_DB" ]] && { echo -e "${YELLOW}Engram database not found${NC}" >&2; return 0; }
 
     local db="$CLAUDE_MEMORY_DB"
 
@@ -699,7 +699,7 @@ sync_to_claude_memory() {
 
     # Validate database exists
     if [[ ! -f "$CLAUDE_MEMORY_DB" ]]; then
-        echo -e "${RED}ClaudeMemory database not found: ${CLAUDE_MEMORY_DB}${NC}" >&2
+        echo -e "${RED}Engram database not found: ${CLAUDE_MEMORY_DB}${NC}" >&2
         return 1
     fi
 
@@ -715,10 +715,10 @@ sync_to_claude_memory() {
     _UPDATED=0
 
     if [[ "$dry_run" == true ]]; then
-        echo -e "${BOLD}Dry run: Lore -> ClaudeMemory (since ${since}, cutoff ${cutoff})${NC}"
+        echo -e "${BOLD}Dry run: Lore -> Engram (since ${since}, cutoff ${cutoff})${NC}"
         echo ""
     else
-        echo -e "${BOLD}Syncing Lore -> ClaudeMemory (since ${since})${NC}" >&2
+        echo -e "${BOLD}Syncing Lore -> Engram (since ${since})${NC}" >&2
     fi
 
     if [[ "$dry_run" != true ]]; then

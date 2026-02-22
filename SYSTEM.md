@@ -212,13 +212,13 @@ This is the first command in every session. It loads:
 An agent that skips `lore resume` starts cold. An agent that runs it inherits
 the full context of previous work.
 
-## ClaudeMemory Bridge
+## Engram Bridge
 
-[ClaudeMemory](https://github.com/jsflax/ClaudeMemory) provides working memory — semantic recall, graph traversal, and episodic grouping via an MCP server backed by SQLite. Claude Code's advise hook queries ClaudeMemory before every turn.
+[Engram](https://github.com/jsflax/ClaudeMemory) provides working memory — semantic recall, graph traversal, and episodic grouping via an MCP server backed by SQLite. Claude Code's advise hook queries Engram before every turn.
 
 Lore provides the written record — append-only decisions, curated patterns, failure analysis, session handoffs. Two databases, distinct roles.
 
-`lore sync` bridges them by projecting Lore records as shadow memories into ClaudeMemory. Shadows carry a `[lore:{id}]` prefix for deduplication and use `zeroblob(0)` embeddings (FTS5-searchable, not vector-searchable). This makes Lore's durable knowledge visible to the advise hook without duplicating storage semantics.
+`lore sync` bridges them by projecting Lore records as shadow memories into Engram. Shadows carry a `[lore:{id}]` prefix for deduplication and use `zeroblob(0)` embeddings (FTS5-searchable, not vector-searchable). This makes Lore's durable knowledge visible to the advise hook without duplicating storage semantics.
 
 Bridged sources: decisions, patterns, failure triggers (3+ occurrences), session handoffs. Not bridged: individual failures, raw observations, graph edges.
 

@@ -42,14 +42,24 @@ Disposable view -- rebuildable from Lore at any time.
 
 ## Current State
 
-- One-way bridge: `lore sync` projects 126 shadow memories into ClaudeMemory
-- Shadow memories use `[lore:{id}]` prefix for dedup, `zeroblob(0)` for
-  embeddings (FTS5 only)
-- Sync runs at SessionEnd hook or manually via `make sync`
-- No reverse flow (ClaudeMemory → Lore)
-- No write-through (new Lore records invisible until next sync)
-- No invalidation (abandoned records persist as shadows)
-- No query routing (Lore and ClaudeMemory queried independently)
+**Phase 1 (complete):** Write-through sync, invalidation, health check, content
+hashing. New captures sync immediately via `_bridge_sync_last_decision()` and
+`_bridge_sync_last_pattern()`. Abandoned/revised decisions retract shadows via
+`retract_shadow()`. `lore resume` reports shadow drift. Content hashes detect
+edits without formal revision.
+
+**Phase 2 (complete):** Query routing via `lib/recall-router.sh`.
+`lore recall --routed` classifies queries by keyword shape and routes to
+Lore-first, ClaudeMemory-first, or both. Shadow memories enriched with full
+Lore records (rationale, alternatives, tags). Dedup prevents duplicate display.
+Provenance markers `(lore)` / `(mem)` on all results. MCP tool `lore_recall`
+exposes routing to agents. `inject-context.sh` uses routed recall.
+
+**Remaining:**
+
+- No reverse flow (ClaudeMemory → Lore promotion)
+- No graph edge projection into ClaudeMemory
+- No cross-system graph traversal
 
 ## Phase 1: Tighten the Bridge
 

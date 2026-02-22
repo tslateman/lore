@@ -69,7 +69,7 @@ if [[ -f "$SEARCH_DB" ]] && [[ ${#keywords[@]} -gt 0 ]]; then
         keywords_joined+="$kw"
     done
 
-    compact_results=$("$LORE_ROOT/lore.sh" search "$keywords_joined" \
+    compact_results=$("$LORE_ROOT/lore.sh" recall --routed "$keywords_joined" \
         --compact 2>/dev/null) || true
 
     if [[ -n "$compact_results" ]]; then

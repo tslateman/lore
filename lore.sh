@@ -172,6 +172,7 @@ CAPTURE
 RECALL
   recall <query>          Universal read — mode inferred from flags:
     (no flags)            → search across all components
+    --routed              → smart routing across Lore and ClaudeMemory
     --project <name>      → full project context assembly
     --patterns [context]  → suggest relevant patterns
     --failures [--type T] → list failures
@@ -212,7 +213,7 @@ MAINTENANCE
     --write               Actually create summaries (default: dry-run)
     --promote             Also create concepts from clusters
     --threshold N         Jaccard similarity % (default: 50)
-  sync                    Project Lore shadows into ClaudeMemory
+  sync                    Project Lore shadows into Engram
     --since T             Time window (2h, 8h, 7d, 2024-01-01; default: 8h)
     --type T              Limit to: decisions, patterns, failures, sessions
     --dry-run             Print what would be synced without writing
@@ -304,6 +305,7 @@ RECALL COMMANDS
 Read from memory with a single verb. Flags select the read mode.
 
   lore recall "authentication"              → search (default)
+  lore recall --routed "authentication"    → smart Lore + ClaudeMemory routing
   lore recall --project council             → full project context
   lore recall --patterns "API design"       → relevant patterns
   lore recall --failures --type Timeout     → filtered failure list
@@ -518,7 +520,7 @@ cmd_remember() {
     # Sync decision to graph (background, fail-silent)
     "$LORE_DIR/graph/sync.sh" &>/dev/null &
 
-    # Write-through to ClaudeMemory (background, fail-silent)
+    # Write-through to Engram (background, fail-silent)
     _bridge_sync_last_decision &>/dev/null &
 }
 
@@ -526,7 +528,7 @@ cmd_learn() {
     # Dedup check now lives in patterns/patterns.sh cmd_capture (--force passes through)
     "$LORE_DIR/patterns/patterns.sh" capture "$@"
 
-    # Write-through to ClaudeMemory (background, fail-silent)
+    # Write-through to Engram (background, fail-silent)
     _bridge_sync_last_pattern &>/dev/null &
 }
 
@@ -895,9 +897,14 @@ cmd_recall() {
     local brief_topic=""
     local pass_through=()
     local query=""
+    local compact=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --routed)
+                mode="routed"
+                shift
+                ;;
             --project)
                 mode="project"
                 project="${2:-}"
@@ -954,6 +961,7 @@ cmd_recall() {
             --graph-depth|--compact)
                 # Search flags — pass through to cmd_search
                 pass_through+=("$1")
+                [[ "$1" == "--compact" ]] && compact=true
                 if [[ "$1" == "--graph-depth" ]]; then
                     pass_through+=("${2:-}")
                     shift
@@ -973,6 +981,15 @@ cmd_recall() {
     done
 
     case "$mode" in
+        routed)
+            if [[ -z "$query" ]]; then
+                echo -e "${RED}Error: Query required for --routed${NC}" >&2
+                echo "Usage: lore recall --routed <query> [--compact]" >&2
+                return 1
+            fi
+            source "$LORE_DIR/lib/recall-router.sh"
+            routed_recall "$query" "$compact" 10
+            ;;
         project)
             cmd_context "$project"
             ;;
@@ -1876,7 +1893,7 @@ cmd_review() {
         echo -e "${GREEN}Resolved:${NC} ${BOLD}${resolve_id}${NC} → ${outcome}"
         [[ -n "$lesson" ]] && echo -e "  ${CYAN}Lesson:${NC} $lesson"
 
-        # Invalidate shadow in ClaudeMemory (background, fail-silent)
+        # Invalidate shadow in Engram (background, fail-silent)
         if [[ "$outcome" == "revised" || "$outcome" == "abandoned" ]]; then
             _bridge_retract_shadow "$resolve_id" &>/dev/null &
         fi

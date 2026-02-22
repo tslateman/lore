@@ -134,6 +134,58 @@ server.tool(
   }
 );
 
+// Tool: lore_recall
+// Smart recall across Lore and ClaudeMemory with query routing
+server.tool(
+  "lore_recall",
+  "Smart recall across Lore and ClaudeMemory. Routes queries to the right source based on query shape: decision/pattern/failure keywords go to Lore first, session/working keywords go to ClaudeMemory first, generic queries check both. Results include provenance markers.",
+  {
+    query: z.string().describe("Search query"),
+    compact: z
+      .boolean()
+      .optional()
+      .describe("Return compact one-line-per-result output (default false)"),
+  },
+  async ({ query, compact }) => {
+    const args = ["recall", "--routed", query];
+
+    if (compact) {
+      args.push("--compact");
+    }
+
+    try {
+      const cmd = `${LORE_DIR}/lore.sh ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")}`;
+      console.error(`[lore-mcp] Running: ${cmd}`);
+
+      const output = execSync(cmd, {
+        encoding: "utf-8",
+        maxBuffer: 10 * 1024 * 1024,
+        env: { ...process.env, LORE_DIR, NO_COLOR: "1" },
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: stripAnsi(output),
+          },
+        ],
+      };
+    } catch (error: unknown) {
+      const execError = error as { stdout?: string; message: string };
+      if (execError.stdout) {
+        return {
+          content: [{ type: "text" as const, text: stripAnsi(execError.stdout) }],
+        };
+      }
+      return {
+        content: [{ type: "text" as const, text: `Routed recall failed: ${execError.message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
 // Tool: lore_context
 // Full project context: decisions, patterns, graph neighbors
 server.tool(
