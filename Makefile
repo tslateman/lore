@@ -51,6 +51,7 @@ test:
 	@bash tests/test-recall-router.sh
 	@bash tests/test-promote.sh
 	@bash tests/test-graph-edge-projection.sh
+	@bash tests/test-cross-system-traversal.sh
 
 # Check all build freshness
 check: check-mcp

@@ -70,10 +70,15 @@ references→relates_to, etc.). Handles bidirectional edges, deduplication, and
 trigger management. 12 integration tests. Real-world sync projected 28 edges
 across 14 decision/pattern relationships.
 
+**Phase 4b (complete):** Cross-system graph traversal via `lib/recall-router.sh`.
+`lore recall --routed --graph-depth N` follows edges from Lore into Engram.
+When BFS reaches a shadow, continues into Engram's graph to native memories.
+Python implementation handles two databases with unified BFS. Results marked
+with `(lore)` or `(mem)` provenance. 3 integration tests.
+
 **Remaining:**
 
 - Phase 3c: Reinforcement signal (log when Lore shadows accessed via Engram)
-- Phase 4b: Cross-system graph traversal
 - Phase 4c: Concept promotion from Engram clusters
 
 ## Phase 1: Tighten the Bridge

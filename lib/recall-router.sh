@@ -137,14 +137,15 @@ routed_recall() {
     local query="$1"
     local compact="${2:-false}"
     local limit="${3:-10}"
+    local graph_depth="${4:-0}"
 
     local route
     route=$(classify_query "$query")
 
     case "$route" in
-        lore-first)   _route_lore_first "$query" "$compact" "$limit" ;;
-        memory-first) _route_memory_first "$query" "$compact" "$limit" ;;
-        both)         _route_both "$query" "$compact" "$limit" ;;
+        lore-first)   _route_lore_first "$query" "$compact" "$limit" "$graph_depth" ;;
+        memory-first) _route_memory_first "$query" "$compact" "$limit" "$graph_depth" ;;
+        both)         _route_both "$query" "$compact" "$limit" "$graph_depth" ;;
     esac
 }
 
@@ -216,7 +217,7 @@ _emit_mem_line() {
 
 # --- Route: lore-first ---
 _route_lore_first() {
-    local query="$1" compact="$2" limit="$3"
+    local query="$1" compact="$2" limit="$3" graph_depth="${4:-0}"
 
     [[ "$compact" != true ]] && echo "Routed recall (lore-first):" >&2
 
@@ -232,6 +233,42 @@ _route_lore_first() {
             [[ -n "$rid" ]] && seen_ids+=("$rid")
             lore_count=$((lore_count + 1))
         done <<< "$lore_output"
+    fi
+
+    # If graph traversal requested and we have results, expand
+    if [[ "$graph_depth" -gt 0 && -n "$lore_output" ]]; then
+        # Extract Lore IDs from results
+        local lore_ids
+        lore_ids=$(echo "$lore_output" | grep -oE '(dec|pat|obs|trigger|sess)-[a-f0-9]+' | head -5 | tr '\n' ',' | sed 's/,$//')
+
+        if [[ -n "$lore_ids" ]]; then
+            # Cross-system traverse
+            local expanded
+            expanded=$(cross_system_traverse "$lore_ids" "$graph_depth" 2>/dev/null)
+
+            if [[ -n "$expanded" ]]; then
+                # Format and emit Lore results
+                echo "$expanded" | jq -r '.[] | select(.source == "lore") | "\(.id): \(.content)"' 2>/dev/null | while read -r line; do
+                    [[ -z "$line" ]] && continue
+                    if [[ "$compact" == true ]]; then
+                        echo "  (lore) $line"
+                    else
+                        echo "  $line (source: lore)"
+                    fi
+                done
+
+                # Format and emit Engram results
+                echo "$expanded" | jq -r '.[] | select(.source == "mem") | "\(.id): \(.content)"' 2>/dev/null | while read -r line; do
+                    [[ -z "$line" ]] && continue
+                    if [[ "$compact" == true ]]; then
+                        echo "  (mem)  $line"
+                    else
+                        echo "  $line (source: memory)"
+                    fi
+                done
+            fi
+            return 0
+        fi
     fi
 
     [[ "$lore_count" -ge "$limit" ]] && return 0
@@ -258,7 +295,7 @@ _route_lore_first() {
 
 # --- Route: memory-first ---
 _route_memory_first() {
-    local query="$1" compact="$2" limit="$3"
+    local query="$1" compact="$2" limit="$3" graph_depth="${4:-0}"
 
     [[ "$compact" != true ]] && echo "Routed recall (memory-first):" >&2
 
@@ -274,6 +311,41 @@ _route_memory_first() {
             fi
             mem_count=$((mem_count + 1))
         done <<< "$mem_results"
+    fi
+
+    # If graph traversal requested and we have shadow results, expand
+    if [[ "$graph_depth" -gt 0 && ${#seen_lore_ids[@]} -gt 0 ]]; then
+        # Use shadow Lore IDs as starting points
+        local lore_ids
+        lore_ids=$(printf "%s," "${seen_lore_ids[@]}" | sed 's/,$//')
+
+        if [[ -n "$lore_ids" ]]; then
+            # Cross-system traverse
+            local expanded
+            expanded=$(cross_system_traverse "$lore_ids" "$graph_depth" 2>/dev/null)
+
+            if [[ -n "$expanded" ]]; then
+                # Format and emit results
+                echo "$expanded" | jq -r '.[] | select(.source == "lore") | "\(.id): \(.content)"' 2>/dev/null | while read -r line; do
+                    [[ -z "$line" ]] && continue
+                    if [[ "$compact" == true ]]; then
+                        echo "  (lore) $line"
+                    else
+                        echo "  $line (source: lore)"
+                    fi
+                done
+
+                echo "$expanded" | jq -r '.[] | select(.source == "mem") | "\(.id): \(.content)"' 2>/dev/null | while read -r line; do
+                    [[ -z "$line" ]] && continue
+                    if [[ "$compact" == true ]]; then
+                        echo "  (mem)  $line"
+                    else
+                        echo "  $line (source: memory)"
+                    fi
+                done
+            fi
+            return 0
+        fi
     fi
 
     [[ "$mem_count" -ge "$limit" ]] && return 0
@@ -298,7 +370,7 @@ _route_memory_first() {
 
 # --- Route: both ---
 _route_both() {
-    local query="$1" compact="$2" limit="$3"
+    local query="$1" compact="$2" limit="$3" graph_depth="${4:-0}"
 
     [[ "$compact" != true ]] && echo "Routed recall (both):" >&2
 
@@ -334,7 +406,198 @@ _route_both() {
         done <<< "$mem_results"
     fi
 
+    # If graph traversal requested and we have results, expand
+    if [[ "$graph_depth" -gt 0 && ${#lore_ids[@]} -gt 0 ]]; then
+        # Use all Lore IDs as starting points
+        local ids_csv
+        ids_csv=$(printf "%s," "${lore_ids[@]}" | sed 's/,$//')
+
+        if [[ -n "$ids_csv" ]]; then
+            # Cross-system traverse
+            local expanded
+            expanded=$(cross_system_traverse "$ids_csv" "$graph_depth" 2>/dev/null)
+
+            if [[ -n "$expanded" ]]; then
+                # Format and emit results
+                echo "$expanded" | jq -r '.[] | select(.source == "lore") | "\(.id): \(.content)"' 2>/dev/null | while read -r line; do
+                    [[ -z "$line" ]] && continue
+                    if [[ "$compact" == true ]]; then
+                        echo "  (lore) $line"
+                    else
+                        echo "  $line (source: lore)"
+                    fi
+                done
+
+                echo "$expanded" | jq -r '.[] | select(.source == "mem") | "\(.id): \(.content)"' 2>/dev/null | while read -r line; do
+                    [[ -z "$line" ]] && continue
+                    if [[ "$compact" == true ]]; then
+                        echo "  (mem)  $line"
+                    else
+                        echo "  $line (source: memory)"
+                    fi
+                done
+            fi
+            return 0
+        fi
+    fi
+
     if [[ -z "$lore_output" && -z "$mem_results" ]]; then
         [[ "$compact" != true ]] && echo "  (no results)"
     fi
+}
+
+# --- Cross-system graph traversal ---
+
+# Query Engram edges from a shadow Memory.id
+# Returns tab-separated: target_id, relation, content_preview
+query_engram_edges() {
+    local memory_id="$1"
+
+    [[ ! -f "$CLAUDE_MEMORY_DB" ]] && return 0
+
+    sqlite3 -separator $'\t' "$CLAUDE_MEMORY_DB" <<SQL
+SELECT e.targetId, e.relation, substr(m.content, 1, 80)
+FROM Edge e
+JOIN Memory m ON e.targetId = m.id
+WHERE e.sourceId = $memory_id
+  AND m.content NOT LIKE '[lore:%'
+LIMIT 20;
+SQL
+}
+
+# Get Engram Memory.id for a Lore record ID
+get_engram_memory_id() {
+    local lore_id="$1"
+
+    [[ ! -f "$CLAUDE_MEMORY_DB" ]] && return 0
+
+    sqlite3 "$CLAUDE_MEMORY_DB" "SELECT id FROM Memory WHERE content LIKE '[lore:${lore_id}]%' LIMIT 1;" 2>/dev/null || echo ""
+}
+
+# Traverse graph across Lore and Engram
+# Returns JSON array of nodes with provenance
+cross_system_traverse() {
+    local start_lore_ids="$1"  # Comma-separated Lore record IDs (dec-xxx, pat-xxx)
+    local max_depth="${2:-1}"
+    local db="${3:-$LORE_SEARCH_DB}"
+
+    python3 - "$db" "$CLAUDE_MEMORY_DB" "$start_lore_ids" "$max_depth" <<'PYTHON'
+import sys
+import sqlite3
+import json
+from collections import deque
+
+lore_db = sys.argv[1]
+engram_db = sys.argv[2]
+start_ids = sys.argv[3].split(',') if sys.argv[3] else []
+max_depth = int(sys.argv[4]) if len(sys.argv) > 4 else 1
+
+# Connect to both databases
+lore_conn = sqlite3.connect(lore_db)
+engram_conn = sqlite3.connect(engram_db)
+lore_cur = lore_conn.cursor()
+engram_cur = engram_conn.cursor()
+
+# Track visited nodes: {id: (depth, source, type)}
+visited = {}
+queue = deque()
+
+# Seed with start nodes
+for start_id in start_ids:
+    start_id = start_id.strip()
+    if start_id:
+        visited[start_id] = (0, 'lore', 'start')
+        queue.append((start_id, 0, 'lore'))
+
+results = []
+
+while queue:
+    current_id, current_depth, current_source = queue.popleft()
+
+    # Get node data
+    if current_source == 'lore':
+        # Query Lore's search index for node
+        lore_cur.execute("SELECT id, type, content FROM search_index WHERE id = ?", (current_id,))
+        row = lore_cur.fetchone()
+        if row:
+            results.append({
+                'id': row[0],
+                'type': row[1],
+                'content': row[2],
+                'depth': current_depth,
+                'source': 'lore'
+            })
+
+        # Only follow edges if we haven't reached max depth
+        if current_depth < max_depth:
+            # Find Lore edges
+            lore_cur.execute("SELECT to_id, relation FROM graph_edges WHERE from_id = ?", (current_id,))
+            for to_id, relation in lore_cur.fetchall():
+                if to_id not in visited:
+                    visited[to_id] = (current_depth + 1, 'lore', relation)
+                    queue.append((to_id, current_depth + 1, 'lore'))
+
+            # Check if this is a shadow - if so, follow into Engram
+            # Convert Lore ID (e.g., "dec-abc123") to Engram Memory.id
+            engram_cur.execute("SELECT id FROM Memory WHERE content LIKE ? LIMIT 1", (f'[lore:{current_id}]%',))
+            shadow_row = engram_cur.fetchone()
+            if shadow_row:
+                shadow_mem_id = shadow_row[0]
+
+                # Query Engram edges from this shadow
+                engram_cur.execute("""
+                    SELECT e.targetId, e.relation, m.content, m.topic
+                    FROM Edge e
+                    JOIN Memory m ON e.targetId = m.id
+                    WHERE e.sourceId = ? AND m.content NOT LIKE '[lore:%'
+                    LIMIT 20
+                """, (shadow_mem_id,))
+
+                for target_id, relation, content, topic in engram_cur.fetchall():
+                    engram_key = f'mem-{target_id}'
+                    if engram_key not in visited:
+                        visited[engram_key] = (current_depth + 1, 'mem', relation)
+                        queue.append((engram_key, current_depth + 1, 'mem'))
+
+    elif current_source == 'mem':
+        # Extract Memory.id from key
+        mem_id = int(current_id.split('-')[1])
+
+        # Query Engram memory
+        engram_cur.execute("SELECT content, topic, importance FROM Memory WHERE id = ?", (mem_id,))
+        row = engram_cur.fetchone()
+        if row:
+            results.append({
+                'id': current_id,
+                'type': 'memory',
+                'content': row[0][:200],  # Preview
+                'topic': row[1],
+                'importance': row[2],
+                'depth': current_depth,
+                'source': 'mem'
+            })
+
+        # Only follow edges if we haven't reached max depth
+        if current_depth < max_depth:
+            # Follow Engram edges (only to non-shadows)
+            engram_cur.execute("""
+                SELECT e.targetId, e.relation
+                FROM Edge e
+                JOIN Memory m ON e.targetId = m.id
+                WHERE e.sourceId = ? AND m.content NOT LIKE '[lore:%'
+                LIMIT 10
+            """, (mem_id,))
+
+            for target_id, relation in engram_cur.fetchall():
+                engram_key = f'mem-{target_id}'
+                if engram_key not in visited:
+                    visited[engram_key] = (current_depth + 1, 'mem', relation)
+                    queue.append((engram_key, current_depth + 1, 'mem'))
+
+# Output as JSON
+print(json.dumps(results, indent=2))
+
+lore_conn.close()
+engram_conn.close()
+PYTHON
 }

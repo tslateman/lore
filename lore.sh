@@ -987,11 +987,21 @@ cmd_recall() {
         routed)
             if [[ -z "$query" ]]; then
                 echo -e "${RED}Error: Query required for --routed${NC}" >&2
-                echo "Usage: lore recall --routed <query> [--compact]" >&2
+                echo "Usage: lore recall --routed <query> [--compact] [--graph-depth N]" >&2
                 return 1
             fi
+
+            # Extract graph_depth from pass_through if present
+            local graph_depth=0
+            for i in "${!pass_through[@]}"; do
+                if [[ "${pass_through[$i]}" == "--graph-depth" ]]; then
+                    graph_depth="${pass_through[$i+1]}"
+                    break
+                fi
+            done
+
             source "$LORE_DIR/lib/recall-router.sh"
-            routed_recall "$query" "$compact" 10
+            routed_recall "$query" "$compact" 10 "$graph_depth"
             ;;
         project)
             cmd_context "$project"
