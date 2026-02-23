@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "19425ffe95eb",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "Makefile",
+    "lib/recall-router.sh",
+    "lore.sh",
+    "plans/initiative-lore-claude-memory-integration.md",
+    "plans/phase-4b-cross-system-traversal.md",
+    "tests/test-cross-system-traversal.sh"
+  ],
+  "sessions": [
+    {
+      "metadata": "/19/425ffe95eb/0/metadata.json",
+      "transcript": "/19/425ffe95eb/0/full.jsonl",
+      "context": "/19/425ffe95eb/0/context.md",
+      "content_hash": "/19/425ffe95eb/0/content_hash.txt",
+      "prompt": "/19/425ffe95eb/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2185,
+    "cache_creation_tokens": 1525131,
+    "cache_read_tokens": 33699759,
+    "output_tokens": 16427,
+    "api_call_count": 337
+  }
+}
