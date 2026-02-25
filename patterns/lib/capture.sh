@@ -111,52 +111,62 @@ capture_pattern() {
         fi
     fi
 
-    # Build the pattern YAML entry
-    local pattern_yaml="
-  - id: \"$id\"
-    name: \"$(yaml_escape "$name")\"
-    context: \"$(yaml_escape "$context")\"
-    problem: \"$(yaml_escape "$problem")\"
-    solution: \"$(yaml_escape "$solution")\"
-    category: \"$category\"
-    origin: \"$origin\"
-    confidence: 0.5
-    validations: 0
-    created_at: \"$created_at\"
-    spec_quality: $(compute_pattern_spec_quality "$name" "$context" "$solution" "$problem")$examples_yaml"
+    # Use yq to insert pattern - handles all YAML escaping automatically
+    local spec_quality
+    spec_quality=$(compute_pattern_spec_quality "$name" "$context" "$solution" "$problem")
 
-    # Insert pattern into YAML file
-    # We insert after the "patterns:" line
+    # Export values as environment variables for yq strenv()
+    export LORE_PAT_ID="$id"
+    export LORE_PAT_NAME="$name"
+    export LORE_PAT_CONTEXT="$context"
+    export LORE_PAT_PROBLEM="$problem"
+    export LORE_PAT_SOLUTION="$solution"
+    export LORE_PAT_CATEGORY="$category"
+    export LORE_PAT_ORIGIN="$origin"
+    export LORE_PAT_CREATED="$created_at"
+    export LORE_PAT_SPEC_QUALITY="$spec_quality"
+
     local temp_file
     temp_file=$(mktemp)
 
-    LORE_PATTERN_YAML="$pattern_yaml" awk '
-        BEGIN { pattern = ENVIRON["LORE_PATTERN_YAML"] }
-        /^patterns:/ {
-            # Handle "patterns: []" (inline empty array) — strip [] so entries nest correctly
-            sub(/[[:space:]]*\[\][[:space:]]*$/, "")
-            print
-            if (getline nextline > 0) {
-                if (nextline == "" || nextline ~ /^\[\]$/) {
-                    print pattern
-                } else {
-                    print pattern
-                    print nextline
-                }
-            } else {
-                print pattern
-            }
-            next
-        }
-        { print }
-    ' "$PATTERNS_FILE" > "$temp_file"
+    # Build yq expression to add new pattern
+    local yq_expr='.patterns += [{
+        "id": strenv(LORE_PAT_ID),
+        "name": strenv(LORE_PAT_NAME),
+        "context": strenv(LORE_PAT_CONTEXT),
+        "problem": strenv(LORE_PAT_PROBLEM),
+        "solution": strenv(LORE_PAT_SOLUTION),
+        "category": strenv(LORE_PAT_CATEGORY),
+        "origin": strenv(LORE_PAT_ORIGIN),
+        "confidence": 0.5,
+        "validations": 0,
+        "created_at": strenv(LORE_PAT_CREATED),
+        "spec_quality": env(LORE_PAT_SPEC_QUALITY)
+    }]'
 
-    # Validate before replacing — catch indentation mismatches early
-    if command -v yq &>/dev/null && ! yq '.' "$temp_file" >/dev/null 2>&1; then
-        echo -e "${RED}Error: Pattern insertion produced invalid YAML. Aborting.${NC}" >&2
+    # Handle examples if present
+    if [[ -n "$example_bad" ]]; then
+        export LORE_PAT_EX_BAD="$example_bad"
+        yq_expr="$yq_expr | .patterns[-1].examples += [{\"bad\": strenv(LORE_PAT_EX_BAD)}]"
+    fi
+    if [[ -n "$example_good" ]]; then
+        export LORE_PAT_EX_GOOD="$example_good"
+        yq_expr="$yq_expr | .patterns[-1].examples += [{\"good\": strenv(LORE_PAT_EX_GOOD)}]"
+    fi
+
+    if ! yq "$yq_expr" "$PATTERNS_FILE" > "$temp_file"; then
+        echo -e "${RED}Error: Failed to insert pattern.${NC}" >&2
         rm -f "$temp_file"
+        unset LORE_PAT_ID LORE_PAT_NAME LORE_PAT_CONTEXT LORE_PAT_PROBLEM LORE_PAT_SOLUTION \
+              LORE_PAT_CATEGORY LORE_PAT_ORIGIN LORE_PAT_CREATED LORE_PAT_SPEC_QUALITY \
+              LORE_PAT_EX_BAD LORE_PAT_EX_GOOD
         return 1
     fi
+
+    # Cleanup environment variables
+    unset LORE_PAT_ID LORE_PAT_NAME LORE_PAT_CONTEXT LORE_PAT_PROBLEM LORE_PAT_SOLUTION \
+          LORE_PAT_CATEGORY LORE_PAT_ORIGIN LORE_PAT_CREATED LORE_PAT_SPEC_QUALITY \
+          LORE_PAT_EX_BAD LORE_PAT_EX_GOOD
 
     mv "$temp_file" "$PATTERNS_FILE"
 
