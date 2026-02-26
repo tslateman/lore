@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "0174d5c522bf",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "Makefile",
+    "plans/archive/phase-4b-cross-system-traversal.md",
+    "plans/archive/plan-dedup-and-graph-hardening.md",
+    "plans/archive/plan-remove-missions.md",
+    "tests/test-validate.sh"
+  ],
+  "sessions": [
+    {
+      "metadata": "/01/74d5c522bf/0/metadata.json",
+      "transcript": "/01/74d5c522bf/0/full.jsonl",
+      "context": "/01/74d5c522bf/0/context.md",
+      "content_hash": "/01/74d5c522bf/0/content_hash.txt",
+      "prompt": "/01/74d5c522bf/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2185,
+    "cache_creation_tokens": 1525131,
+    "cache_read_tokens": 33699759,
+    "output_tokens": 16427,
+    "api_call_count": 337
+  }
+}
