@@ -52,6 +52,8 @@ test:
 	@bash tests/test-promote.sh
 	@bash tests/test-graph-edge-projection.sh
 	@bash tests/test-cross-system-traversal.sh
+	@bash tests/test-storage-tiers.sh
+	@bash tests/test-validate.sh
 
 # Check all build freshness
 check: check-mcp
