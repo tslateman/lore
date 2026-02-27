@@ -84,7 +84,7 @@ lore search "authentication"
 lore search "authentication" --graph-depth 2
 ```
 
-Run `lore help` for all commands, or `lore help <topic>` for details on capture, search, intent, registry, or components. See the [tutorial](docs/tutorial.md) for a hands-on walkthrough.
+Run `lore help` for all commands, or `lore help <topic>` for details on capture, search, intent, registry, or components. See the [tutorial](docs/tutorial.md) for a hands-on walkthrough and [docs/engram-integration.md](docs/engram-integration.md) for the Engram bridge.
 
 ## Why Lore
 

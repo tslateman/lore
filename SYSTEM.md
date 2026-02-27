@@ -220,7 +220,9 @@ Lore provides the written record — append-only decisions, curated patterns, fa
 
 `lore sync` bridges them by projecting Lore records as shadow memories into Engram. Shadows carry a `[lore:{id}]` prefix for deduplication and use `zeroblob(0)` embeddings (FTS5-searchable, not vector-searchable). This makes Lore's durable knowledge visible to the advise hook without duplicating storage semantics.
 
-Bridged sources: decisions, patterns, failure triggers (3+ occurrences), session handoffs. Not bridged: individual failures, raw observations, graph edges.
+`lore recall --routed` queries both systems, classifying queries by keyword shape (structural queries go to Lore first, temporal queries go to Engram first). `lore promote` moves high-value Engram memories into the durable record.
+
+Bridged sources: decisions, patterns, failure triggers (3+ occurrences), session handoffs, graph edges. Not bridged: individual failures, raw observations. See [docs/engram-integration.md](docs/engram-integration.md) for usage.
 
 ## What Lore Is Not
 
