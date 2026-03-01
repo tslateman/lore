@@ -182,6 +182,11 @@ RECALL
     --graph-depth N       → follow graph edges during search (0-3)
     --compact             → machine-readable output
   search <query>          Search (shortcut for recall)
+  overlay <query>         Generate compact context bundle for agent priming
+    --query, -q           Search query (required)
+    --project, -p         Boost results from this project
+    --limit, -l           Max results (default 10)
+    --json                Structured JSON output for automation
   context <project>       Project context (shortcut for recall --project)
   suggest <context>       Pattern suggestions (shortcut for recall --patterns)
   failures [--type T]     List failures (shortcut for recall --failures)
@@ -2250,6 +2255,114 @@ YAML
     echo -e "${GREEN}Done. Data directory ready at ${LORE_DATA_DIR}${NC}"
 }
 
+cmd_overlay() {
+    local query=""
+    local project=""
+    local limit=10
+    local json=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --query|-q)  query="$2"; shift 2 ;;
+            --project|-p) project="$2"; shift 2 ;;
+            --limit|-l)  limit="$2"; shift 2 ;;
+            --json)      json=true; shift ;;
+            -*)
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Usage: lore overlay --query <query> [--project <name>] [--limit N] [--json]" >&2
+                return 1
+                ;;
+            *)
+                # Bare positional arg treated as query
+                [[ -z "$query" ]] && query="$1"
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$query" ]]; then
+        echo -e "${RED}Error: --query is required${NC}" >&2
+        echo "Usage: lore overlay --query <query> [--project <name>] [--limit N] [--json]" >&2
+        return 1
+    fi
+
+    if [[ ! -f "$SEARCH_DB" ]]; then
+        echo -e "${RED}Error: Search index not found. Run 'lore index' first.${NC}" >&2
+        return 1
+    fi
+
+    # Derive project from cwd if not specified
+    [[ -z "$project" ]] && project=$(_derive_project)
+
+    if [[ "$json" == true ]]; then
+        # Structured JSON output — query FTS5 directly for clean data
+        local safe_query="${query//\'/\'\'}"
+        local safe_project="${project//\'/\'\'}"
+        local json_results
+        json_results=$(sqlite3 -json "$SEARCH_DB" <<SQL 2>/dev/null
+WITH ranked AS (
+    SELECT 'decision' as type, id, decision as content, project, timestamp, importance, rank * -1 as bm25_score FROM decisions WHERE decisions MATCH '${safe_query}'
+    UNION ALL
+    SELECT 'pattern' as type, id, name || ': ' || solution as content, 'lore' as project, timestamp, CAST(confidence * 5 AS INT) as importance, rank * -1 as bm25_score FROM patterns WHERE patterns MATCH '${safe_query}'
+    UNION ALL
+    SELECT 'transfer' as type, session_id as id, handoff as content, project, timestamp, 3 as importance, rank * -1 as bm25_score FROM transfers WHERE transfers MATCH '${safe_query}'
+    UNION ALL
+    SELECT 'failure' as type, id, error_type || ': ' || error_message as content, '' as project, timestamp, 3 as importance, rank * -1 as bm25_score FROM failures WHERE failures MATCH '${safe_query}'
+    UNION ALL
+    SELECT 'observation' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'
+    UNION ALL
+    SELECT 'concept' as type, id, name || ': ' || definition as content, '' as project, timestamp, 4 as importance, rank * -1 as bm25_score FROM concepts WHERE concepts MATCH '${safe_query}'
+),
+frequency AS (
+    SELECT record_type, record_id, COUNT(*) as access_count, MAX(accessed_at) as last_access
+    FROM access_log GROUP BY record_type, record_id
+)
+SELECT
+    r.type,
+    r.id,
+    SUBSTR(r.content, 1, 80) as title,
+    ROUND(
+        r.bm25_score
+        * (1.0 / (1 + (julianday('now') - julianday(r.timestamp)) / 30))
+        * COALESCE(1.0 + (LOG(1 + f.access_count) * 0.15), 1.0)
+        * (1.0 + (r.importance / 5.0 * 0.2))
+        * COALESCE(1.0 + (0.1 * EXP(-(julianday('now') - julianday(f.last_access)) / 30)), 1.0)
+        * CASE WHEN r.project = '${safe_project}' THEN 1.5 ELSE 1.0 END
+    , 2) as score
+FROM ranked r
+LEFT JOIN frequency f ON r.type = f.record_type AND r.id = f.record_id
+ORDER BY score DESC
+LIMIT ${limit};
+SQL
+        ) || true
+
+        # Wrap in envelope with query metadata
+        if [[ -z "$json_results" || "$json_results" == "[]" ]]; then
+            json_results="[]"
+        fi
+        jq -n \
+            --arg query "$query" \
+            --arg project "$project" \
+            --argjson items "$json_results" \
+            '{query: $query, project: $project, items: $items}'
+    else
+        # Human-readable overlay — reuse _search_fts5 compact mode
+        local results
+        results=$(_search_fts5 "$query" "$project" "$limit" 0 true) || true
+
+        echo -e "${BOLD}--- Lore Context Overlay ---${NC}"
+        echo -e "${DIM}query: ${query}  project: ${project:-any}  limit: ${limit}${NC}"
+        echo ""
+        if [[ -n "$results" ]]; then
+            echo "$results"
+        else
+            echo -e "  ${DIM}(no results)${NC}"
+        fi
+        echo ""
+        echo -e "${DIM}Use 'lore context <id>' for full details on any item.${NC}"
+    fi
+}
+
 main() {
     [[ $# -eq 0 ]] && { show_help; exit 0; }
 
@@ -2263,6 +2376,7 @@ main() {
         resume)     shift; cmd_resume "$@" ;;
         entire-resume) shift; "$LORE_DIR/scripts/entire-resume-with-context.sh" "$@" ;;
         search)     shift; cmd_search "$@" ;;
+        overlay)    shift; cmd_overlay "$@" ;;
         suggest)    shift; cmd_suggest "$@" ;;
         context)    shift; cmd_context "$@" ;;
         status)     shift; cmd_status "$@" ;;
