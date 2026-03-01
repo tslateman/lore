@@ -55,7 +55,7 @@ _bridge_health_check() {
 }
 
 # Infer capture type from command-line flags
-# Returns: "decision", "pattern", "failure", or "observation"
+# Returns: "decision", "pattern", "failure", "evidence", or "signal"
 infer_capture_type() {
     local has_decision_flags=false
     local has_pattern_flags=false
@@ -68,7 +68,8 @@ infer_capture_type() {
             --decision) explicit_type="decision"; shift ;;
             --pattern) explicit_type="pattern"; shift ;;
             --failure) explicit_type="failure"; shift ;;
-            --observation) explicit_type="observation"; shift ;;
+            --observation|--signal) explicit_type="signal"; shift ;;
+            --evidence) explicit_type="evidence"; shift ;;
             --concept) explicit_type="concept"; shift ;;
 
             # Decision-specific flags
@@ -97,7 +98,7 @@ infer_capture_type() {
     # Explicit type wins
     [[ -n "$explicit_type" ]] && { echo "$explicit_type"; return; }
 
-    # Infer from flags (failure > pattern > decision > observation default)
+    # Infer from flags (failure > pattern > decision > signal default)
     if [[ "$has_failure_flags" == true ]]; then
         echo "failure"
     elif [[ "$has_pattern_flags" == true ]]; then
@@ -105,7 +106,7 @@ infer_capture_type() {
     elif [[ "$has_decision_flags" == true ]]; then
         echo "decision"
     else
-        echo "observation"
+        echo "signal"
     fi
 }
 
@@ -123,10 +124,11 @@ Session:
   status              Show current session state
 
 Capture flags:
-  (none)              → observation (inbox)
+  (none)              → signal (inbox)
   --rationale "why"   → decision (journal)
   --solution "what"   → pattern (patterns)
   --error-type Type   → failure (failures)
+  --evidence          → evidence (with --confidence level)
 
 Query:
   recall <query>        Read from memory (mode inferred from flags)
@@ -154,20 +156,27 @@ SESSION LIFECYCLE
 
 CAPTURE
   capture <text>          Universal write — type inferred from flags:
-    (no flags)            → observation (inbox)
+    (no flags)            → signal (inbox)
     --rationale, -r       → decision (journal)
     --solution            → pattern (patterns)
     --error-type          → failure (failures)
     --decision            Explicit decision override
     --pattern             Explicit pattern override
     --failure             Explicit failure override
-    --observation         Explicit observation override
+    --signal              Explicit signal override
+    --evidence            Explicit evidence (with --confidence)
     --concept             Explicit concept (with --definition)
+    --confidence          Evidence confidence (preliminary|confirmed|contested|superseded)
     --definition          Concept definition (used with --concept)
     --tags, -t            Tags for categorization (all types)
   remember <text>         Record a decision (shortcut for capture --decision)
   fail <type> <message>   Log a failure
-  observe <text>          Capture observation (shortcut for capture --observation)
+  observe <text>          Capture signal (shortcut for capture --signal)
+
+EVIDENCE
+  evidence list [--confidence X]  List evidence, optional confidence filter
+  evidence get <id>               Get single evidence record
+  evidence stats                  Count evidence by confidence level
 
 RECALL
   recall <query>          Universal read — mode inferred from flags:
@@ -233,7 +242,7 @@ COMPONENTS (direct access)
   journal <cmd>           Decision journal
   patterns <cmd>          Patterns and anti-patterns
   transfer <cmd>          Session management
-  inbox <cmd>             Observation staging
+  inbox <cmd>             Signal staging
   intent <cmd>            Goals and specs
 
 Run 'lore help <topic>' for detailed help on:
@@ -248,13 +257,13 @@ CAPTURE COMMANDS
 
 Record knowledge with a single verb. Importance is earned via flags, not assumed.
 
-  lore capture "X"                              → observation (inbox)
+  lore capture "X"                              → signal (inbox)
   lore capture "X" --rationale "why"            → decision (journal)
   lore capture "X" --solution "how"             → pattern (patterns)
   lore capture "X" --error-type ToolError       → failure (failures)
 
-Bare capture creates an observation — a low-friction note that can be promoted
-to a decision or pattern later. Add flags to signal importance.
+Bare capture creates a signal — a low-friction note that can be promoted
+to evidence or a decision later. Add flags to indicate importance.
 
 DECISIONS (remember)
   lore remember "Use PostgreSQL" --rationale "Need ACID, team knows it"
@@ -293,10 +302,10 @@ FAILURES (fail)
     --tool <name>               Tool that failed
     --step <desc>               Step in workflow
 
-OBSERVATIONS (observe)
+SIGNALS (observe)
   lore observe "Users frequently ask about retry logic"
 
-  Raw observations go to inbox for later triage.
+  Raw signals go to inbox for later triage.
 
 CONCEPTS (capture --concept)
   lore capture "Fail-silent wrappers" --concept --definition "Library calls that catch errors"
@@ -457,7 +466,7 @@ Lore has eight components. Each answers one question.
   patterns/   "What did we learn?"          Patterns and anti-patterns
   transfer/   "What's next?"                Session handoff and resume
   graph/      "What relates to this?"       Knowledge graph
-  inbox/      "What did we notice?"         Raw observation staging
+  inbox/      "What did we notice?"         Raw signal staging
   intent/     "What are we trying to do?"   Goals and specs
   failures/   "What went wrong?"            Failure reports
   registry/   "What exists?"                Project metadata
@@ -509,7 +518,7 @@ cmd_help() {
             echo "Unknown help topic: $topic"
             echo ""
             echo "Available topics:"
-            echo "  capture     Decisions, patterns, failures, observations"
+            echo "  capture     Decisions, patterns, failures, signals"
             echo "  recall      Read modes and flags"
             echo "  search      Search modes and options"
             echo "  intent      Goals, specs"
@@ -545,26 +554,26 @@ cmd_capture() {
     local capture_type
     capture_type=$(infer_capture_type "$@")
 
-    # Strip explicit type flags and --force (observation has no dedup), pass everything else
+    # Strip explicit type flags and --force (signal has no dedup), pass everything else
     local args=()
     local has_force=false
     for arg in "$@"; do
         case "$arg" in
-            --decision|--pattern|--failure|--observation|--concept) continue ;;
+            --decision|--pattern|--failure|--observation|--signal|--evidence|--concept) continue ;;
             --force) has_force=true; args+=("$arg") ;;
             *) args+=("$arg") ;;
         esac
     done
 
     case "$capture_type" in
-        observation)
+        signal)
             # Strip --force before passing to cmd_observe (it has no dedup check)
-            local obs_args=()
+            local sig_args=()
             for arg in "${args[@]}"; do
                 [[ "$arg" == "--force" ]] && continue
-                obs_args+=("$arg")
+                sig_args+=("$arg")
             done
-            cmd_observe "${obs_args[@]}"
+            cmd_observe "${sig_args[@]}"
             return
             ;;
         decision)
@@ -597,6 +606,45 @@ cmd_capture() {
             else
                 cmd_fail "${fail_args[@]}"
             fi
+            ;;
+        evidence)
+            source "$LORE_DIR/evidence/lib/evidence.sh"
+            local evi_text="" evi_confidence="preliminary" evi_tags="" evi_source="manual" evi_provenance=""
+            local skip_next=false
+            for ((i=0; i<${#args[@]}; i++)); do
+                if [[ "$skip_next" == true ]]; then
+                    skip_next=false
+                    continue
+                fi
+                case "${args[$i]}" in
+                    --confidence)
+                        evi_confidence="${args[$((i+1))]}"
+                        skip_next=true ;;
+                    --tags|-t)
+                        evi_tags="${args[$((i+1))]}"
+                        skip_next=true ;;
+                    --source)
+                        evi_source="${args[$((i+1))]}"
+                        skip_next=true ;;
+                    --provenance)
+                        evi_provenance="${args[$((i+1))]}"
+                        skip_next=true ;;
+                    --force) ;;
+                    --*) skip_next=true ;;
+                    *)
+                        [[ -z "$evi_text" ]] && evi_text="${args[$i]}" ;;
+                esac
+            done
+            if [[ -z "$evi_text" ]]; then
+                echo -e "${RED}Error: Evidence content required${NC}" >&2
+                echo "Usage: lore capture \"text\" --evidence [--confidence preliminary|confirmed|contested|superseded]" >&2
+                return 1
+            fi
+            local evi_id
+            evi_id=$(evidence_append "$evi_text" "$evi_source" "$evi_tags" "$evi_confidence" "$evi_provenance")
+            echo -e "${GREEN}Recorded evidence:${NC} ${BOLD}${evi_id}${NC}"
+            echo -e "  ${CYAN}Confidence:${NC} $evi_confidence"
+            echo -e "  ${CYAN}Content:${NC} ${evi_text:0:70}$([ ${#evi_text} -gt 70 ] && echo '...')"
             ;;
         concept)
             local definition=""
@@ -683,7 +731,7 @@ _search_fts5() {
     local pattern_sql="SELECT 'pattern' as type, id, name || ': ' || solution as content, 'lore' as project, timestamp, CAST(confidence * 5 AS INT) as importance, rank * -1 as bm25_score FROM patterns WHERE patterns MATCH '${safe_query}'"
     local transfer_sql="SELECT 'transfer' as type, session_id as id, handoff as content, project, timestamp, 3 as importance, rank * -1 as bm25_score FROM transfers WHERE transfers MATCH '${safe_query}'"
     local failure_sql="SELECT 'failure' as type, id, error_type || ': ' || error_message as content, '' as project, timestamp, 3 as importance, rank * -1 as bm25_score FROM failures WHERE failures MATCH '${safe_query}'"
-    local observation_sql="SELECT 'observation' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'"
+    local signal_sql="SELECT 'signal' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'"
     local concept_sql="SELECT 'concept' as type, id, name || ': ' || definition as content, '' as project, timestamp, 4 as importance, rank * -1 as bm25_score FROM concepts WHERE concepts MATCH '${safe_query}'"
 
     local sql_parts=()
@@ -692,9 +740,9 @@ _search_fts5() {
         pattern)     sql_parts=("$pattern_sql") ;;
         transfer)    sql_parts=("$transfer_sql") ;;
         failure)     sql_parts=("$failure_sql") ;;
-        observation) sql_parts=("$observation_sql") ;;
+        signal)      sql_parts=("$signal_sql") ;;
         concept)     sql_parts=("$concept_sql") ;;
-        *)           sql_parts=("$decision_sql" "$pattern_sql" "$transfer_sql" "$failure_sql" "$observation_sql" "$concept_sql") ;;
+        *)           sql_parts=("$decision_sql" "$pattern_sql" "$transfer_sql" "$failure_sql" "$signal_sql" "$concept_sql") ;;
     esac
 
     local union_sql
@@ -806,7 +854,7 @@ _search_grep() {
     echo ""
 
     echo -e "${CYAN}Inbox:${NC}"
-    local inbox_file="${LORE_INBOX_DATA}/observations.jsonl"
+    local inbox_file="${LORE_SIGNALS_FILE}"
     if [[ -f "$inbox_file" ]]; then
         grep -i "$query" "$inbox_file" 2>/dev/null \
             | jq -r '"  \(.id) [\(.status)] \(.content[0:80])"' 2>/dev/null \
@@ -1538,21 +1586,21 @@ cmd_observe() {
     done
 
     if [[ -z "$content" ]]; then
-        echo -e "${RED}Error: Observation text required${NC}" >&2
+        echo -e "${RED}Error: Signal text required${NC}" >&2
         echo "Usage: lore observe <text> [--source <source>] [--tags <tags>]" >&2
         return 1
     fi
 
     local id
-    id=$(inbox_append "$content" "$source" "$tags")
+    id=$(signal_append "$content" "$source" "$tags")
 
-    echo -e "${GREEN}Observed:${NC} ${BOLD}$id${NC}"
+    echo -e "${GREEN}Signal:${NC} ${BOLD}$id${NC}"
     echo -e "  ${CYAN}Content:${NC} $content"
     if [[ "$source" != "manual" ]]; then
         echo -e "  ${CYAN}Source:${NC} $source"
     fi
 
-    # Sync observations to graph (background, fail-silent)
+    # Sync signals to graph (background, fail-silent)
     "$LORE_DIR/graph/sync-observations.sh" &>/dev/null &
 }
 
@@ -1579,20 +1627,82 @@ cmd_inbox() {
     done
 
     local results
-    results=$(inbox_list "$filter_status")
+    results=$(signal_list "$filter_status")
 
     local count
     count=$(echo "$results" | jq 'length')
 
     if [[ "$count" -eq 0 ]]; then
-        echo -e "${YELLOW}No observations found${NC}"
+        echo -e "${YELLOW}No signals found${NC}"
         return 0
     fi
 
-    echo -e "${GREEN}Observations ($count):${NC}"
+    echo -e "${GREEN}Signals ($count):${NC}"
     echo
 
     echo "$results" | jq -r '.[] | "  \(.id) [\(.status)] \(.timestamp[0:16])\n    \(.content[0:70])\(.content | if length > 70 then "..." else "" end)\n"'
+}
+
+
+cmd_evidence() {
+    source "$LORE_DIR/evidence/lib/evidence.sh"
+
+    local subcmd="${1:-list}"
+    shift 2>/dev/null || true
+
+    case "$subcmd" in
+        list)
+            local filter_confidence=""
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --confidence) filter_confidence="$2"; shift 2 ;;
+                    *) echo -e "${RED}Unknown option: $1${NC}" >&2; return 1 ;;
+                esac
+            done
+
+            local results
+            results=$(evidence_list "$filter_confidence")
+
+            local count
+            count=$(echo "$results" | jq 'length')
+
+            if [[ "$count" -eq 0 ]]; then
+                echo -e "${YELLOW}No evidence found${NC}"
+                return 0
+            fi
+
+            echo -e "${GREEN}Evidence ($count):${NC}"
+            echo
+
+            echo "$results" | jq -r '.[] | "  \(.id) [\(.confidence)] \(.timestamp[0:16])\n    \(.content[0:70])\(.content | if length > 70 then "..." else "" end)\n"'
+            ;;
+        get)
+            local evi_id="${1:-}"
+            if [[ -z "$evi_id" ]]; then
+                echo -e "${RED}Error: Evidence ID required${NC}" >&2
+                echo "Usage: lore evidence get <id>" >&2
+                return 1
+            fi
+
+            local record
+            record=$(evidence_get "$evi_id")
+
+            if [[ -z "$record" ]]; then
+                echo -e "${RED}Error: Evidence $evi_id not found${NC}" >&2
+                return 1
+            fi
+
+            echo "$record" | jq .
+            ;;
+        stats)
+            evidence_stats | jq .
+            ;;
+        *)
+            echo -e "${RED}Unknown evidence command: $subcmd${NC}" >&2
+            echo "Usage: lore evidence <list|get|stats>" >&2
+            return 1
+            ;;
+    esac
 }
 
 generate_concept_id() {
@@ -2232,6 +2342,7 @@ YAML
     [[ -f "${LORE_DECISIONS_FILE}" ]] || touch "${LORE_DECISIONS_FILE}"
     [[ -f "${LORE_FAILURES_DATA}/failures.jsonl" ]] || touch "${LORE_FAILURES_DATA}/failures.jsonl"
     [[ -f "${LORE_INBOX_DATA}/observations.jsonl" ]] || touch "${LORE_INBOX_DATA}/observations.jsonl"
+    [[ -f "${LORE_SIGNALS_FILE}" ]] || touch "${LORE_SIGNALS_FILE}"
 
     if [[ ! -f "${LORE_PATTERNS_FILE}" ]]; then
         cat > "${LORE_PATTERNS_FILE}" <<'YAML'
@@ -2309,7 +2420,7 @@ WITH ranked AS (
     UNION ALL
     SELECT 'failure' as type, id, error_type || ': ' || error_message as content, '' as project, timestamp, 3 as importance, rank * -1 as bm25_score FROM failures WHERE failures MATCH '${safe_query}'
     UNION ALL
-    SELECT 'observation' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'
+    SELECT 'signal' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'
     UNION ALL
     SELECT 'concept' as type, id, name || ': ' || definition as content, '' as project, timestamp, 4 as importance, rank * -1 as bm25_score FROM concepts WHERE concepts MATCH '${safe_query}'
 ),
@@ -2382,6 +2493,7 @@ main() {
         status)     shift; cmd_status "$@" ;;
         observe)    shift; cmd_observe "$@" ;;
         inbox)      shift; cmd_inbox "$@" ;;
+        evidence)   shift; cmd_evidence "$@" ;;
         fail)       shift; cmd_fail "$@" ;;
         failures)   shift; cmd_failures "$@" ;;
         triggers)   shift; cmd_triggers "$@" ;;

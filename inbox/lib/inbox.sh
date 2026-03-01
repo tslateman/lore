@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Inbox staging area - append-only raw observations
+# Inbox staging area - append-only raw signals
 # Part of the Lore memory system for AI agents
 
 set -euo pipefail
@@ -7,36 +7,36 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../lib/paths.sh"
 DATA_DIR="${LORE_INBOX_DATA}"
-OBSERVATIONS_FILE="${DATA_DIR}/observations.jsonl"
+SIGNALS_FILE="${LORE_SIGNALS_FILE}"
 
 # Ensure data directory exists
 init_inbox() {
     mkdir -p "$DATA_DIR"
-    touch "$OBSERVATIONS_FILE"
+    touch "$SIGNALS_FILE"
 }
 
-# Generate unique observation ID (obs- prefix + 8 hex chars)
-generate_observation_id() {
-    echo "obs-$(od -An -tx1 -N4 /dev/urandom | tr -d ' \n')"
+# Generate unique signal ID (sig- prefix + 8 hex chars)
+generate_signal_id() {
+    echo "sig-$(od -An -tx1 -N4 /dev/urandom | tr -d ' \n')"
 }
 
-# Append a raw observation to the inbox
+# Append a raw signal to the inbox
 # Args: content source [tags]
 # Rejects empty content. Injects timestamp automatically.
-inbox_append() {
+signal_append() {
     local content="$1"
     local source="${2:-manual}"
     local tags="${3:-}"
 
     if [[ -z "$content" ]]; then
-        echo "Error: Observation content required" >&2
+        echo "Error: Signal content required" >&2
         return 1
     fi
 
     init_inbox
 
     local id
-    id=$(generate_observation_id)
+    id=$(generate_signal_id)
 
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -66,19 +66,19 @@ inbox_append() {
         }')
 
     # Atomic append (single echo >> call)
-    echo "$record" >> "$OBSERVATIONS_FILE"
+    echo "$record" >> "$SIGNALS_FILE"
 
     echo "$id"
 }
 
-# List observations, optionally filtered by status
+# List signals, optionally filtered by status
 # Args: [status]
-inbox_list() {
+signal_list() {
     local filter_status="${1:-}"
 
     init_inbox
 
-    if [[ ! -s "$OBSERVATIONS_FILE" ]]; then
+    if [[ ! -s "$SIGNALS_FILE" ]]; then
         echo "[]"
         return 0
     fi
@@ -86,33 +86,40 @@ inbox_list() {
     if [[ -n "$filter_status" ]]; then
         jq -s --arg s "$filter_status" \
             '[.[] | select(.status == $s)] | sort_by(.timestamp) | reverse' \
-            "$OBSERVATIONS_FILE"
+            "$SIGNALS_FILE"
     else
-        jq -s 'sort_by(.timestamp) | reverse' "$OBSERVATIONS_FILE"
+        jq -s 'sort_by(.timestamp) | reverse' "$SIGNALS_FILE"
     fi
 }
 
-# Mark an observation as promoted
-# Args: observation_id target_description
+# Mark a signal as promoted
+# Args: signal_id target_description [target_type]
+# target_type: "evidence" or "decision" (default: "decision")
 # Sets status to "promoted" and records the promotion target.
 # Does NOT create the target entry -- use lore remember or lore learn.
-inbox_promote() {
-    local obs_id="$1"
+signal_promote() {
+    local sig_id="$1"
     local target="${2:-}"
+    local target_type="${3:-decision}"
 
-    if [[ -z "$obs_id" ]]; then
-        echo "Error: Observation ID required" >&2
+    if [[ -z "$sig_id" ]]; then
+        echo "Error: Signal ID required" >&2
+        return 1
+    fi
+
+    if [[ "$target_type" != "evidence" && "$target_type" != "decision" ]]; then
+        echo "Error: target_type must be 'evidence' or 'decision'" >&2
         return 1
     fi
 
     init_inbox
 
-    # Verify the observation exists
+    # Verify the signal exists
     local existing
-    existing=$(jq -c --arg id "$obs_id" 'select(.id == $id)' "$OBSERVATIONS_FILE" 2>/dev/null | tail -1)
+    existing=$(jq -c --arg id "$sig_id" 'select(.id == $id)' "$SIGNALS_FILE" 2>/dev/null | tail -1)
 
     if [[ -z "$existing" ]]; then
-        echo "Error: Observation $obs_id not found" >&2
+        echo "Error: Signal $sig_id not found" >&2
         return 1
     fi
 
@@ -120,7 +127,7 @@ inbox_promote() {
     current_status=$(echo "$existing" | jq -r '.status')
 
     if [[ "$current_status" != "raw" ]]; then
-        echo "Error: Observation $obs_id already has status '$current_status'" >&2
+        echo "Error: Signal $sig_id already has status '$current_status'" >&2
         return 1
     fi
 
@@ -132,33 +139,34 @@ inbox_promote() {
     updated=$(echo "$existing" | jq -c \
         --arg status "promoted" \
         --arg target "$target" \
+        --arg target_type "$target_type" \
         --arg promoted_at "$promoted_at" \
-        '. + {status: $status, promoted_to: $target, promoted_at: $promoted_at}')
+        '. + {status: $status, promoted_to: $target_type, promoted_target: $target, promoted_at: $promoted_at}')
 
     # Append updated version (append-only; latest version wins on read)
-    echo "$updated" >> "$OBSERVATIONS_FILE"
+    echo "$updated" >> "$SIGNALS_FILE"
 
-    echo "$obs_id"
+    echo "$sig_id"
 }
 
-# Mark an observation as discarded
-# Args: observation_id [reason]
-inbox_discard() {
-    local obs_id="$1"
+# Mark a signal as discarded
+# Args: signal_id [reason]
+signal_discard() {
+    local sig_id="$1"
     local reason="${2:-}"
 
-    if [[ -z "$obs_id" ]]; then
-        echo "Error: Observation ID required" >&2
+    if [[ -z "$sig_id" ]]; then
+        echo "Error: Signal ID required" >&2
         return 1
     fi
 
     init_inbox
 
     local existing
-    existing=$(jq -c --arg id "$obs_id" 'select(.id == $id)' "$OBSERVATIONS_FILE" 2>/dev/null | tail -1)
+    existing=$(jq -c --arg id "$sig_id" 'select(.id == $id)' "$SIGNALS_FILE" 2>/dev/null | tail -1)
 
     if [[ -z "$existing" ]]; then
-        echo "Error: Observation $obs_id not found" >&2
+        echo "Error: Signal $sig_id not found" >&2
         return 1
     fi
 
@@ -166,7 +174,7 @@ inbox_discard() {
     current_status=$(echo "$existing" | jq -r '.status')
 
     if [[ "$current_status" != "raw" ]]; then
-        echo "Error: Observation $obs_id already has status '$current_status'" >&2
+        echo "Error: Signal $sig_id already has status '$current_status'" >&2
         return 1
     fi
 
@@ -180,25 +188,25 @@ inbox_discard() {
         --arg discarded_at "$discarded_at" \
         '. + {status: $status, discard_reason: $reason, discarded_at: $discarded_at}')
 
-    echo "$updated" >> "$OBSERVATIONS_FILE"
+    echo "$updated" >> "$SIGNALS_FILE"
 
-    echo "$obs_id"
+    echo "$sig_id"
 }
 
-# Get a single observation by ID (latest version)
-inbox_get() {
-    local obs_id="$1"
+# Get a single signal by ID (latest version)
+signal_get() {
+    local sig_id="$1"
 
     init_inbox
 
-    jq -c --arg id "$obs_id" 'select(.id == $id)' "$OBSERVATIONS_FILE" 2>/dev/null | tail -1
+    jq -c --arg id "$sig_id" 'select(.id == $id)' "$SIGNALS_FILE" 2>/dev/null | tail -1
 }
 
-# Count observations by status
-inbox_stats() {
+# Count signals by status
+signal_stats() {
     init_inbox
 
-    if [[ ! -s "$OBSERVATIONS_FILE" ]]; then
+    if [[ ! -s "$SIGNALS_FILE" ]]; then
         echo '{"total":0,"raw":0,"promoted":0,"discarded":0}'
         return 0
     fi
@@ -211,5 +219,5 @@ inbox_stats() {
             promoted: [.[] | select(.status == "promoted")] | length,
             discarded: [.[] | select(.status == "discarded")] | length
         }
-    ' "$OBSERVATIONS_FILE"
+    ' "$SIGNALS_FILE"
 }

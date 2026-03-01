@@ -18,6 +18,8 @@ export LORE_FAILURES_DATA="${LORE_DATA_DIR}/failures/data"
 export LORE_INBOX_DATA="${LORE_DATA_DIR}/inbox/data"
 export LORE_INTENT_DATA="${LORE_DATA_DIR}/intent/data"
 export LORE_GRAPH_DATA="${LORE_DATA_DIR}/graph/data"
+export LORE_EVIDENCE_DATA="${LORE_DATA_DIR}/evidence/data"
+export LORE_EVIDENCE_FILE="${LORE_EVIDENCE_DATA}/evidence.jsonl"
 export LORE_REGISTRY_DATA="${LORE_DIR}/registry/data"
 
 # Transfer supports a more specific override via LORE_TRANSFER_ROOT
@@ -28,6 +30,7 @@ else
 fi
 
 # Frequently cross-referenced files
+export LORE_SIGNALS_FILE="${LORE_INBOX_DATA}/signals.jsonl"
 export LORE_DECISIONS_FILE="${LORE_JOURNAL_DATA}/decisions.jsonl"
 export LORE_PATTERNS_FILE="${LORE_PATTERNS_DATA}/patterns.yaml"
 export LORE_CONCEPTS_FILE="${LORE_PATTERNS_DATA}/concepts.yaml"
