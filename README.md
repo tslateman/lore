@@ -144,6 +144,11 @@ migrate existing data.
 
 Projects integrate via `lib/lore-client-base.sh`—fail-silent wrappers that record decisions and patterns without blocking if Lore is unavailable. See `LORE_CONTRACT.md` for the full interface.
 
+### Known Clients
+
+- Praxis: CLI synthesis tool that uses Lore as its storage layer and handles query traversal.
+- Shipyard: Fleet manager that does not require Lore, but agents can hook into the MCP server to read and write context.
+
 ## MCP Server
 
 Lore exposes an MCP server for AI agents:
