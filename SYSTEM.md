@@ -1,8 +1,8 @@
-# System Architecture
+# Lore Stack Architecture
 
 Lore is the data layer. Everything the stack remembers passes through here.
 
-## The Stack
+## The Lore Stack
 
 ```text
               reads            writes
@@ -20,7 +20,7 @@ Lore is the data layer. Everything the stack remembers passes through here.
               +--------+--------+
 ```
 
-Lore sits at the center -- projects read from it and write to it. Integration is
+Lore sits at the center of the stack -- projects read from it and write to it. Integration is
 opt-in via CLI or client library. Any project that calls `lore capture` becomes
 a writer. Any project that calls `lore resume` or `lore recall` becomes a reader.
 Lore neither knows nor cares who its consumers are.
