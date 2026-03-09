@@ -100,6 +100,10 @@ projects:
     path: praxis
     desc: Synthesis facade — unified queries across Lore, patterns, and failures
     tags: [type:tool, lang:python, status:active, synthesis, facade, query]
+  reck:
+    path: reck
+    desc: Autonomous manufacturing intelligence — detect, reason, fix
+    tags: [type:application, lang:python, status:wip, manufacturing, reasoning, autonomy]
   qin:
     path: cli/qin
     desc: Stringless qin — after Tao Yuanming
