@@ -7,6 +7,11 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/lore.sh resume 2>/dev/null || true",
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/cmux-sidebar.sh 2>/dev/null || true",
+            "async": true
           }
         ]
       }
