@@ -162,7 +162,7 @@ check_stale_names() {
             [[ -z "$hit" ]] && continue
             # Skip known-OK references (memory, plans, archived, this script)
             case "$hit" in
-                */MEMORY.md|*/memory/*|*/plans/*|*archived*|*/RENAME*|*/validate.sh|*/validate.md|*/wire-project-edges.sh|*/CHANGELOG*|*/patterns/data/*|*/graph/data/*|*/journal/data/*|*/mani.yaml|*/.research/*|*/tests/*)
+                */MEMORY.md|*/memory/*|*/plans/*|*archived*|*/RENAME*|*/validate.sh|*/validate.md|*/wire-project-edges.sh|*/CHANGELOG*|*/patterns/data/*|*/graph/data/*|*/journal/data/*|*/.research/*|*/tests/*)
                     continue ;;
             esac
             local rel="${hit#"$LORE_DIR"/}"

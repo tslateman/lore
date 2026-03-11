@@ -13,11 +13,8 @@ clusters:
         role: memory
       praxis:
         role: synthesis
-  council:
-    description: "Council execution pipeline"
-    components:
-      bach:
-        role: workers
+      shipyard:
+        role: fleet
   forge:
     description: "Spec-to-solution pipeline"
     components:
