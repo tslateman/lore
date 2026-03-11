@@ -47,7 +47,7 @@ patterns: []
 anti_patterns: []
 YAML
     : > "$TMPDIR/failures/data/failures.jsonl"
-    : > "$TMPDIR/inbox/data/observations.jsonl"
+    : > "$TMPDIR/inbox/data/signals.jsonl"
 
     # Reset paths.sh idempotency guard so it re-derives from new LORE_DIR
     unset _LORE_PATHS_LOADED
@@ -194,16 +194,16 @@ test_explicit_pattern_overrides_default() {
     teardown
 }
 
-test_default_creates_observation() {
-    echo "Test: no type flags defaults to observation"
+test_default_creates_signal() {
+    echo "Test: no type flags defaults to signal"
     setup
     local before
-    before=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
+    before=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Default observation"
+    "$TMPDIR/lore.sh" capture "Default signal"
 
-    assert_file_grew "observations.jsonl grew" "$TMPDIR/inbox/data/observations.jsonl" "$before"
-    assert_contains "default observation recorded" "$TMPDIR/inbox/data/observations.jsonl" "Default observation"
+    assert_file_grew "signals.jsonl grew" "$TMPDIR/inbox/data/signals.jsonl" "$before"
+    assert_contains "default signal recorded" "$TMPDIR/inbox/data/signals.jsonl" "Default signal"
     teardown
 }
 
@@ -264,42 +264,42 @@ test_capture_help_mentions_capture() {
     teardown
 }
 
-test_explicit_observation_override() {
-    echo "Test: --observation flag routes to inbox even with other flags"
+test_explicit_signal_override() {
+    echo "Test: --signal flag routes to inbox even with other flags"
     setup
-    local obs_before dec_before
-    obs_before=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
+    local sig_before dec_before
+    sig_before=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
     dec_before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Explicit observation" --observation
+    "$TMPDIR/lore.sh" capture "Explicit signal" --signal
 
-    assert_file_grew "observations.jsonl grew" "$TMPDIR/inbox/data/observations.jsonl" "$obs_before"
-    assert_contains "observation text recorded" "$TMPDIR/inbox/data/observations.jsonl" "Explicit observation"
+    assert_file_grew "signals.jsonl grew" "$TMPDIR/inbox/data/signals.jsonl" "$sig_before"
+    assert_contains "signal text recorded" "$TMPDIR/inbox/data/signals.jsonl" "Explicit signal"
 
     # Decisions file should NOT have grown
     local dec_after
     dec_after=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
     if [[ "$dec_after" -eq "$dec_before" ]]; then
-        echo "  PASS: decisions.jsonl unchanged (explicit observation worked)"
+        echo "  PASS: decisions.jsonl unchanged (explicit signal worked)"
         PASS=$((PASS + 1))
     else
-        echo "  FAIL: decisions.jsonl grew (explicit observation did not work)"
+        echo "  FAIL: decisions.jsonl grew (explicit signal did not work)"
         FAIL=$((FAIL + 1))
     fi
     teardown
 }
 
-test_capture_observation_with_tags() {
-    echo "Test: bare capture with --tags creates tagged observation"
+test_capture_signal_with_tags() {
+    echo "Test: bare capture with --tags creates tagged signal"
     setup
     local before
-    before=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
+    before=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Tagged observation" --tags "infra,networking"
+    "$TMPDIR/lore.sh" capture "Tagged signal" --tags "infra,networking"
 
-    assert_file_grew "observations.jsonl grew" "$TMPDIR/inbox/data/observations.jsonl" "$before"
-    assert_contains "tagged observation recorded" "$TMPDIR/inbox/data/observations.jsonl" "Tagged observation"
-    assert_contains "tags preserved" "$TMPDIR/inbox/data/observations.jsonl" "infra"
+    assert_file_grew "signals.jsonl grew" "$TMPDIR/inbox/data/signals.jsonl" "$before"
+    assert_contains "tagged signal recorded" "$TMPDIR/inbox/data/signals.jsonl" "Tagged signal"
+    assert_contains "tags preserved" "$TMPDIR/inbox/data/signals.jsonl" "infra"
     teardown
 }
 
@@ -308,21 +308,21 @@ test_decision_flags_still_route_to_decision() {
     setup
     local dec_before obs_before
     dec_before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
-    obs_before=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
+    sig_before=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
 
     "$TMPDIR/lore.sh" capture "Decision with rationale" --rationale "Because reasons" --force
 
     assert_file_grew "decisions.jsonl grew" "$TMPDIR/journal/data/decisions.jsonl" "$dec_before"
     assert_contains "decision text recorded" "$TMPDIR/journal/data/decisions.jsonl" "Decision with rationale"
 
-    # Observations file should NOT have grown
-    local obs_after
-    obs_after=$(file_size "$TMPDIR/inbox/data/observations.jsonl")
-    if [[ "$obs_after" -eq "$obs_before" ]]; then
-        echo "  PASS: observations.jsonl unchanged (decision routing worked)"
+    # Signals file should NOT have grown
+    local sig_after
+    sig_after=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
+    if [[ "$sig_after" -eq "$sig_before" ]]; then
+        echo "  PASS: signals.jsonl unchanged (decision routing worked)"
         PASS=$((PASS + 1))
     else
-        echo "  FAIL: observations.jsonl grew (decision routing failed)"
+        echo "  FAIL: signals.jsonl grew (decision routing failed)"
         FAIL=$((FAIL + 1))
     fi
     teardown
@@ -343,11 +343,11 @@ test_explicit_decision_overrides_default
 echo ""
 test_explicit_pattern_overrides_default
 echo ""
-test_default_creates_observation
+test_default_creates_signal
 echo ""
-test_explicit_observation_override
+test_explicit_signal_override
 echo ""
-test_capture_observation_with_tags
+test_capture_signal_with_tags
 echo ""
 test_decision_flags_still_route_to_decision
 echo ""
