@@ -56,16 +56,6 @@ done
 # Expand tilde
 DATA_DIR="${DATA_DIR/#\~/$HOME}"
 
-# Check: already migrated?
-if [[ -n "${LORE_DATA_DIR:-}" && -d "${LORE_DATA_DIR}" ]]; then
-    # Check if populated (has at least one non-empty data file)
-    if find "${LORE_DATA_DIR}" -name "*.jsonl" -o -name "*.yaml" -o -name "*.json" 2>/dev/null | head -1 | grep -q .; then
-        log "LORE_DATA_DIR already set to ${LORE_DATA_DIR} and contains data."
-        log "Already migrated — nothing to do."
-        exit 0
-    fi
-fi
-
 echo -e "${BOLD}Lore Install${NC}"
 echo "  Tool code:  ${LORE_DIR}"
 echo "  Data dir:   ${DATA_DIR}"
@@ -333,6 +323,73 @@ else
             ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
             log "MCP server registered in ${CLAUDE_SETTINGS}."
             log "Restart Claude Code for the lore: tools to appear."
+        fi
+    fi
+fi
+
+# Step 5c: Register lore as a local Claude Code plugin
+CLAUDE_PLUGINS="${HOME}/.claude/plugins/marketplaces/local"
+MARKETPLACE_JSON="${CLAUDE_PLUGINS}/.claude-plugin/marketplace.json"
+PLUGIN_LINK="${CLAUDE_PLUGINS}/plugins/lore"
+
+if [[ ! -d "$CLAUDE_PLUGINS" ]]; then
+    warn "~/.claude/plugins/marketplaces/local not found — skipping plugin registration."
+    warn "Create the local marketplace first, then re-run install."
+else
+    if [[ "$DRY_RUN" == true ]]; then
+        dry "ln -sf ${LORE_DIR} ${PLUGIN_LINK}"
+        dry "patch ${MARKETPLACE_JSON} with lore plugin entry"
+        dry "patch installed_plugins.json with lore@local entry"
+    else
+        # Symlink lore repo into marketplace plugins directory
+        if [[ -L "$PLUGIN_LINK" && "$(readlink -f "$PLUGIN_LINK" 2>/dev/null)" == "$LORE_DIR" ]]; then
+            log "Plugin symlink already exists: ${PLUGIN_LINK}"
+        elif [[ -e "$PLUGIN_LINK" ]]; then
+            warn "Plugin path ${PLUGIN_LINK} already exists but points elsewhere. Skipping."
+        else
+            mkdir -p "${CLAUDE_PLUGINS}/plugins"
+            ln -sf "$LORE_DIR" "$PLUGIN_LINK"
+            log "Plugin symlink created: ${PLUGIN_LINK} → ${LORE_DIR}"
+        fi
+
+        # Register in marketplace.json
+        if [[ ! -f "$MARKETPLACE_JSON" ]]; then
+            warn "${MARKETPLACE_JSON} not found — skipping marketplace registration."
+        elif jq -e '.plugins[] | select(.name == "lore")' "$MARKETPLACE_JSON" >/dev/null 2>&1; then
+            log "Plugin already in ${MARKETPLACE_JSON}."
+        else
+            tmp="$(mktemp)"
+            jq '.plugins += [{
+                "name": "lore",
+                "description": "Explicit context management for multi-agent systems — capture decisions, patterns, and failures across projects",
+                "version": "0.1.0",
+                "source": "./plugins/lore",
+                "category": "development"
+            }]' "$MARKETPLACE_JSON" > "$tmp" && mv "$tmp" "$MARKETPLACE_JSON"
+            log "Plugin added to ${MARKETPLACE_JSON}."
+        fi
+
+        # Register in installed_plugins.json (required for commands to appear in Claude Code)
+        INSTALLED_JSON="${HOME}/.claude/plugins/installed_plugins.json"
+        if [[ ! -f "$INSTALLED_JSON" ]]; then
+            warn "installed_plugins.json not found — skipping installation."
+        elif jq -e '.plugins["lore@local"]' "$INSTALLED_JSON" >/dev/null 2>&1; then
+            log "Plugin already in installed_plugins.json."
+        else
+            git_sha="$(git -C "${LORE_DIR}" rev-parse HEAD 2>/dev/null || echo "")"
+            now="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+            tmp="$(mktemp)"
+            jq --arg sha "$git_sha" --arg now "$now" --arg path "$LORE_DIR" '
+                .plugins["lore@local"] = [{
+                    "scope": "user",
+                    "installPath": $path,
+                    "version": "0.1.0",
+                    "installedAt": $now,
+                    "lastUpdated": $now,
+                    "gitCommitSha": $sha
+                }]
+            ' "$INSTALLED_JSON" > "$tmp" && mv "$tmp" "$INSTALLED_JSON"
+            log "Plugin installed. Restart Claude Code for /lore:capture and /lore:handoff to appear."
         fi
     fi
 fi
