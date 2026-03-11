@@ -11,8 +11,8 @@ clusters:
         role: api
       lore:
         role: memory
-      mirror:
-        role: judgment
+      praxis:
+        role: synthesis
   council:
     description: "Council execution pipeline"
     components:

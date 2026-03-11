@@ -11,18 +11,14 @@
 
 projects:
   agent-of-empires:
-    path: agent-of-empires
+    path: cli/agent-of-empires
     desc: Terminal session manager for AI coding agents
     tags: [type:application, lang:rust, status:active, tui, agents, tmux]
     url: https://github.com/njbrake/agent-of-empires
-  bach:
-    path: cli/bach
-    desc: Worker pool execution system
-    tags: [type:library, lang:markdown, status:active, cluster:council, workers, execution]
   entire:
-    path: .external/entire
+    path: cli/entire
     desc: Git-integrated AI session capture and audit trail
-    tags: [type:tool, lang:go, status:external, cluster:orchestration, agents, git-hooks, audit]
+    tags: [type:tool, lang:go, status:active, cluster:orchestration, agents, git-hooks, audit]
     url: https://github.com/entireio/cli
   canary:
     path: canary
@@ -71,15 +67,11 @@ projects:
   geordi:
     path: geordi
     desc: Unified API and GUI for the agent ecosystem
-    tags: [type:service, lang:python, status:active, cluster:orchestration, api, gui, dashboard]
-  lore-legacy:
-    path: lore
-    desc: Unified memory backbone (legacy entry, see lore)
-    tags: [type:library, lang:shell, status:archived, memory]
+    tags: [type:service, lang:python, status:wip, cluster:orchestration, api, gui, dashboard]
   mirror:
     path: mirror
-    desc: Judgment capture and refinement tool
-    tags: [type:application, lang:go, status:active, cluster:orchestration, cli, judgment, learning]
+    desc: Judgment capture and refinement tool (archived)
+    tags: [type:application, lang:go, status:archived, cli, judgment, learning]
   molt:
     path: cli/molt
     desc: CLI task manager with TUI and session management
@@ -89,21 +81,29 @@ projects:
     desc: Persistent knowledge layer -- memory, intent, registry, patterns
     tags: [type:library, lang:shell, status:active, cluster:orchestration, memory, intent, registry, patterns, core]
   neo:
-    path: neo
+    path: _archive/neo
     desc: Team manager for Claude Code Agent Teams (archived — Claude Code native teams replace)
     tags: [type:orchestrator, lang:shell, status:archived, agents, teams]
   oracle:
-    path: oracle
+    path: _archive/oracle
     desc: Intent and goals layer (absorbed by lore)
     tags: [type:orchestrator, lang:shell, status:archived, goals, intent]
   praxis:
     path: praxis
     desc: Synthesis facade — unified queries across Lore, patterns, and failures
-    tags: [type:tool, lang:python, status:active, synthesis, facade, query]
+    tags: [type:tool, lang:python, status:wip, synthesis, facade, query]
+  blueprint:
+    path: blueprint
+    desc: Structured intent and dynamic schemas for LLM interactions
+    tags: [type:library, lang:python, status:wip, llm, schemas, intent]
   reck:
     path: reck
     desc: Autonomous manufacturing intelligence — detect, reason, fix
     tags: [type:application, lang:python, status:wip, manufacturing, reasoning, autonomy]
+  shipyard:
+    path: shipyard
+    desc: Agent fleet management with persistent state
+    tags: [type:application, lang:rust, status:wip, agents, fleet, sqlite]
   qin:
     path: cli/qin
     desc: Stringless qin — after Tao Yuanming

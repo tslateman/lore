@@ -6,12 +6,10 @@ Explicit context management for multi-agent systems.
 
 > **You are here: Lore** -- Data pillar
 
-| Project  | Pillar   | Role                        |
-| -------- | -------- | --------------------------- |
-| **Lore** | Data     | Memory, registry, intent    |
-| Mirror   | Data     | Judgment capture & patterns |
-| Bach     | Action   | Stateless workers           |
-| Council  | Advisory | Cross-project decisions     |
+| Project  | Pillar   | Role                     |
+| -------- | -------- | ------------------------ |
+| **Lore** | Data     | Memory, registry, intent |
+| Council  | Advisory | Cross-project decisions  |
 
 Full map: ~/dev/council/mainstay/ecosystem.md
 
