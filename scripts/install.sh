@@ -284,7 +284,60 @@ if ! echo "$PATH" | tr ':' '\n' | grep -qx "$BIN_DIR"; then
     echo "  export PATH=\"\${HOME}/.local/bin:\${PATH}\""
 fi
 
-# Step 5: Rebuild search index
+# Step 5: Build MCP server
+echo ""
+MCP_DIR="${LORE_DIR}/mcp"
+MCP_BUILD="${MCP_DIR}/build/index.js"
+
+if [[ ! -f "${MCP_DIR}/package.json" ]]; then
+    warn "mcp/package.json not found — skipping MCP server build."
+else
+    log "Building MCP server..."
+    if [[ "$DRY_RUN" == true ]]; then
+        dry "cd ${MCP_DIR} && npm install && ./node_modules/.bin/tsc"
+    else
+        if (cd "${MCP_DIR}" && npm install --silent 2>/dev/null && ./node_modules/.bin/tsc); then
+            log "MCP server built: ${MCP_BUILD}"
+        else
+            warn "MCP server build failed. Run manually: cd ${MCP_DIR} && npm install && ./node_modules/.bin/tsc"
+        fi
+    fi
+fi
+
+# Step 5b: Register MCP server in ~/.claude/settings.json
+CLAUDE_SETTINGS="${HOME}/.claude/settings.json"
+
+if [[ ! -f "$CLAUDE_SETTINGS" ]]; then
+    warn "~/.claude/settings.json not found — skipping MCP registration."
+    warn "Add the lore MCP server manually after creating the file."
+else
+    if [[ "$DRY_RUN" == true ]]; then
+        dry "patch ${CLAUDE_SETTINGS} with lore MCP entry"
+    else
+        # Check if already registered
+        if jq -e '.mcpServers.lore' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+            log "MCP server already registered in ${CLAUDE_SETTINGS}."
+        else
+            # Patch in the lore entry under mcpServers (create key if absent)
+            tmp="$(mktemp)"
+            jq --arg build "${MCP_BUILD}" --arg lore_dir "${LORE_DIR}" '
+                .mcpServers //= {} |
+                .mcpServers.lore = {
+                    "command": "node",
+                    "args": [$build],
+                    "env": { "LORE_DIR": $lore_dir }
+                } |
+                if (.permissions.allow | map(select(. == "mcp__lore__*")) | length) == 0
+                then .permissions.allow += ["mcp__lore__*"]
+                else . end
+            ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+            log "MCP server registered in ${CLAUDE_SETTINGS}."
+            log "Restart Claude Code for the lore: tools to appear."
+        fi
+    fi
+fi
+
+# Step 6: Rebuild search index
 echo ""
 if [[ "$DRY_RUN" == true ]]; then
     dry "LORE_DATA_DIR=${DATA_DIR} lore index build"
@@ -307,7 +360,7 @@ else
     fi
 fi
 
-# Step 6: Print shell config instructions
+# Step 7: Print shell config instructions
 echo ""
 echo -e "${BOLD}Almost done!${NC} Add this to your shell profile (~/.bashrc or ~/.zshrc):"
 echo ""
