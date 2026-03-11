@@ -147,7 +147,7 @@ check_contract_paths() {
 
 # ── Check 5: stale names in tracked files ────────────────────────────────
 check_stale_names() {
-    local stale_names=("monarch" "lineage" "lens")
+    local stale_names=("monarch" "lineage" "lens" "neo" "ralph")
 
     local ok=true
     for name in "${stale_names[@]}"; do
@@ -162,7 +162,7 @@ check_stale_names() {
             [[ -z "$hit" ]] && continue
             # Skip known-OK references (memory, plans, archived, this script)
             case "$hit" in
-                */MEMORY.md|*/memory/*|*/plans/*|*archived*|*/RENAME*|*/validate.sh|*/validate.md|*/wire-project-edges.sh|*/CHANGELOG*)
+                */MEMORY.md|*/memory/*|*/plans/*|*archived*|*/RENAME*|*/validate.sh|*/validate.md|*/wire-project-edges.sh|*/CHANGELOG*|*/patterns/data/*|*/graph/data/*|*/journal/data/*|*/mani.yaml|*/.research/*|*/tests/*)
                     continue ;;
             esac
             local rel="${hit#"$LORE_DIR"/}"
@@ -170,7 +170,7 @@ check_stale_names() {
             ok=false
         done <<< "$hits"
     done
-    if [[ "$ok" == true ]]; then _pass "no stale names (monarch, lineage, lens) in active files"; fi
+    if [[ "$ok" == true ]]; then _pass "no stale names (monarch, lineage, lens, neo, ralph) in active files"; fi
 }
 
 # ── Check 6: cluster tag consistency ─────────────────────────────────────

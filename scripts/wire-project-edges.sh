@@ -78,7 +78,7 @@ jq -n \
     # Tags that represent actual projects (filter out meta-tags)
     # We accept tags that match an existing project node name,
     # plus known project tags not yet in the graph
-    ["lore", "council", "neo", "oracle", "bach", "flow", "ralph", "lineage",
+    ["lore", "council", "oracle", "bach", "flow", "lineage",
      "cli", "entire", "geordi", "praxis", "duet", "mirror", "tutor", "qin",
      "cq", "version", "shared", "dependencies", "integrations", "pattern_sharing"] as $project_tags |
 

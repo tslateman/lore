@@ -13,8 +13,6 @@ clusters:
         role: memory
       mirror:
         role: judgment
-      neo:
-        role: teams
   council:
     description: "Council execution pipeline"
     components:

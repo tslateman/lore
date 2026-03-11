@@ -23,7 +23,7 @@ The 9 validation checks:
 4. clusters.yaml references
 5. Tag encoding format
 6. Contract locations
-7. Stale references (ralph, monarch, lens)
+7. Stale references (neo, ralph, monarch, lens)
 8. Initiative staleness
 9. Component directory structure
 

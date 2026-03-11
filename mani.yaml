@@ -58,7 +58,7 @@ projects:
     tags: [type:library, lang:markdown, status:active, cluster:cli, plugin, git, skills]
   flow:
     path: cli/flow
-    desc: State management for agent coordination (absorbed by neo)
+    desc: State management for agent coordination (archived)
     tags: [type:library, lang:go, status:archived, state, agents]
   forge:
     path: forge
@@ -90,8 +90,8 @@ projects:
     tags: [type:library, lang:shell, status:active, cluster:orchestration, memory, intent, registry, patterns, core]
   neo:
     path: neo
-    desc: Team manager for Claude Code Agent Teams
-    tags: [type:orchestrator, lang:shell, status:active, cluster:orchestration, agents, teams]
+    desc: Team manager for Claude Code Agent Teams (archived — Claude Code native teams replace)
+    tags: [type:orchestrator, lang:shell, status:archived, agents, teams]
   oracle:
     path: oracle
     desc: Intent and goals layer (absorbed by lore)

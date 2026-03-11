@@ -10,7 +10,7 @@ The inbox captures unstructured observations during work sessions. Observations 
 
 ```bash
 # Capture an observation
-lore observe "Config reload takes 3s on large files" --source "neo" --tags "performance,config"
+lore observe "Config reload takes 3s on large files" --source "council" --tags "performance,config"
 
 # List raw observations
 lore inbox

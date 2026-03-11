@@ -10,7 +10,6 @@ Explicit context management for multi-agent systems.
 | -------- | -------- | --------------------------- |
 | **Lore** | Data     | Memory, registry, intent    |
 | Mirror   | Data     | Judgment capture & patterns |
-| Neo      | Control  | Teams, missions, delegation |
 | Bach     | Action   | Stateless workers           |
 | Council  | Advisory | Cross-project decisions     |
 
