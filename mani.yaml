@@ -32,6 +32,10 @@ projects:
     path: cli
     desc: Execution tools — council pipeline and standalone plugins
     tags: [type:cluster, lang:markdown, status:active, workspace]
+  cmux-claude-code:
+    path: cmux-claude-code
+    desc: Claude Code plugin for cmux sidebar status and notifications
+    tags: [type:library, lang:shell, status:active, cluster:cli, plugin, cmux, hooks]
   coda:
     path: cli/coda
     desc: Go CLI wrapper for Claude Code with orchestration
