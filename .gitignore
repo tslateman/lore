@@ -29,6 +29,7 @@ registry/data/*.yaml
 # Environment and secrets
 .env
 .env.*
+.mcp.json
 
 # Research reports
 .research/

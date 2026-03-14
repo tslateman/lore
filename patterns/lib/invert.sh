@@ -16,11 +16,11 @@ invert_pattern() {
     pattern_yaml=$(show_pattern "$pattern_id") || return 1
     
     local name context problem solution category
-    name=$(echo "$pattern_yaml" | grep "name:" | sed 's/.*name: "\(.*\)"/\1/')
-    context=$(echo "$pattern_yaml" | grep "context:" | sed 's/.*context: "\(.*\)"/\1/')
-    problem=$(echo "$pattern_yaml" | grep "problem:" | sed 's/.*problem: "\(.*\)"/\1/')
-    solution=$(echo "$pattern_yaml" | grep "solution:" | sed 's/.*solution: "\(.*\)"/\1/')
-    category=$(echo "$pattern_yaml" | grep "category:" | sed 's/.*category: "\(.*\)"/\1/')
+    name=$(echo "$pattern_yaml" | grep "name:" | sed 's/.*name: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
+    context=$(echo "$pattern_yaml" | grep "context:" | sed 's/.*context: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
+    problem=$(echo "$pattern_yaml" | grep "problem:" | sed 's/.*problem: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
+    solution=$(echo "$pattern_yaml" | grep "solution:" | sed 's/.*solution: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
+    category=$(echo "$pattern_yaml" | grep "category:" | sed 's/.*category: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
     
     # Create anti-pattern details
     local anti_name="Avoid: $name"
@@ -53,7 +53,12 @@ deprecate_pattern() {
         }
         in_pattern && /name:/ {
             if ($0 !~ /\[DEPRECATED\]/) {
-                sub(/name: "/, "name: \"[DEPRECATED] ")
+                if ($0 ~ /name: "/) {
+                    sub(/name: "/, "name: \"[DEPRECATED] ")
+                } else {
+                    sub(/name: /, "name: \"[DEPRECATED] ")
+                    $0 = $0 "\""
+                }
             }
         }
         in_pattern && /confidence:/ {

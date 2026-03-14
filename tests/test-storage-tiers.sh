@@ -46,7 +46,7 @@ setup() {
     # Initialize empty data files (Event tier - JSONL)
     : > "$TMPDIR/journal/data/decisions.jsonl"
     : > "$TMPDIR/failures/data/failures.jsonl"
-    : > "$TMPDIR/inbox/data/observations.jsonl"
+    : > "$TMPDIR/inbox/data/signals.jsonl"
 
     # Reference tier - YAML/JSON
     cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
@@ -123,7 +123,7 @@ test_event_tier_jsonl_valid() {
     # Verify JSONL files can be parsed by jq
     assert_ok "decisions.jsonl is valid JSONL" jq -e '.' "$TMPDIR/journal/data/decisions.jsonl"
     assert_ok "failures.jsonl is valid JSONL" jq -e '.' "$TMPDIR/failures/data/failures.jsonl"
-    assert_ok "observations.jsonl is valid JSONL" jq -e '.' "$TMPDIR/inbox/data/observations.jsonl"
+    assert_ok "signals.jsonl is valid JSONL" jq -e '.' "$TMPDIR/inbox/data/signals.jsonl"
 
     teardown
 }
