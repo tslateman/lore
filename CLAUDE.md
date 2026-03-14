@@ -135,3 +135,19 @@ make sync-all
 ## Entire CLI
 
 This repo uses [Entire CLI](https://github.com/entireio/cli) for checkpoint/rollback. `git push` triggers Entire to push session logs alongside your code. `make sync-entire` writes those checkpoints to the Lore journal.
+
+## Known Patterns
+
+- Scripts derive `WORKSPACE_ROOT` from their own location -- do not hardcode paths
+- `lore-client.sh` uses `WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(derived)}"` for reuse across consumers
+- Append `|| true` to `grep` commands under `set -e` to prevent pipeline failure on no-match
+- Use `git grep` not `grep -r` to avoid `.entire/` checkpoint pollution
+- Dedup uses Jaccard word-similarity at 80% threshold
+- Journal dedup happens at write time via `lib/conflict.sh`
+- Registry data is untracked -- `LORE_REGISTRY_DATA` points to `${LORE_DIR}/registry/data`
+- Command is `lore index build` not `rebuild` -- check dispatch table in `lore.sh`
+
+## Platform Workarounds
+
+- nvm lazy-loading breaks Bash tool -- use full path: `/Users/tslater/.nvm/versions/node/v24.1.0/bin/npm`
+- macOS bash 3.2 lacks `${VAR,,}`, `mapfile`, `xargs -r` -- use POSIX alternatives
