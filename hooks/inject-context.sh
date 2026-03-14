@@ -76,7 +76,7 @@ if [[ -f "$SEARCH_DB" ]] && [[ ${#keywords[@]} -gt 0 ]]; then
         item_count=$(echo "$compact_results" | wc -l | tr -d ' ')
 
         output="--- lore context (compact index, $item_count items) ---"$'\n'
-        output+="Use lore_search or lore_context MCP tools to fetch full details for any ID."$'\n'
+        output+="Use 'lore search' or 'lore context' CLI commands to fetch full details for any ID."$'\n'
         output+=$'\n'
         output+="$compact_results"$'\n'
         output+="--- end lore context ---"

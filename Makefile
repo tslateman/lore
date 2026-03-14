@@ -1,4 +1,4 @@
-.PHONY: install sync-memory sync-entire sync-graph sync-all check-mcp build-mcp run-mcp check test
+.PHONY: install sync-memory sync-entire sync-graph sync-all check test
 
 # Install lore CLI
 install:
@@ -18,23 +18,6 @@ sync-memory:
 
 # Sync all sources
 sync-all: sync-entire sync-graph sync-memory
-
-# Check MCP server build freshness
-check-mcp:
-	@if [ mcp/src/index.ts -nt mcp/build/index.js ]; then \
-		echo "MCP build is stale (src newer than build). Run: make build-mcp"; \
-		exit 1; \
-	else \
-		echo "MCP build is up to date"; \
-	fi
-
-# Build MCP server
-build-mcp:
-	cd mcp && npm run build
-
-# Run MCP server (stdio, for Claude Code plugin use)
-run-mcp: build-mcp
-	LORE_DIR=$(CURDIR) node mcp/build/index.js
 
 # Run all tests
 test:
@@ -56,4 +39,4 @@ test:
 	@bash tests/test-validate.sh
 
 # Check all build freshness
-check: check-mcp
+check:

@@ -147,34 +147,7 @@ Projects integrate via `lib/lore-client-base.sh`—fail-silent wrappers that rec
 ### Known Clients
 
 - Praxis: CLI synthesis tool that uses Lore as its storage layer and handles query traversal.
-- Shipyard: Fleet manager that does not require Lore, but agents can hook into the MCP server to read and write context.
-
-## MCP Server
-
-Lore exposes an MCP server for AI agents:
-
-```bash
-cd mcp && npm install && npm run build
-```
-
-Add to your Claude Code configuration:
-
-```json
-{
-  "mcpServers": {
-    "lore": {
-      "command": "node",
-      "args": ["/path/to/lore/mcp/build/index.js"],
-      "env": {
-        "LORE_DIR": "/path/to/lore",
-        "LORE_DATA_DIR": "~/.local/share/lore"
-      }
-    }
-  }
-}
-```
-
-Tools exposed: `lore_search`, `lore_context`, `lore_related`, `lore_remember`, `lore_learn`, `lore_resume`
+- Shipyard: Fleet manager that does not require Lore, but agents can use the CLI to read and write context.
 
 ## Engram Sync
 
