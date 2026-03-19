@@ -101,13 +101,14 @@ they reference. Both sync to the graph on write.
 
 The graph's node types encode a memory taxonomy drawn from cognitive science.
 
-| Memory Layer   | Node Types                         | Components                     | Coverage                     |
-| -------------- | ---------------------------------- | ------------------------------ | ---------------------------- |
-| **Episodic**   | decision, session, failure, lesson | journal/, transfer/, failures/ | What happened                |
-| **Semantic**   | pattern, concept                   | patterns/                      | What we learned              |
-| **Strategic**  | goal                               | intent/                        | What we're trying to achieve |
-| **Structural** | project, file                      | registry/                      | What exists                  |
-| **Staging**    | observation                        | inbox/                         | What we noticed              |
+| Memory Layer    | Node Types                         | Components                     | Coverage                     |
+| --------------- | ---------------------------------- | ------------------------------ | ---------------------------- |
+| **Episodic**    | decision, session, failure, lesson | journal/, transfer/, failures/ | What happened                |
+| **Semantic**    | pattern, concept                   | patterns/                      | What we learned              |
+| **Strategic**   | goal                               | intent/                        | What we're trying to achieve |
+| **Structural**  | project, file                      | registry/                      | What exists                  |
+| **Staging**     | observation                        | inbox/                         | What we noticed              |
+| **Evidentiary** | evidence                           | evidence/                      | What supports this           |
 
 Infrastructure components (graph/, registry/) provide projection and metadata
 but are not memory stores.
@@ -118,7 +119,7 @@ higher-order abstractions that need human judgment to identify.
 `lesson` nodes are created automatically when decisions have `lesson_learned`
 fields. They are waypoints between episodic events and semantic patterns.
 
-## Eight Components
+## Nine Components
 
 Each component answers one question. Together they form institutional memory.
 
@@ -132,6 +133,7 @@ Each component answers one question. Together they form institutional memory.
 | `intent/`   | What are we trying to do? | YAML   | Goals, specs                 |
 | `failures/` | What went wrong?          | JSONL  | Any project via CLI          |
 | `registry/` | What exists?              | YAML   | Project metadata             |
+| `evidence/` | What supports this?       | JSONL  | Any project via CLI          |
 
 ### Storage Conventions
 

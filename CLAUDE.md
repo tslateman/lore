@@ -52,7 +52,7 @@ lore recall --brief "graph"                                                # →
 
 ## Components
 
-Eight components, one CLI. See `SYSTEM.md` for architecture, data flow, and the component table.
+Nine components, one CLI. See `SYSTEM.md` for architecture, data flow, and the component table.
 
 | Component     | Key Question                     |
 | ------------- | -------------------------------- |
@@ -64,6 +64,7 @@ Eight components, one CLI. See `SYSTEM.md` for architecture, data flow, and the 
 | **inbox/**    | "What did we notice?"            |
 | **intent/**   | "What are we trying to achieve?" |
 | **graph/**    | "What relates to this?"          |
+| **evidence/** | "What supports this?"            |
 
 **Append-only.** Decisions and patterns are never deleted, only marked revised or abandoned.
 

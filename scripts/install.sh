@@ -74,6 +74,7 @@ DIRS=(
     "${DATA_DIR}/graph/data"
     "${DATA_DIR}/intent/data/goals"
     "${DATA_DIR}/registry/data"
+    "${DATA_DIR}/evidence/data"
 )
 
 for dir in "${DIRS[@]}"; do
@@ -112,6 +113,7 @@ anti_patterns: []
 YAML
 )"
 seed_file "${DATA_DIR}/graph/data/graph.json" '{"nodes":{},"edges":[]}'
+seed_file "${DATA_DIR}/evidence/data/evidence.jsonl"
 
 seed_file "${DATA_DIR}/registry/data/metadata.yaml" "$(cat <<'YAML'
 version: "1.0"
@@ -154,6 +156,7 @@ else
         "failures/data/failures.jsonl"
         "inbox/data/observations.jsonl"
         "graph/data/graph.json"
+        "evidence/data/evidence.jsonl"
     )
 
     migrated=0
@@ -243,6 +246,7 @@ failures/data/failures.jsonl
 inbox/data/observations.jsonl
 graph/data/graph.json
 intent/data/goals/*.yaml
+evidence/data/evidence.jsonl
 EOF
         log "Updated .gitignore with data exclusions."
     fi

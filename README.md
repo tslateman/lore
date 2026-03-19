@@ -120,6 +120,7 @@ Journal captures decisions with rationale. Patterns capture lessons learned. Gra
 | **registry/** | Project metadata      | "What exists and how does it connect?" |
 | **intent/**   | Goals and specs       | "What are we trying to achieve?"       |
 | **inbox/**    | Raw observations      | "What did we notice?"                  |
+| **evidence/** | Factual evidence      | "What supports this?"                  |
 
 ## Data Storage
 
@@ -134,6 +135,7 @@ User data lives at `$LORE_DATA_DIR` (default: `~/.local/share/lore`):
 ├── intent/data/       # goals/
 ├── inbox/data/        # observations.jsonl
 ├── failures/data/     # failures.jsonl
+├── evidence/data/     # evidence.jsonl
 └── search.db          # FTS5 index, embeddings, graph cache
 ```
 
