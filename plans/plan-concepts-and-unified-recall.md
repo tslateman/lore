@@ -1,4 +1,4 @@
-Status: Draft
+Status: Partial (concept promotion done; unified FTS5 recall routing pending)
 
 # Plan: Concept Promotion and Unified Recall
 

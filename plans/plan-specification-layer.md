@@ -1,4 +1,4 @@
-Status: Partial (spec quality scoring implemented; lore review and lore brief not built)
+Status: Partial (spec quality scoring, cmd_review, cmd_brief done; active subtraction not wired to resume)
 
 # Plan: Specification Layer
 

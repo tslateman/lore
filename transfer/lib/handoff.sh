@@ -38,13 +38,25 @@ create_handoff() {
     local tmp_file
     tmp_file=$(mktemp)
 
-    # Add the raw handoff message
+    # Auto-populate summary from handoff message if empty
+    local current_summary
+    current_summary=$(jq -r '.summary // ""' "${session_file}" 2>/dev/null)
+
+    # Extract first sentence (up to first period+space or end) as summary
+    local auto_summary=""
+    if [[ -z "${current_summary}" ]]; then
+        auto_summary=$(echo "${message}" | sed 's/\. .*/\./' | head -c 200)
+    fi
+
+    # Add the raw handoff message (and summary if missing)
     jq --arg msg "${message}" \
        --arg time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+       --arg auto_summary "${auto_summary}" \
        '
        .handoff.message = $msg |
        .handoff.created_at = $time |
-       .ended_at = $time
+       .ended_at = $time |
+       if (.summary == "" or .summary == null) and $auto_summary != "" then .summary = $auto_summary else . end
        ' "${session_file}" > "${tmp_file}"
 
     mv "${tmp_file}" "${session_file}"

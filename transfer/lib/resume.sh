@@ -610,41 +610,50 @@ resume_session() {
     display_spec_context "${session_file}"
 
     # What was accomplished
-    echo "--- What Was Accomplished ---"
-    local goals_count
+    local goals_count decisions_count patterns_count
     goals_count=$(jq '.goals_addressed | length' "${session_file}")
-    if [[ "${goals_count}" -gt 0 ]]; then
-        echo "Goals addressed (${goals_count}):"
-        jq -r '.goals_addressed[]' "${session_file}" | while read -r goal; do
-            echo "  [x] ${goal}"
-        done
-    else
-        echo "  (no goals recorded)"
-    fi
-    echo ""
-
-    # Decisions made
-    local decisions_count
     decisions_count=$(jq '.decisions_made | length' "${session_file}")
-    if [[ "${decisions_count}" -gt 0 ]]; then
-        echo "Decisions made (${decisions_count}):"
-        jq -r '.decisions_made[]' "${session_file}" | while read -r decision; do
-            echo "  * ${decision}"
-        done
-    else
-        echo "  (no decisions recorded)"
-    fi
-    echo ""
-
-    # Patterns learned - these are valuable!
-    local patterns_count
     patterns_count=$(jq '.patterns_learned | length' "${session_file}")
-    if [[ "${patterns_count}" -gt 0 ]]; then
-        echo "--- Patterns Learned (Important!) ---"
-        jq -r '.patterns_learned[]' "${session_file}" | while read -r pattern; do
-            echo "  ! ${pattern}"
-        done
+
+    # If structured fields are populated, show them
+    if [[ "${goals_count}" -gt 0 || "${decisions_count}" -gt 0 || "${patterns_count}" -gt 0 ]]; then
+        echo "--- What Was Accomplished ---"
+        if [[ "${goals_count}" -gt 0 ]]; then
+            echo "Goals addressed (${goals_count}):"
+            jq -r '.goals_addressed[]' "${session_file}" | while read -r goal; do
+                echo "  [x] ${goal}"
+            done
+        fi
         echo ""
+
+        if [[ "${decisions_count}" -gt 0 ]]; then
+            echo "Decisions made (${decisions_count}):"
+            jq -r '.decisions_made[]' "${session_file}" | while read -r decision; do
+                echo "  * ${decision}"
+            done
+        fi
+        echo ""
+
+        if [[ "${patterns_count}" -gt 0 ]]; then
+            echo "--- Patterns Learned (Important!) ---"
+            jq -r '.patterns_learned[]' "${session_file}" | while read -r pattern; do
+                echo "  ! ${pattern}"
+            done
+            echo ""
+        fi
+    else
+        # Structured fields empty — show handoff message as the session summary
+        local handoff_msg
+        handoff_msg=$(jq -r '.handoff.message // ""' "${session_file}" 2>/dev/null)
+        if [[ -n "${handoff_msg}" ]]; then
+            echo "--- Session Context ---"
+            echo "${handoff_msg}" | fold -s -w 80
+            echo ""
+        else
+            echo "--- What Was Accomplished ---"
+            echo "  (no details recorded)"
+            echo ""
+        fi
     fi
 
     # Log access for parent session items (reinforcement scoring)
@@ -844,9 +853,10 @@ find_latest_session() {
         return 1
     fi
 
-    # Find the most recently modified session file
+    # Find the most recent session by filename (timestamps sort lexically)
+    # Excludes example sessions that don't follow the session-YYYYMMDD naming convention
     local latest
-    latest=$(ls -t "${SESSIONS_DIR}"/*.json 2>/dev/null | head -1)
+    latest=$(ls -1 "${SESSIONS_DIR}"/session-[0-9]*.json 2>/dev/null | sort -r | head -1)
 
     if [[ -n "${latest}" ]]; then
         basename "${latest}" .json

@@ -217,6 +217,46 @@ else
         fi
     fi
 
+    # Migrate session files
+    if [[ -d "${LORE_DIR}/transfer/data/sessions" ]]; then
+        session_count=$(find "${LORE_DIR}/transfer/data/sessions" -name "*.json" -type f 2>/dev/null | wc -l | tr -d ' ')
+        if [[ "$session_count" -gt 0 ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                dry "copy transfer/data/sessions/ (${session_count} files)"
+            else
+                cp "${LORE_DIR}/transfer/data/sessions/"*.json "${DATA_DIR}/transfer/data/sessions/" 2>/dev/null || true
+                log "  transfer/data/sessions/ (${session_count} files)"
+            fi
+            migrated=$((migrated + 1))
+        fi
+    fi
+
+    # Migrate current session pointer
+    if [[ -f "${LORE_DIR}/transfer/data/.current_session" ]]; then
+        if [[ "$DRY_RUN" == true ]]; then
+            dry "copy transfer/data/.current_session"
+        else
+            cp "${LORE_DIR}/transfer/data/.current_session" "${DATA_DIR}/transfer/data/.current_session"
+            log "  transfer/data/.current_session"
+        fi
+        migrated=$((migrated + 1))
+    fi
+
+    # Migrate registry YAML files
+    if [[ -d "${LORE_DIR}/registry/data" ]]; then
+        registry_count=$(find "${LORE_DIR}/registry/data" -name "*.yaml" -type f 2>/dev/null | wc -l | tr -d ' ')
+        if [[ "$registry_count" -gt 0 ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                dry "copy registry/data/*.yaml (${registry_count} files)"
+            else
+                mkdir -p "${DATA_DIR}/registry/data"
+                cp "${LORE_DIR}/registry/data/"*.yaml "${DATA_DIR}/registry/data/" 2>/dev/null || true
+                log "  registry/data/ (${registry_count} files)"
+            fi
+            migrated=$((migrated + 1))
+        fi
+    fi
+
     if [[ "$migrated" -eq 0 ]]; then
         log "No data to migrate."
     else
