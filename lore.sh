@@ -814,7 +814,7 @@ frequency AS (
 SELECT
     r.type,
     r.id,
-    SUBSTR(r.content, 1, 120),
+    SUBSTR(r.content, 1, 200),
     r.project,
     SUBSTR(r.timestamp, 1, 10),
     ROUND(
@@ -839,8 +839,8 @@ SQL
 
     if [[ "$compact" == true ]]; then
         while IFS=$'\t' read -r type id content proj date score; do
-            local title="${content:0:40}"
-            printf "  [%-8s] %-16s | %-40s | %-8s | %s | %s\n" \
+            local title="${content:0:80}"
+            printf "  [%-8s] %-16s | %-80s | %-8s | %s | %s\n" \
                 "$type" "$id" "$title" "$proj" "$date" "$score"
             _log_access "$SEARCH_DB" "$type" "$id"
         done <<< "$results"
@@ -1889,6 +1889,30 @@ cmd_consolidate() {
     local cluster_count=0
     local total_consolidated=0
 
+    # Precompute word sets for all decisions (single jq pass + one tr/sort per item)
+    local -a word_sets
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    trap "rm -rf '$tmpdir'" RETURN
+
+    echo "$decisions" | jq -r '.[] | (.decision // "") + " " + (.rationale // "")' \
+        | while IFS= read -r text; do
+            echo "$text" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u
+            echo "---LORE_SEP---"
+        done > "$tmpdir/all_words"
+
+    # Split precomputed word sets into per-index files
+    local idx=0
+    local current_file="$tmpdir/words_0"
+    while IFS= read -r line; do
+        if [[ "$line" == "---LORE_SEP---" ]]; then
+            idx=$((idx + 1))
+            current_file="$tmpdir/words_${idx}"
+        else
+            echo "$line" >> "$current_file"
+        fi
+    done < "$tmpdir/all_words"
+
     for ((i=0; i<count; i++)); do
         # Skip if already assigned
         local skip=false
@@ -1898,10 +1922,6 @@ cmd_consolidate() {
         [[ "$skip" == true ]] && continue
 
         local cluster_members=("$i")
-        local text_i
-        text_i=$(echo "$decisions" | jq -r ".[$i] | (.decision // \"\") + \" \" + (.rationale // \"\")")
-        local words_i
-        words_i=$(echo "$text_i" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u)
 
         for ((j=i+1; j<count; j++)); do
             skip=false
@@ -1910,14 +1930,9 @@ cmd_consolidate() {
             done
             [[ "$skip" == true ]] && continue
 
-            local text_j
-            text_j=$(echo "$decisions" | jq -r ".[$j] | (.decision // \"\") + \" \" + (.rationale // \"\")")
-            local words_j
-            words_j=$(echo "$text_j" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '\n' | sort -u)
-
             local intersection union
-            intersection=$(comm -12 <(echo "$words_i") <(echo "$words_j") | wc -l | tr -d ' ')
-            union=$(comm <(echo "$words_i") <(echo "$words_j") | sort -u | wc -l | tr -d ' ')
+            intersection=$(comm -12 "$tmpdir/words_${i}" "$tmpdir/words_${j}" 2>/dev/null | wc -l | tr -d ' ')
+            union=$(comm "$tmpdir/words_${i}" "$tmpdir/words_${j}" 2>/dev/null | sort -u | wc -l | tr -d ' ')
 
             if [[ "$union" -gt 0 ]]; then
                 local sim=$(( intersection * 100 / union ))
@@ -2605,7 +2620,7 @@ main() {
                         export) shift; intent_export_main "$@" ;;
                         *)      echo -e "${RED}Unknown intent command: ${1:-}${NC}" >&2
                                 echo "Usage: lore intent export <goal-id> [--format yaml|markdown]" >&2
-                                exit 1 ;;
+                                return 1 ;;
                     esac ;;
 
         # Spec management (SDD integration)
