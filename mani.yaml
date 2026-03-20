@@ -53,9 +53,9 @@ projects:
     desc: Personal configuration files
     tags: [type:infrastructure, lang:shell, status:active, config]
   duet:
-    path: cli/duet
+    path: duet
     desc: Claude Code plugin for git, reflection, and code quality
-    tags: [type:library, lang:markdown, status:active, cluster:cli, plugin, git, skills]
+    tags: [type:library, lang:markdown, status:active, plugin, git, skills]
   flow:
     path: cli/flow
     desc: State management for agent coordination (archived)
