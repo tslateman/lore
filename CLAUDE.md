@@ -145,7 +145,7 @@ This repo uses [Entire CLI](https://github.com/entireio/cli) for checkpoint/roll
 - Use `git grep` not `grep -r` to avoid `.entire/` checkpoint pollution
 - Dedup uses Jaccard word-similarity at 80% threshold
 - Journal dedup happens at write time via `lib/conflict.sh`
-- Registry data is untracked -- `LORE_REGISTRY_DATA` points to `${LORE_DIR}/registry/data`
+- Registry data is untracked -- `LORE_REGISTRY_DATA` points to `${LORE_DATA_DIR}/registry/data`
 - Command is `lore index build` not `rebuild` -- check dispatch table in `lore.sh`
 
 ## Platform Workarounds

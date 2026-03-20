@@ -5,6 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../lib/paths.sh"
+source "${SCRIPT_DIR}/../../lib/lock.sh"
 DATA_DIR="${LORE_JOURNAL_DATA}"
 DECISIONS_FILE="${LORE_DECISIONS_FILE}"
 INDEX_DIR="${DATA_DIR}/index"
@@ -129,8 +130,8 @@ store_decision() {
         fi
     fi
 
-    # Append to JSONL file
-    echo "$decision_json" >> "$DECISIONS_FILE"
+    # Append to JSONL file (locked for concurrent safety)
+    lore_locked_append "$DECISIONS_FILE" "$decision_json"
 
     # Update indexes
     local id timestamp type

@@ -301,9 +301,10 @@ search_query() {
     local project="${2:-}"
     local limit="${3:-10}"
 
-    # Escape FTS5 query: double-quote terms for phrase matching safety
+    # Escape FTS5 query: quote each term to prevent operator interpretation
+    # Hyphens, asterisks, etc. are FTS5 operators; quoting neutralizes them
     local fts_query
-    fts_query=$(echo "$query" | sed 's/"/""/g')
+    fts_query=$(echo "$query" | sed 's/"/""/g; s/[^ ][^ ]*/"&"/g')
 
     local project_param
     project_param="${project:-__none__}"
@@ -962,6 +963,89 @@ PYTHON
     fi
 }
 
+cmd_index_one() {
+    local type="${1:?Usage: search-index.sh index-one <decision|pattern|failure|signal> <json>}"
+    local json="${2:?Usage: search-index.sh index-one <type> <json>}"
+
+    [[ -f "$DB" ]] || return 0  # No index yet — next full build will pick it up
+    create_schema 2>/dev/null
+
+    case "$type" in
+        decision)
+            local id decision rationale tags timestamp project importance
+            id=$(echo "$json" | jq -r '.id // ""')
+            [[ -z "$id" ]] && return 1
+            # Skip if already indexed
+            local exists
+            exists=$(sqlite3 "$DB" "SELECT COUNT(*) FROM decisions WHERE id = $(sql_quote "$id");" 2>/dev/null || echo 0)
+            [[ "$exists" -gt 0 ]] && return 0
+
+            decision=$(echo "$json" | jq -r '.decision // ""')
+            rationale=$(echo "$json" | jq -r '.rationale // ""')
+            tags=$(echo "$json" | jq -r '(.tags // []) | join(", ")')
+            timestamp=$(echo "$json" | jq -r '.timestamp // ""')
+            project=$(echo "$json" | jq -r '(.tags // [])[] | select(. != null)' | head -1)
+            [[ -z "$project" ]] && project="lore"
+            local has_lesson
+            has_lesson=$(echo "$json" | jq -r '.lesson_learned // ""')
+            [[ -n "$has_lesson" ]] && importance=4 || importance=3
+
+            sqlite3 "$DB" "INSERT INTO decisions(id, decision, rationale, tags, timestamp, project, importance)
+                VALUES ($(sql_quote "$id"), $(sql_quote "$decision"), $(sql_quote "$rationale"),
+                        $(sql_quote "$tags"), $(sql_quote "$timestamp"), $(sql_quote "$project"),
+                        $importance);"
+            ;;
+        pattern)
+            local id name context problem solution confidence timestamp
+            id=$(echo "$json" | jq -r '.id // ""')
+            [[ -z "$id" ]] && return 1
+            local exists
+            exists=$(sqlite3 "$DB" "SELECT COUNT(*) FROM patterns WHERE id = $(sql_quote "$id");" 2>/dev/null || echo 0)
+            [[ "$exists" -gt 0 ]] && return 0
+
+            name=$(echo "$json" | jq -r '.name // ""')
+            context=$(echo "$json" | jq -r '.context // ""')
+            problem=$(echo "$json" | jq -r '.problem // ""')
+            solution=$(echo "$json" | jq -r '.solution // ""')
+            confidence=$(echo "$json" | jq -r '.confidence // "medium"')
+            timestamp=$(echo "$json" | jq -r '.origin // ""')
+
+            sqlite3 "$DB" "INSERT INTO patterns(id, name, context, problem, solution, confidence, timestamp)
+                VALUES ($(sql_quote "$id"), $(sql_quote "$name"), $(sql_quote "$context"),
+                        $(sql_quote "$problem"), $(sql_quote "$solution"), $(sql_quote "$confidence"),
+                        $(sql_quote "$timestamp"));"
+            ;;
+        failure)
+            local id error_type message tool step timestamp
+            id=$(echo "$json" | jq -r '.id // ""')
+            [[ -z "$id" ]] && return 1
+
+            error_type=$(echo "$json" | jq -r '.error_type // ""')
+            message=$(echo "$json" | jq -r '.message // ""')
+            tool=$(echo "$json" | jq -r '.tool // ""')
+            step=$(echo "$json" | jq -r '.step // ""')
+            timestamp=$(echo "$json" | jq -r '.timestamp // ""')
+
+            sqlite3 "$DB" "INSERT OR IGNORE INTO failures(id, error_type, message, tool, step, timestamp)
+                VALUES ($(sql_quote "$id"), $(sql_quote "$error_type"), $(sql_quote "$message"),
+                        $(sql_quote "$tool"), $(sql_quote "$step"), $(sql_quote "$timestamp"));"
+            ;;
+        signal)
+            local id content source timestamp
+            id=$(echo "$json" | jq -r '.id // ""')
+            [[ -z "$id" ]] && return 1
+
+            content=$(echo "$json" | jq -r '.content // ""')
+            source=$(echo "$json" | jq -r '.source // ""')
+            timestamp=$(echo "$json" | jq -r '.timestamp // ""')
+
+            sqlite3 "$DB" "INSERT OR IGNORE INTO observations(id, content, source, timestamp)
+                VALUES ($(sql_quote "$id"), $(sql_quote "$content"), $(sql_quote "$source"),
+                        $(sql_quote "$timestamp"));"
+            ;;
+    esac
+}
+
 cmd_log_access() {
     local type="${1:?Usage: search-index.sh log-access <type> <id>}"
     local id="${2:?Usage: search-index.sh log-access <type> <id>}"
@@ -1005,6 +1089,7 @@ main() {
         build)         shift; cmd_build "$@" ;;
         search)        shift; cmd_search "$@" ;;
         graph)         shift; cmd_graph_search "$@" ;;
+        index-one)     shift; cmd_index_one "$@" ;;
         log-access)    shift; cmd_log_access "$@" ;;
         export-access) shift; cmd_export_access "$@" ;;
         import-access) shift; cmd_import_access "$@" ;;

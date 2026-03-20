@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../lib/paths.sh"
+source "${SCRIPT_DIR}/../../lib/lock.sh"
 DATA_DIR="${LORE_INBOX_DATA}"
 SIGNALS_FILE="${LORE_SIGNALS_FILE}"
 
@@ -65,8 +66,8 @@ signal_append() {
             tags: $tags
         }')
 
-    # Atomic append (single echo >> call)
-    echo "$record" >> "$SIGNALS_FILE"
+    # Locked append for concurrent safety
+    lore_locked_append "$SIGNALS_FILE" "$record"
 
     echo "$id"
 }

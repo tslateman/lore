@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../lib/paths.sh"
+source "${SCRIPT_DIR}/../../lib/lock.sh"
 DATA_DIR="${LORE_FAILURES_DATA}"
 FAILURES_FILE="${DATA_DIR}/failures.jsonl"
 
@@ -73,7 +74,7 @@ failures_append() {
         + (if $tool != "" then {tool: $tool} else {} end)
         + (if $step != "" then {step: ($step | tonumber? // $step)} else {} end)')
 
-    echo "$record" >> "$FAILURES_FILE"
+    lore_locked_append "$FAILURES_FILE" "$record"
 
     echo "$id"
 }

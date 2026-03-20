@@ -537,6 +537,11 @@ cmd_remember() {
     # Sync decision to graph (background, fail-silent)
     "$LORE_DIR/graph/sync.sh" &>/dev/null &
 
+    # Write-through to search index (background, fail-silent)
+    local last_json
+    last_json=$(tail -1 "$LORE_DECISIONS_FILE" 2>/dev/null)
+    [[ -n "$last_json" ]] && bash "$LORE_DIR/lib/search-index.sh" index-one decision "$last_json" &>/dev/null &
+
     # Write-through to Engram (background, fail-silent)
     _bridge_sync_last_decision &>/dev/null &
 }
@@ -545,25 +550,65 @@ cmd_learn() {
     # Dedup check now lives in patterns/patterns.sh cmd_capture (--force passes through)
     "$LORE_DIR/patterns/patterns.sh" capture "$@"
 
+    # Write-through to search index (background, fail-silent)
+    # Patterns are YAML — get the last entry as JSON
+    local last_pattern
+    last_pattern=$(yq -o=json '.patterns[-1]' "$LORE_PATTERNS_FILE" 2>/dev/null)
+    [[ -n "$last_pattern" ]] && bash "$LORE_DIR/lib/search-index.sh" index-one pattern "$last_pattern" &>/dev/null &
+
     # Write-through to Engram (background, fail-silent)
     _bridge_sync_last_pattern &>/dev/null &
 }
 
 # Unified capture command — routes to remember/learn/fail based on flags
 cmd_capture() {
+    # Read from stdin if no positional text and stdin is piped
+    local stdin_text=""
+    if [[ ! -t 0 ]]; then
+        stdin_text=$(cat)
+    fi
+
     local capture_type
     capture_type=$(infer_capture_type "$@")
 
     # Strip explicit type flags and --force (signal has no dedup), pass everything else
     local args=()
     local has_force=false
+    local end_of_opts=false
     for arg in "$@"; do
+        if [[ "$end_of_opts" == true ]]; then
+            args+=("$arg")
+            continue
+        fi
         case "$arg" in
+            --) end_of_opts=true ;;
             --decision|--pattern|--failure|--observation|--signal|--evidence|--concept) continue ;;
             --force) has_force=true; args+=("$arg") ;;
             *) args+=("$arg") ;;
         esac
     done
+
+    # Prepend stdin text if no positional text was given
+    # Skip flag values when checking for positional args
+    if [[ -n "$stdin_text" ]]; then
+        local has_positional=false
+        local skip_next=false
+        for arg in "${args[@]}"; do
+            if [[ "$skip_next" == true ]]; then
+                skip_next=false
+                continue
+            fi
+            case "$arg" in
+                --rationale|--solution|--error-type|--tags|-t|--source|-s|--confidence|--provenance|--context|--tool|--step|--definition)
+                    skip_next=true ;;
+                -*) ;;
+                *) has_positional=true; break ;;
+            esac
+        done
+        if [[ "$has_positional" == false ]]; then
+            args=("$stdin_text" "${args[@]}")
+        fi
+    fi
 
     case "$capture_type" in
         signal)
@@ -722,8 +767,11 @@ _search_fts5() {
     local compact="${5:-false}"
     local type_filter="${6:-}"
 
-    # Escape single quotes for SQL
-    local safe_query="${query//\'/\'\'}"
+    # Escape for FTS5: quote each term to prevent operator interpretation,
+    # then escape single quotes for SQL embedding
+    local safe_query
+    safe_query=$(echo "$query" | sed 's/"/""/g; s/[^ ][^ ]*/"&"/g')
+    safe_query="${safe_query//\'/\'\'}"
     local safe_project="${project//\'/\'\'}"
 
     # Build SQL dynamically based on type filter
@@ -1236,6 +1284,11 @@ cmd_fail() {
     echo -e "  ${CYAN}Message:${NC} $message"
     [[ -n "$tool" ]] && echo -e "  ${CYAN}Tool:${NC} $tool"
 
+    # Write-through to search index (background, fail-silent)
+    local last_json
+    last_json=$(tail -1 "${LORE_FAILURES_DATA}/failures.jsonl" 2>/dev/null)
+    [[ -n "$last_json" ]] && bash "$LORE_DIR/lib/search-index.sh" index-one failure "$last_json" &>/dev/null &
+
     # Auto-suggest promotion if this error type now has 3+ occurrences
     local type_count
     type_count=$(jq -s --arg t "$error_type" \
@@ -1562,6 +1615,15 @@ cmd_observe() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --)
+                shift
+                # Remaining args are all content
+                while [[ $# -gt 0 ]]; do
+                    content="${content:+$content }$1"
+                    shift
+                done
+                break
+                ;;
             --source|-s)
                 source="$2"
                 shift 2
@@ -1585,6 +1647,11 @@ cmd_observe() {
         esac
     done
 
+    # Read from stdin if no positional text and stdin is piped
+    if [[ -z "$content" ]] && [[ ! -t 0 ]]; then
+        content=$(cat)
+    fi
+
     if [[ -z "$content" ]]; then
         echo -e "${RED}Error: Signal text required${NC}" >&2
         echo "Usage: lore observe <text> [--source <source>] [--tags <tags>]" >&2
@@ -1602,6 +1669,11 @@ cmd_observe() {
 
     # Sync signals to graph (background, fail-silent)
     "$LORE_DIR/graph/sync-observations.sh" &>/dev/null &
+
+    # Write-through to search index (background, fail-silent)
+    local last_json
+    last_json=$(tail -1 "$LORE_SIGNALS_FILE" 2>/dev/null)
+    [[ -n "$last_json" ]] && bash "$LORE_DIR/lib/search-index.sh" index-one signal "$last_json" &>/dev/null &
 }
 
 cmd_inbox() {

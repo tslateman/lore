@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../lib/paths.sh"
+source "${SCRIPT_DIR}/../../lib/lock.sh"
 DATA_DIR="${LORE_EVIDENCE_DATA}"
 EVIDENCE_FILE="${LORE_EVIDENCE_FILE}"
 
@@ -80,8 +81,8 @@ evidence_append() {
             provenance: $provenance
         }')
 
-    # Atomic append (single echo >> call)
-    echo "$record" >> "$EVIDENCE_FILE"
+    # Locked append for concurrent safety
+    lore_locked_append "$EVIDENCE_FILE" "$record"
 
     echo "$id"
 }

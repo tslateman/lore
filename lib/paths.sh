@@ -20,7 +20,7 @@ export LORE_INTENT_DATA="${LORE_DATA_DIR}/intent/data"
 export LORE_GRAPH_DATA="${LORE_DATA_DIR}/graph/data"
 export LORE_EVIDENCE_DATA="${LORE_DATA_DIR}/evidence/data"
 export LORE_EVIDENCE_FILE="${LORE_EVIDENCE_DATA}/evidence.jsonl"
-export LORE_REGISTRY_DATA="${LORE_DIR}/registry/data"
+export LORE_REGISTRY_DATA="${LORE_DATA_DIR}/registry/data"
 
 # Transfer supports a more specific override via LORE_TRANSFER_ROOT
 if [[ -n "${LORE_TRANSFER_ROOT:-}" ]]; then
