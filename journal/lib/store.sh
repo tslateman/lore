@@ -199,8 +199,8 @@ update_decision() {
         updated=$(echo "$current" | jq -c --arg val "$value" ".$field = \$val")
     fi
 
-    # Append updated version
-    echo "$updated" >> "$DECISIONS_FILE"
+    # Append updated version (locked for concurrent safety)
+    lore_locked_append "$DECISIONS_FILE" "$updated"
 }
 
 # List recent decisions
@@ -452,6 +452,6 @@ journal_update_outcome() {
         updated=$(echo "$updated" | jq -c --arg lesson "$lesson" '.lesson_learned = $lesson')
     fi
 
-    # Append updated version (same pattern as update_decision)
-    echo "$updated" >> "$DECISIONS_FILE"
+    # Append updated version (locked for concurrent safety)
+    lore_locked_append "$DECISIONS_FILE" "$updated"
 }

@@ -836,10 +836,10 @@ sync_to_claude_memory() {
         esac
     fi
 
-    # Validate database exists
+    # Validate database exists (graceful skip if Engram not initialized)
     if [[ ! -f "$CLAUDE_MEMORY_DB" ]]; then
-        echo -e "${RED}Engram database not found: ${CLAUDE_MEMORY_DB}${NC}" >&2
-        return 1
+        echo -e "${YELLOW}Engram database not found — skipping sync${NC}" >&2
+        return 0
     fi
 
     local cutoff

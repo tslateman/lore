@@ -144,8 +144,8 @@ signal_promote() {
         --arg promoted_at "$promoted_at" \
         '. + {status: $status, promoted_to: $target_type, promoted_target: $target, promoted_at: $promoted_at}')
 
-    # Append updated version (append-only; latest version wins on read)
-    echo "$updated" >> "$SIGNALS_FILE"
+    # Append updated version (locked; latest version wins on read)
+    lore_locked_append "$SIGNALS_FILE" "$updated"
 
     echo "$sig_id"
 }
@@ -189,7 +189,7 @@ signal_discard() {
         --arg discarded_at "$discarded_at" \
         '. + {status: $status, discard_reason: $reason, discarded_at: $discarded_at}')
 
-    echo "$updated" >> "$SIGNALS_FILE"
+    lore_locked_append "$SIGNALS_FILE" "$updated"
 
     echo "$sig_id"
 }

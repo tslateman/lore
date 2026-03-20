@@ -2380,6 +2380,7 @@ cmd_init() {
     mkdir -p "${LORE_GRAPH_DATA}"
     mkdir -p "${LORE_INTENT_DATA}/goals"
     mkdir -p "${LORE_REGISTRY_DATA}"
+    mkdir -p "${LORE_EVIDENCE_DATA}"
 
     # Seed registry YAML files (only if missing)
     if [[ ! -f "${LORE_REGISTRY_DATA}/metadata.yaml" ]]; then
@@ -2415,6 +2416,7 @@ YAML
     [[ -f "${LORE_FAILURES_DATA}/failures.jsonl" ]] || touch "${LORE_FAILURES_DATA}/failures.jsonl"
     [[ -f "${LORE_INBOX_DATA}/observations.jsonl" ]] || touch "${LORE_INBOX_DATA}/observations.jsonl"
     [[ -f "${LORE_SIGNALS_FILE}" ]] || touch "${LORE_SIGNALS_FILE}"
+    [[ -f "${LORE_EVIDENCE_FILE}" ]] || touch "${LORE_EVIDENCE_FILE}"
 
     if [[ ! -f "${LORE_PATTERNS_FILE}" ]]; then
         cat > "${LORE_PATTERNS_FILE}" <<'YAML'

@@ -647,7 +647,10 @@ cmd_retract() {
         --arg changed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         '. + {status: "retracted", retracted_reason: $reason, status_changed_at: $changed}')
 
-    echo "$retracted" >> "$DECISIONS_FILE"
+    lore_locked_append "$DECISIONS_FILE" "$retracted"
+
+    # Remove from search index so retracted decisions don't surface
+    sqlite3 "${LORE_SEARCH_DB}" "DELETE FROM decisions WHERE id = '${id//\'/\'\'}'" 2>/dev/null || true
 
     echo -e "${GREEN}Retracted:${NC} ${BOLD}$id${NC}"
     echo -e "  ${CYAN}Reason:${NC} $reason"
@@ -696,7 +699,10 @@ cmd_supersede() {
         --arg changed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         '. + {status: "superseded", superseded_by: $by, status_changed_at: $changed}')
 
-    echo "$superseded" >> "$DECISIONS_FILE"
+    lore_locked_append "$DECISIONS_FILE" "$superseded"
+
+    # Remove from search index so superseded decisions don't surface
+    sqlite3 "${LORE_SEARCH_DB}" "DELETE FROM decisions WHERE id = '${id//\'/\'\'}'" 2>/dev/null || true
 
     echo -e "${GREEN}Superseded:${NC} ${BOLD}$id${NC}"
     echo -e "  ${CYAN}Replaced by:${NC} $new_id"

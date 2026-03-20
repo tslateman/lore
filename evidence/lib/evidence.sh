@@ -152,7 +152,7 @@ evidence_update_confidence() {
         --arg updated_at "$updated_at" \
         '. + {confidence: $confidence, updated_at: $updated_at}')
 
-    echo "$updated" >> "$EVIDENCE_FILE"
+    lore_locked_append "$EVIDENCE_FILE" "$updated"
 
     echo "$evi_id"
 }
