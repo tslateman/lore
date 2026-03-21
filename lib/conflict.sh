@@ -204,6 +204,11 @@ lore_check_duplicate() {
         return 0  # No duplicates
     fi
 
+    # Emit first match ID to stdout (for programmatic callers like --json-out)
+    local first_id
+    first_id=$(echo "$matches" | head -1 | cut -d'|' -f1)
+    [[ -n "$first_id" ]] && echo "$first_id"
+
     # Print warnings
     echo -e "${YELLOW}Possible duplicate(s) found:${NC}" >&2
     while IFS='|' read -r id sim text; do

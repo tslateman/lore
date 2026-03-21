@@ -562,54 +562,185 @@ cmd_learn() {
 
 # Unified capture command — routes to remember/learn/fail based on flags
 cmd_capture() {
-    # Read from stdin if no positional text and stdin is piped
-    local stdin_text=""
-    if [[ ! -t 0 ]]; then
-        stdin_text=$(cat)
-    fi
-
-    local capture_type
-    capture_type=$(infer_capture_type "$@")
-
-    # Strip explicit type flags and --force (signal has no dedup), pass everything else
-    local args=()
-    local has_force=false
-    local end_of_opts=false
+    # --- JSON flag detection ---
+    local _json_in=false _json_out=false
     for arg in "$@"; do
-        if [[ "$end_of_opts" == true ]]; then
-            args+=("$arg")
-            continue
-        fi
         case "$arg" in
-            --) end_of_opts=true ;;
-            --decision|--pattern|--failure|--observation|--signal|--evidence|--concept) continue ;;
-            --force) has_force=true; args+=("$arg") ;;
-            *) args+=("$arg") ;;
+            --json) _json_in=true; _json_out=true ;;
+            --json-in) _json_in=true ;;
+            --json-out) _json_out=true ;;
         esac
     done
 
-    # Prepend stdin text if no positional text was given
-    # Skip flag values when checking for positional args
-    if [[ -n "$stdin_text" ]]; then
-        local has_positional=false
-        local skip_next=false
-        for arg in "${args[@]}"; do
-            if [[ "$skip_next" == true ]]; then
-                skip_next=false
+    if [[ "$_json_in" == true || "$_json_out" == true ]]; then
+        source "$LORE_DIR/lib/json-io.sh"
+    fi
+
+    # --- Input handling: JSON or traditional ---
+    local stdin_text=""
+    local capture_type=""
+    local args=()
+    local has_force=false
+
+    if [[ "$_json_in" == true ]]; then
+        # JSON input mode: read stdin, extract fields with jq, build args
+        local _json_raw
+        _json_raw=$(cat)
+
+        if [[ -z "$_json_raw" ]]; then
+            if [[ "$_json_out" == true ]]; then
+                _json_error "Empty JSON input"
+            else
+                echo -e "${RED}Error: Empty JSON input${NC}" >&2
+            fi
+            return 1
+        fi
+
+        if ! echo "$_json_raw" | jq empty 2>/dev/null; then
+            if [[ "$_json_out" == true ]]; then
+                _json_error "Invalid JSON"
+            else
+                echo -e "${RED}Error: Invalid JSON${NC}" >&2
+            fi
+            return 1
+        fi
+
+        # Infer type from JSON keys
+        capture_type=$(_infer_type_from_json "$_json_raw")
+
+        # Extract fields and build args array (mirrors CLI flag format)
+        local v
+        case "$capture_type" in
+            decision)
+                v=$(_jq_str "$_json_raw" "decision"); [[ -n "$v" ]] && args+=("$v")
+                v=$(_jq_str "$_json_raw" "rationale"); [[ -n "$v" ]] && args+=(--rationale "$v")
+                v=$(_jq_csv "$_json_raw" "alternatives"); [[ -n "$v" ]] && args+=(--alternatives "$v")
+                v=$(_jq_csv "$_json_raw" "tags"); [[ -n "$v" ]] && args+=(--tags "$v")
+                v=$(_jq_str "$_json_raw" "decision_type"); [[ -n "$v" ]] && args+=(--type "$v")
+                v=$(_jq_csv "$_json_raw" "files"); [[ -n "$v" ]] && args+=(--files "$v")
+                v=$(_jq_str "$_json_raw" "valid_at"); [[ -n "$v" ]] && args+=(--valid-at "$v")
+                ;;
+            pattern)
+                v=$(_jq_str "$_json_raw" "name")
+                [[ -z "$v" ]] && v=$(_jq_str "$_json_raw" "pattern")
+                [[ -n "$v" ]] && args+=("$v")
+                v=$(_jq_str "$_json_raw" "context"); [[ -n "$v" ]] && args+=(--context "$v")
+                v=$(_jq_str "$_json_raw" "solution"); [[ -n "$v" ]] && args+=(--solution "$v")
+                v=$(_jq_str "$_json_raw" "problem"); [[ -n "$v" ]] && args+=(--problem "$v")
+                v=$(_jq_str "$_json_raw" "category"); [[ -n "$v" ]] && args+=(--category "$v")
+                v=$(_jq_str "$_json_raw" "origin"); [[ -n "$v" ]] && args+=(--origin "$v")
+                v=$(_jq_str "$_json_raw" "example_bad"); [[ -n "$v" ]] && args+=(--example-bad "$v")
+                v=$(_jq_str "$_json_raw" "example_good"); [[ -n "$v" ]] && args+=(--example-good "$v")
+                ;;
+            failure)
+                v=$(_jq_str "$_json_raw" "error_type"); [[ -n "$v" ]] && args+=(--error-type "$v")
+                v=$(_jq_str "$_json_raw" "message"); [[ -n "$v" ]] && args+=("$v")
+                v=$(_jq_str "$_json_raw" "tool"); [[ -n "$v" ]] && args+=(--tool "$v")
+                v=$(_jq_str "$_json_raw" "step"); [[ -n "$v" ]] && args+=(--step "$v")
+                ;;
+            signal)
+                v=$(_jq_str "$_json_raw" "content")
+                [[ -z "$v" ]] && v=$(_jq_str "$_json_raw" "text")
+                [[ -n "$v" ]] && args+=("$v")
+                v=$(_jq_str "$_json_raw" "source"); [[ -n "$v" ]] && args+=(--source "$v")
+                v=$(_jq_csv "$_json_raw" "tags"); [[ -n "$v" ]] && args+=(--tags "$v")
+                ;;
+            evidence)
+                v=$(_jq_str "$_json_raw" "content")
+                [[ -z "$v" ]] && v=$(_jq_str "$_json_raw" "text")
+                [[ -n "$v" ]] && args+=("$v")
+                v=$(_jq_str "$_json_raw" "confidence"); [[ -n "$v" ]] && args+=(--confidence "$v")
+                v=$(_jq_csv "$_json_raw" "tags"); [[ -n "$v" ]] && args+=(--tags "$v")
+                v=$(_jq_str "$_json_raw" "source"); [[ -n "$v" ]] && args+=(--source "$v")
+                v=$(_jq_str "$_json_raw" "provenance"); [[ -n "$v" ]] && args+=(--provenance "$v")
+                ;;
+            concept)
+                v=$(_jq_str "$_json_raw" "name"); [[ -n "$v" ]] && args+=("$v")
+                v=$(_jq_str "$_json_raw" "definition"); [[ -n "$v" ]] && args+=(--definition "$v")
+                ;;
+        esac
+
+        # Check for force flag in JSON
+        v=$(echo "$_json_raw" | jq -r '.force // empty' 2>/dev/null) || true
+        [[ "$v" == "true" ]] && { has_force=true; args+=(--force); }
+    else
+        # Traditional input mode: read from stdin if piped
+        if [[ ! -t 0 ]]; then
+            stdin_text=$(cat)
+        fi
+
+        capture_type=$(infer_capture_type "$@")
+
+        # Strip explicit type flags, --force, and JSON flags
+        local end_of_opts=false
+        for arg in "$@"; do
+            if [[ "$end_of_opts" == true ]]; then
+                args+=("$arg")
                 continue
             fi
             case "$arg" in
-                --rationale|--solution|--error-type|--tags|-t|--source|-s|--confidence|--provenance|--context|--tool|--step|--definition)
-                    skip_next=true ;;
-                -*) ;;
-                *) has_positional=true; break ;;
+                --) end_of_opts=true ;;
+                --decision|--pattern|--failure|--observation|--signal|--evidence|--concept) continue ;;
+                --json|--json-in|--json-out) continue ;;
+                --force) has_force=true; args+=("$arg") ;;
+                *) args+=("$arg") ;;
             esac
         done
-        if [[ "$has_positional" == false ]]; then
-            args=("$stdin_text" "${args[@]}")
+
+        # Prepend stdin text if no positional text was given
+        if [[ -n "$stdin_text" ]]; then
+            local has_positional=false
+            local skip_next=false
+            for arg in "${args[@]}"; do
+                if [[ "$skip_next" == true ]]; then
+                    skip_next=false
+                    continue
+                fi
+                case "$arg" in
+                    --rationale|--solution|--error-type|--tags|-t|--source|-s|--confidence|--provenance|--context|--tool|--step|--definition)
+                        skip_next=true ;;
+                    -*) ;;
+                    *) has_positional=true; break ;;
+                esac
+            done
+            if [[ "$has_positional" == false ]]; then
+                args=("$stdin_text" "${args[@]}")
+            fi
         fi
     fi
 
+    # --- JSON-out dedup: run at this level, force downstream ---
+    local _dup_id=""
+    if [[ "$_json_out" == true && "$has_force" == false ]]; then
+        if [[ "$capture_type" == "decision" || "$capture_type" == "pattern" ]]; then
+            source "$LORE_DIR/lib/conflict.sh" 2>/dev/null || true
+            # Extract the text to check from args (first non-flag argument)
+            local _dedup_text=""
+            local _skip_next=false
+            for arg in "${args[@]}"; do
+                if [[ "$_skip_next" == true ]]; then
+                    _skip_next=false
+                    continue
+                fi
+                case "$arg" in
+                    --*) _skip_next=true ;;
+                    *) _dedup_text="$arg"; break ;;
+                esac
+            done
+            if [[ -n "$_dedup_text" ]]; then
+                _dup_id=$(lore_check_duplicate "$capture_type" "$_dedup_text" 2>/dev/null) || true
+                if [[ -n "$_dup_id" ]]; then
+                    _json_error "Duplicate detected" "$_dup_id"
+                    return 1
+                fi
+            fi
+            # Force downstream to skip redundant dedup
+            args+=(--force)
+        fi
+    fi
+
+    # --- Route to component handlers ---
+    local _rc=0
     case "$capture_type" in
         signal)
             # Strip --force before passing to cmd_observe (it has no dedup check)
@@ -618,18 +749,31 @@ cmd_capture() {
                 [[ "$arg" == "--force" ]] && continue
                 sig_args+=("$arg")
             done
-            cmd_observe "${sig_args[@]}"
-            return
+            if [[ "$_json_out" == true ]]; then
+                cmd_observe "${sig_args[@]}" >/dev/null || _rc=$?
+            else
+                cmd_observe "${sig_args[@]}"
+                return
+            fi
             ;;
         decision)
-            cmd_remember "${args[@]}"
+            if [[ "$_json_out" == true ]]; then
+                cmd_remember "${args[@]}" >/dev/null || _rc=$?
+            else
+                cmd_remember "${args[@]}"
+            fi
             ;;
         pattern)
-            cmd_learn "${args[@]}"
+            if [[ "$_json_out" == true ]]; then
+                cmd_learn "${args[@]}" >/dev/null || _rc=$?
+            else
+                cmd_learn "${args[@]}"
+            fi
             ;;
         failure)
             # cmd_fail expects: <error_type> <message> [--tool T] [--step S]
             # capture uses --error-type <type> as a named flag, so convert it to positional
+            # Strip --force (failures have no dedup)
             local fail_args=()
             local error_type=""
             local skip_next=false
@@ -643,13 +787,21 @@ cmd_capture() {
                     skip_next=true
                     continue
                 fi
+                [[ "$arg" == "--force" ]] && continue
                 fail_args+=("$arg")
             done
-            # Prepend error_type as first positional arg (cmd_fail expects it there)
-            if [[ -n "$error_type" ]]; then
-                cmd_fail "$error_type" "${fail_args[@]}"
+            if [[ "$_json_out" == true ]]; then
+                if [[ -n "$error_type" ]]; then
+                    cmd_fail "$error_type" "${fail_args[@]}" >/dev/null || _rc=$?
+                else
+                    cmd_fail "${fail_args[@]}" >/dev/null || _rc=$?
+                fi
             else
-                cmd_fail "${fail_args[@]}"
+                if [[ -n "$error_type" ]]; then
+                    cmd_fail "$error_type" "${fail_args[@]}"
+                else
+                    cmd_fail "${fail_args[@]}"
+                fi
             fi
             ;;
         evidence)
@@ -681,15 +833,21 @@ cmd_capture() {
                 esac
             done
             if [[ -z "$evi_text" ]]; then
-                echo -e "${RED}Error: Evidence content required${NC}" >&2
-                echo "Usage: lore capture \"text\" --evidence [--confidence preliminary|confirmed|contested|superseded]" >&2
+                if [[ "$_json_out" == true ]]; then
+                    _json_error "Evidence content required"
+                else
+                    echo -e "${RED}Error: Evidence content required${NC}" >&2
+                    echo "Usage: lore capture \"text\" --evidence [--confidence preliminary|confirmed|contested|superseded]" >&2
+                fi
                 return 1
             fi
             local evi_id
             evi_id=$(evidence_append "$evi_text" "$evi_source" "$evi_tags" "$evi_confidence" "$evi_provenance")
-            echo -e "${GREEN}Recorded evidence:${NC} ${BOLD}${evi_id}${NC}"
-            echo -e "  ${CYAN}Confidence:${NC} $evi_confidence"
-            echo -e "  ${CYAN}Content:${NC} ${evi_text:0:70}$([ ${#evi_text} -gt 70 ] && echo '...')"
+            if [[ "$_json_out" != true ]]; then
+                echo -e "${GREEN}Recorded evidence:${NC} ${BOLD}${evi_id}${NC}"
+                echo -e "  ${CYAN}Confidence:${NC} $evi_confidence"
+                echo -e "  ${CYAN}Content:${NC} ${evi_text:0:70}$([ ${#evi_text} -gt 70 ] && echo '...')"
+            fi
             ;;
         concept)
             local definition=""
@@ -708,21 +866,73 @@ cmd_capture() {
                 fi
             done
             if [[ -z "$text" ]]; then
-                echo -e "${RED}Error: Concept name required${NC}" >&2
-                echo "Usage: lore capture \"name\" --concept [--definition \"what it means\"]" >&2
+                if [[ "$_json_out" == true ]]; then
+                    _json_error "Concept name required"
+                else
+                    echo -e "${RED}Error: Concept name required${NC}" >&2
+                    echo "Usage: lore capture \"name\" --concept [--definition \"what it means\"]" >&2
+                fi
                 return 1
             fi
             local concept_id
             concept_id=$(write_concept "$(generate_concept_id)" "$text" "$definition" "manual")
-            echo -e "${GREEN}Created concept:${NC} ${BOLD}${concept_id}${NC}"
-            echo -e "  ${CYAN}Name:${NC} $text"
-            [[ -n "$definition" ]] && echo -e "  ${CYAN}Definition:${NC} $definition"
+            if [[ "$_json_out" != true ]]; then
+                echo -e "${GREEN}Created concept:${NC} ${BOLD}${concept_id}${NC}"
+                echo -e "  ${CYAN}Name:${NC} $text"
+                [[ -n "$definition" ]] && echo -e "  ${CYAN}Definition:${NC} $definition"
+            fi
             ;;
         *)
-            echo -e "${RED}Error: Unknown capture type: $capture_type${NC}" >&2
+            if [[ "$_json_out" == true ]]; then
+                _json_error "Unknown capture type: $capture_type"
+            else
+                echo -e "${RED}Error: Unknown capture type: $capture_type${NC}" >&2
+            fi
             return 1
             ;;
     esac
+
+    # --- JSON-out response: extract ID from storage and emit ---
+    if [[ "$_json_out" == true ]]; then
+        if [[ $_rc -ne 0 ]]; then
+            _json_error "Capture failed"
+            return $_rc
+        fi
+
+        local _out_id="" _out_ts=""
+        case "$capture_type" in
+            decision)
+                _out_id=$(tail -1 "$LORE_DECISIONS_FILE" 2>/dev/null | jq -r '.id // empty' 2>/dev/null) || true
+                _out_ts=$(tail -1 "$LORE_DECISIONS_FILE" 2>/dev/null | jq -r '.timestamp // empty' 2>/dev/null) || true
+                ;;
+            pattern)
+                _out_id=$(yq -r '.patterns[-1].id // ""' "$LORE_PATTERNS_FILE" 2>/dev/null) || true
+                _out_ts=$(yq -r '.patterns[-1].created_at // ""' "$LORE_PATTERNS_FILE" 2>/dev/null) || true
+                ;;
+            failure)
+                _out_id=$(tail -1 "${LORE_FAILURES_DATA}/failures.jsonl" 2>/dev/null | jq -r '.id // empty' 2>/dev/null) || true
+                _out_ts=$(tail -1 "${LORE_FAILURES_DATA}/failures.jsonl" 2>/dev/null | jq -r '.timestamp // empty' 2>/dev/null) || true
+                ;;
+            signal)
+                _out_id=$(tail -1 "$LORE_SIGNALS_FILE" 2>/dev/null | jq -r '.id // empty' 2>/dev/null) || true
+                _out_ts=$(tail -1 "$LORE_SIGNALS_FILE" 2>/dev/null | jq -r '.timestamp // empty' 2>/dev/null) || true
+                ;;
+            evidence)
+                _out_id="${evi_id:-}"
+                _out_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                ;;
+            concept)
+                _out_id="${concept_id:-}"
+                _out_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                ;;
+        esac
+
+        if [[ -n "$_out_id" ]]; then
+            _json_response "$_out_id" "$capture_type" "${_out_ts:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
+        else
+            _json_error "Write succeeded but ID extraction failed"
+        fi
+    fi
 }
 
 cmd_handoff() {
