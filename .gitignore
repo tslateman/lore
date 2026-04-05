@@ -33,3 +33,4 @@ registry/data/*.yaml
 
 # Research reports
 .research/
+.gitnexus
