@@ -180,14 +180,13 @@ check_tag_cluster_consistency() {
     local projects
     projects=$(yqj '.projects | keys[]' "$MANI_FILE") || true
     local ok=true
+    local project cluster_tag cluster_exists in_cluster
     while IFS= read -r project; do
         [[ -z "$project" ]] && continue
-        local cluster_tag
         cluster_tag=$(_get_tag "$project" "cluster:")
 
         if [[ -n "$cluster_tag" ]]; then
             # Verify cluster exists in clusters.yaml
-            local cluster_exists
             cluster_exists=$(yqj ".clusters | has(\"${cluster_tag}\")" "$CLUSTERS_FILE")
             if [[ "$cluster_exists" != "true" ]]; then
                 _fail "'$project' has cluster:$cluster_tag tag but cluster '$cluster_tag' missing from clusters.yaml"
@@ -195,7 +194,6 @@ check_tag_cluster_consistency() {
             fi
 
             # Verify project appears as a component in that cluster
-            local in_cluster
             in_cluster=$(yqj ".clusters.\"${cluster_tag}\".components | has(\"${project}\")" "$CLUSTERS_FILE" 2>/dev/null) || true
             if [[ "$in_cluster" != "true" ]]; then
                 _warn "'$project' tagged cluster:$cluster_tag but not listed in clusters.yaml components"
@@ -211,9 +209,9 @@ check_archived_no_cluster() {
     local projects
     projects=$(yqj '.projects | keys[]' "$MANI_FILE") || true
     local ok=true
+    local project status cluster_tag
     while IFS= read -r project; do
         [[ -z "$project" ]] && continue
-        local status cluster_tag
         status=$(_get_tag "$project" "status:")
         cluster_tag=$(_get_tag "$project" "cluster:")
 
@@ -230,9 +228,9 @@ check_required_tags() {
     local projects
     projects=$(yqj '.projects | keys[]' "$MANI_FILE") || true
     local ok=true
+    local project proj_type status
     while IFS= read -r project; do
         [[ -z "$project" ]] && continue
-        local proj_type status
         proj_type=$(_get_tag "$project" "type:")
         status=$(_get_tag "$project" "status:")
 
