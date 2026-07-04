@@ -134,6 +134,7 @@ Query:
   recall <query>        Read from memory (mode inferred from flags)
   search <query>        Search all components
   review                Review pending decisions
+  librarian             Curate pending work (manifest | run [--apply])
   brief <topic>         Assemble topic-specific context
 
 Run 'lore help' for all commands.
@@ -2835,6 +2836,7 @@ main() {
         triggers)   shift; cmd_triggers "$@" ;;
         promote-failure) shift; cmd_promote_failure "$@" ;;
         review)     shift; cmd_review "$@" ;;
+        librarian)  shift; source "$LORE_DIR/lib/librarian.sh"; librarian_main "$@" ;;
         brief)      shift; source "$LORE_DIR/lib/brief.sh"; cmd_brief "$@" ;;
 
         # Top-level commands

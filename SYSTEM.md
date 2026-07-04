@@ -51,6 +51,29 @@ failures/ ──→ triggers (Rule of Three) ──→ patterns/ ──→ sessi
 When an error type recurs three times, failure analysis surfaces it. The pattern
 gets recorded. Future sessions receive that pattern at resume. The system learns.
 
+### The Curation Loop
+
+Capture is cheap; judgment is the bottleneck. Four stores accumulate items
+awaiting a decision: raw inbox entries, pending decision outcomes, untyped
+failures, and edgeless graph nodes. The librarian (`lib/librarian.sh`) drives
+that judgment on a schedule:
+
+```text
+lore librarian manifest   # JSON worklist: inbox, stale decisions,
+                          # untyped failures, orphans (+ FTS candidates)
+lore librarian run        # pipe manifest to claude -p, print proposed actions
+lore librarian run --apply  # execute actions via existing CLI verbs
+```
+
+Actions flow through the same verbs a human would use -- inbox
+promote/discard, `review --resolve`, `graph connect` -- never raw file
+edits. Every action's target id is validated first; invalid actions are
+skipped and reported. Without the `claude` CLI, `run` degrades to printing
+the manifest for a manual pass. The `lore-librarian` agent
+(`agents/lore-librarian.md`) wraps this loop with triage rules; unlike
+`lore-resolver` and `lore-cartographer` (post-hoc audits), the librarian is
+the scheduled writer. After a pass, `lore index build` refreshes FTS5.
+
 ### Type-Level Graph
 
 The graph's node types and edge types encode three cycles:

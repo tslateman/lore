@@ -10,7 +10,7 @@ source "${SCRIPT_DIR}/../../lib/lock.sh"
 DATA_DIR="${LORE_FAILURES_DATA}"
 FAILURES_FILE="${DATA_DIR}/failures.jsonl"
 
-VALID_ERROR_TYPES="UserDeny HardDeny NonZeroExit Timeout ToolError LogicError"
+VALID_ERROR_TYPES="UserDeny HardDeny NonZeroExit Timeout ToolError LogicError PermissionError EnvironmentError UserError"
 
 # Ensure data directory exists
 init_failures() {
@@ -96,7 +96,8 @@ failures_list() {
         filter="select(.error_type == \"$filter_type\")"
     fi
 
-    jq -s "[.[] | $filter] | sort_by(.timestamp) | reverse" "$FAILURES_FILE"
+    # Dedup by id: updates append new versions, reads take the latest
+    jq -s "group_by(.id) | map(.[-1]) | [.[] | $filter] | sort_by(.timestamp) | reverse" "$FAILURES_FILE"
 }
 
 # Return error types that recur >= threshold times (Rule of Three)
@@ -112,7 +113,8 @@ failures_triggers() {
     fi
 
     jq -s --argjson t "$threshold" '
-        group_by(.error_type)
+        group_by(.id) | map(.[-1])
+        | group_by(.error_type)
         | map({
             error_type: .[0].error_type,
             count: length,
@@ -134,6 +136,7 @@ failures_stats() {
     fi
 
     jq -s '
+        group_by(.id) | map(.[-1]) |
         {
             total: length,
             by_type: (group_by(.error_type) | map({
