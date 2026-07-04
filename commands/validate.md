@@ -15,17 +15,19 @@ lore validate
 
 Parse the output. Each check reports PASS or FAIL with details.
 
-The 9 validation checks:
+The 11 validation checks:
 
-1. mani.yaml project consistency
-2. metadata.yaml structure
-3. relationships.yaml references
-4. clusters.yaml references
-5. Tag encoding format
-6. Contract locations
-7. Stale references (neo, ralph, monarch, lens)
-8. Initiative staleness
-9. Component directory structure
+1. metadata.yaml projects exist in mani.yaml
+2. clusters.yaml components exist in mani.yaml
+3. relationships.yaml references exist in mani.yaml
+4. contracts.yaml paths exist on disk
+5. Stale names (monarch, lineage, lens, neo, ralph) in active files
+6. Cluster tags match clusters.yaml components
+7. Archived projects have no cluster tags
+8. All projects have type: and status: tags
+9. Initiative staleness across CLAUDE.md files
+10. Markdown path references resolve (dead links, moved plans)
+11. `lore` commands in docs match the dispatch table
 
 ## Step 3: Fix Failures
 
@@ -42,12 +44,27 @@ Common fixes:
 - **Missing metadata fields**: Add required fields to registry/metadata.yaml
 - **Broken relationships**: Remove references to nonexistent projects in relationships.yaml
 - **Initiative staleness**: Update or archive stale initiatives in council/initiatives/
+- **Dead path references**: Point the doc at the file's current location (the warning suggests plans/archive/ when the plan moved there)
+- **Unknown lore commands**: Update the doc to the current command name (check the dispatch table in lore.sh)
 
 ## Step 4: Re-validate
 
 Run `lore validate` again to confirm all fixes.
 
-## Step 5: Report
+## Step 5 (optional): Deep Prose Review
+
+```bash
+lore validate --prose-deep
+```
+
+Emits a JSON manifest of architectural claims from SYSTEM.md and CLAUDE.md
+(sentences with markers like "Not bridged", "never", "always", "only",
+"does not"), each mapped to the component or lib file it likely concerns.
+Judge each claim against the mapped files and fix contradictions. With
+`LORE_VALIDATE_DEEP=1` and the `claude` CLI installed, the manifest is
+judged automatically.
+
+## Step 6: Report
 
 Output a summary:
 

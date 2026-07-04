@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Validation tests for lib/validate.sh
 #
-# Tests all 9 registry validation checks with both pass and fail cases.
+# Tests all 11 validation checks (registry + prose drift) plus the
+# --prose-deep claim manifest, with both pass and fail cases.
 # Uses a temporary directory so production data is untouched.
 
 set -euo pipefail
@@ -455,6 +456,161 @@ MD
 }
 
 
+# ── Check 10: markdown path references ─────────────────────────────────
+
+test_doc_paths_clean() {
+    echo "# Real target" > "$LORE_DIR/lib/target.md"
+    cat > "$LORE_DIR/doc.md" <<'MD'
+# Doc
+
+See [the target](lib/target.md) and `lib/validate.sh` for details.
+MD
+    run_check check_doc_paths
+    assert_eq "valid references produce 0 warnings" 0 "$WARNINGS"
+    assert_contains "valid references show PASS" "PASS" "$CHECK_OUTPUT"
+}
+
+test_doc_paths_dead_link() {
+    cat > "$LORE_DIR/doc.md" <<'MD'
+# Doc
+
+See [missing](lib/missing.sh) for details.
+MD
+    run_check check_doc_paths
+    assert_eq "dead link produces 1 warning" 1 "$WARNINGS"
+    assert_contains "warning names the path" "lib/missing.sh" "$CHECK_OUTPUT"
+}
+
+test_doc_paths_dead_backtick() {
+    cat > "$LORE_DIR/doc.md" <<'MD'
+# Doc
+
+Details live in `lib/phantom.sh` today.
+MD
+    run_check check_doc_paths
+    assert_eq "dead backtick path produces 1 warning" 1 "$WARNINGS"
+    assert_contains "warning names the path" "lib/phantom.sh" "$CHECK_OUTPUT"
+}
+
+test_doc_paths_archived_plan() {
+    mkdir -p "$LORE_DIR/plans/archive"
+    echo "# Archived plan" > "$LORE_DIR/plans/archive/old-plan.md"
+    cat > "$LORE_DIR/doc.md" <<'MD'
+# Doc
+
+Plan lives at [old plan](plans/old-plan.md).
+MD
+    run_check check_doc_paths
+    assert_eq "archived plan reference produces 1 warning" 1 "$WARNINGS"
+    assert_contains "warning suggests the archive path" "plans/archive/old-plan.md" "$CHECK_OUTPUT"
+}
+
+test_doc_paths_urls_anchors_skipped() {
+    cat > "$LORE_DIR/doc.md" <<'MD'
+# Doc
+
+See [the site](https://example.com/missing/page.md), [a section](#local-anchor),
+and [same-file anchor](doc.md#section). Run `curl https://example.com/x.md`.
+MD
+    run_check check_doc_paths
+    assert_eq "URLs and anchors produce 0 warnings" 0 "$WARNINGS"
+    assert_contains "URLs and anchors show PASS" "PASS" "$CHECK_OUTPUT"
+}
+
+
+# ── Check 11: lore commands in docs ─────────────────────────────────────
+
+make_dispatch_fixtures() {
+    cat > "$LORE_DIR/lore.sh" <<'SH'
+#!/usr/bin/env bash
+main() {
+    case "$1" in
+        capture)    shift; cmd_capture "$@" ;;
+        recall)     shift; cmd_recall "$@" ;;
+        index)      shift; bash "$LORE_DIR/lib/search-index.sh" "$@" ;;
+        validate)   shift; cmd_validate "$@" ;;
+        -h|--help)  show_help ;;
+        *) exit 1 ;;
+    esac
+}
+main "$@"
+SH
+    cat > "$LORE_DIR/lib/search-index.sh" <<'SH'
+#!/usr/bin/env bash
+main() {
+    case "$1" in
+        build)  shift; cmd_build "$@" ;;
+        search) shift; cmd_search "$@" ;;
+        *) exit 1 ;;
+    esac
+}
+main "$@"
+SH
+}
+
+test_doc_commands_known() {
+    make_dispatch_fixtures
+    cat > "$LORE_DIR/doc.md" <<'MD'
+# Doc
+
+Run `lore capture "note"` then `lore recall`.
+
+```bash
+lore index build
+lore validate
+```
+MD
+    run_check check_doc_commands
+    assert_eq "known commands produce 0 warnings" 0 "$WARNINGS"
+    assert_contains "known commands show PASS" "PASS" "$CHECK_OUTPUT"
+}
+
+test_doc_commands_unknown() {
+    make_dispatch_fixtures
+    cat > "$LORE_DIR/doc.md" <<'MD'
+# Doc
+
+Run `lore frobnicate` to frob things.
+MD
+    run_check check_doc_commands
+    assert_eq "unknown command produces 1 warning" 1 "$WARNINGS"
+    assert_contains "warning names the command" "frobnicate" "$CHECK_OUTPUT"
+}
+
+test_doc_commands_unknown_subcommand() {
+    make_dispatch_fixtures
+    cat > "$LORE_DIR/doc.md" <<'MD'
+# Doc
+
+Run `lore index rebuild` to rebuild the index.
+MD
+    run_check check_doc_commands
+    assert_eq "unknown index subcommand produces 1 warning" 1 "$WARNINGS"
+    assert_contains "warning names the subcommand" "lore index rebuild" "$CHECK_OUTPUT"
+}
+
+
+# ── Deep prose check: claim manifest ────────────────────────────────────
+
+test_prose_deep_manifest() {
+    unset LORE_VALIDATE_DEEP
+    mkdir -p "$LORE_DIR/graph"
+    cat > "$LORE_DIR/SYSTEM.md" <<'MD'
+# System
+
+Not bridged: graph edges.
+
+Plain sentence with no markers here at all.
+MD
+    run_check check_prose_deep
+    assert_contains "manifest contains the claim" "Not bridged: graph edges" "$CHECK_OUTPUT"
+    assert_contains "manifest maps claim to graph component" "graph/" "$CHECK_OUTPUT"
+    local valid=1
+    echo "$CHECK_OUTPUT" | jq -e '.claims | length == 1' >/dev/null 2>&1 && valid=0
+    assert_eq "manifest is valid JSON with one claim" 0 "$valid"
+}
+
+
 # ── Integration: cmd_validate ───────────────────────────────────────────
 
 test_cmd_validate_all_pass() {
@@ -563,6 +719,21 @@ run_test test_required_tags_missing
 run_test test_initiatives_no_council
 run_test test_initiatives_pass
 run_test test_initiatives_stale_reference
+
+# Check 10
+run_test test_doc_paths_clean
+run_test test_doc_paths_dead_link
+run_test test_doc_paths_dead_backtick
+run_test test_doc_paths_archived_plan
+run_test test_doc_paths_urls_anchors_skipped
+
+# Check 11
+run_test test_doc_commands_known
+run_test test_doc_commands_unknown
+run_test test_doc_commands_unknown_subcommand
+
+# Deep prose check
+run_test test_prose_deep_manifest
 
 # Integration
 run_test test_cmd_validate_all_pass
