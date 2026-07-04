@@ -39,7 +39,7 @@ patterns, failures, and graph nodes to build a comprehensive context bundle.
 4. Follow graph edges for related concepts:
 
    ```bash
-   lore related <node_id> --hops 2
+   lore graph related <node_id> --hops 2
    ```
 
 5. Synthesize a context bundle:
