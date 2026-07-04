@@ -127,6 +127,29 @@ lore recall --brief "authentication"
 
 Shortcuts like `lore search`, `lore context`, and `lore triggers` still work — `recall` unifies them under one verb.
 
+## Promote Concepts
+
+As decisions and patterns accumulate, related records cluster around unnamed
+themes. Concepts name those themes and become hub nodes in the graph.
+
+```bash
+# Detect candidate clusters (JSON with names, members, cohesion)
+lore concepts propose
+
+# Promote a coherent cluster to a named concept
+lore concepts promote "append-only-storage" --members dec-abc123,dec-def456,pat-789abc
+
+# List concepts with member counts
+lore concepts list
+```
+
+`propose` clusters decisions, patterns, and promoted observations by word
+similarity, skipping records that already belong to a concept. Review each
+candidate and promote only coherent clusters — concepts need curation.
+`promote` writes the concept to `patterns/data/concepts.yaml`, creates a
+concept node with `part_of` edges from each member, and indexes it so
+`lore recall` finds it alongside decisions and patterns.
+
 ## End the Session
 
 Before ending, capture handoff notes for the next session:

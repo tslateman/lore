@@ -228,6 +228,12 @@ MAINTENANCE
     --write               Actually create summaries (default: dry-run)
     --promote             Also create concepts from clusters
     --threshold N         Jaccard similarity % (default: 50)
+  concepts propose        Detect candidate concept clusters (JSON)
+    --min-members N       Minimum cluster size (default: 3)
+    --threshold N         Jaccard similarity % (default: 45)
+    --limit N             Max candidates (default: 10)
+  concepts promote <name> --members id1,id2,...  Create concept from records
+  concepts list           List concepts with member counts
   sync                    Project Lore shadows into Engram
     --since T             Time window (2h, 8h, 7d, 2024-01-01; default: 8h)
     --type T              Limit to: decisions, patterns, failures, sessions
@@ -1016,7 +1022,7 @@ _search_fts5() {
     local transfer_sql="SELECT 'transfer' as type, session_id as id, handoff as content, project, timestamp, 3 as importance, rank * -1 as bm25_score FROM transfers WHERE transfers MATCH '${safe_query}'"
     local failure_sql="SELECT 'failure' as type, id, error_type || ': ' || error_message as content, '' as project, timestamp, 3 as importance, rank * -1 as bm25_score FROM failures WHERE failures MATCH '${safe_query}'"
     local signal_sql="SELECT 'signal' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'"
-    local concept_sql="SELECT 'concept' as type, id, name || ': ' || definition as content, '' as project, timestamp, 4 as importance, rank * -1 as bm25_score FROM concepts WHERE concepts MATCH '${safe_query}'"
+    local concept_sql="SELECT 'concept' as type, id, name || ': ' || definition as content, 'lore' as project, timestamp, 4 as importance, rank * -1 as bm25_score FROM concepts WHERE concepts MATCH '${safe_query}'"
 
     local sql_parts=()
     case "$type_filter" in
@@ -2759,7 +2765,7 @@ WITH ranked AS (
     UNION ALL
     SELECT 'signal' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'
     UNION ALL
-    SELECT 'concept' as type, id, name || ': ' || definition as content, '' as project, timestamp, 4 as importance, rank * -1 as bm25_score FROM concepts WHERE concepts MATCH '${safe_query}'
+    SELECT 'concept' as type, id, name || ': ' || definition as content, 'lore' as project, timestamp, 4 as importance, rank * -1 as bm25_score FROM concepts WHERE concepts MATCH '${safe_query}'
 ),
 frequency AS (
     SELECT record_type, record_id, COUNT(*) as access_count, MAX(accessed_at) as last_access
@@ -2845,6 +2851,7 @@ main() {
         ingest)     shift; source "$LORE_DIR/lib/ingest.sh"; cmd_ingest "$@" ;;
         index)      shift; bash "$LORE_DIR/lib/search-index.sh" "$@" ;;
         consolidate) shift; cmd_consolidate "$@" ;;
+        concepts)   shift; source "$LORE_DIR/lib/concepts.sh"; cmd_concepts "$@" ;;
         sync)       shift; source "$LORE_DIR/lib/bridge.sh"; sync_to_claude_memory "$@" ;;
         promote)    shift; cmd_promote "$@" ;;
 

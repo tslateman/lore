@@ -989,7 +989,7 @@ PYTHON
 }
 
 cmd_index_one() {
-    local type="${1:?Usage: search-index.sh index-one <decision|pattern|failure|signal> <json>}"
+    local type="${1:?Usage: search-index.sh index-one <decision|pattern|failure|signal|concept> <json>}"
     local json="${2:?Usage: search-index.sh index-one <type> <json>}"
 
     [[ -f "$DB" ]] || return 0  # No index yet — next full build will pick it up
@@ -1067,6 +1067,22 @@ cmd_index_one() {
             sqlite3 "$DB" "INSERT OR IGNORE INTO observations(id, content, source, timestamp)
                 VALUES ($(sql_quote "$id"), $(sql_quote "$content"), $(sql_quote "$source"),
                         $(sql_quote "$timestamp"));"
+            ;;
+        concept)
+            local id name definition timestamp
+            id=$(echo "$json" | jq -r '.id // ""')
+            [[ -z "$id" ]] && return 1
+            local exists
+            exists=$(sqlite3 "$DB" "SELECT COUNT(*) FROM concepts WHERE id = $(sql_quote "$id");" 2>/dev/null || echo 0)
+            [[ "$exists" -gt 0 ]] && return 0
+
+            name=$(echo "$json" | jq -r '.name // ""')
+            definition=$(echo "$json" | jq -r '.definition // ""')
+            timestamp=$(echo "$json" | jq -r '.created_at // .timestamp // ""')
+
+            sqlite3 "$DB" "INSERT INTO concepts(id, name, definition, timestamp)
+                VALUES ($(sql_quote "$id"), $(sql_quote "$name"),
+                        $(sql_quote "$definition"), $(sql_quote "$timestamp"));"
             ;;
     esac
 }

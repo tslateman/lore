@@ -112,9 +112,11 @@ projects.
 `lesson` is a waypoint on the session → pattern edge -- a learned insight that
 hasn't generalized into a reusable pattern yet.
 
-`concept` has no write command. `capture` writes decisions and patterns, but
-nothing promotes a pattern to a concept. Concepts enter the graph only through
-manual `graph add concept`.
+`concept` has three write paths: `capture --concept` for manual entry,
+`consolidate --write --promote` for cluster summaries, and `concepts promote`
+for curated promotion of clusters found by `concepts propose`. Each writes to
+`patterns/data/concepts.yaml` and projects a concept node plus `part_of` edges
+from its members into the graph.
 
 `goal` and `observation` sit outside the three core cycles. Goals connect to
 projects via `relates_to` edges. Observations connect to decisions and patterns
@@ -136,8 +138,9 @@ The graph's node types encode a memory taxonomy drawn from cognitive science.
 Infrastructure components (graph/, registry/) provide projection and metadata
 but are not memory stores.
 
-`concept` nodes require manual creation via `graph add concept`. They represent
-higher-order abstractions that need human judgment to identify.
+`concept` nodes represent higher-order abstractions that need judgment to
+identify. `lore concepts propose` surfaces candidate clusters; curation
+decides which become concepts via `lore concepts promote`.
 
 `lesson` nodes are created automatically when decisions have `lesson_learned`
 fields. They are waypoints between episodic events and semantic patterns.

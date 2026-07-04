@@ -1,4 +1,5 @@
-Status: Partial (concept promotion done; unified FTS5 recall routing pending)
+Status: Done (concept promotion, unified FTS5 recall routing, and the
+`lore concepts propose|promote|list` cluster-detection workflow all shipped)
 
 # Plan: Concept Promotion and Unified Recall
 

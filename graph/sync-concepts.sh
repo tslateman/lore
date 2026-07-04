@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Sync concepts from patterns/data/concepts.yaml to knowledge graph
 #
-# Creates concept nodes and grounded_by edges for each concept.
-# Idempotent: existing concept nodes (matched by concept_id) are skipped.
+# Creates concept nodes and part_of edges (member -> concept) for each
+# concept's grounded_by list. Idempotent: existing nodes and edges are
+# skipped; missing edges are healed on re-run.
 
 set -euo pipefail
 
@@ -47,34 +48,45 @@ while IFS=$'\t' read -r cid cname; do
     # Deterministic node key from concept ID
     node_key="concept-$(echo -n "$cid" | md5sum | cut -c1-8)"
 
-    # Skip if already in graph
+    # Create node only if missing; edges are always (re)checked below
     existing=$(jq -r --arg id "$node_key" '.nodes[$id] // empty' "$GRAPH_FILE")
-    [[ -n "$existing" ]] && continue
+    if [[ -z "$existing" ]]; then
+        # Get definition from YAML
+        definition=$(yq -r ".concepts[] | select(.id == \"$cid\") | .definition // \"\"" "$CONCEPTS_FILE")
 
-    # Get definition from YAML
-    definition=$(yq -r ".concepts[] | select(.id == \"$cid\") | .definition // \"\"" "$CONCEPTS_FILE")
+        # Create concept node
+        jq --arg key "$node_key" \
+           --arg name "$cname" \
+           --arg cid "$cid" \
+           --arg def "$definition" \
+           --arg created "$now" \
+           '.nodes[$key] = {
+                type: "concept",
+                name: $name,
+                data: { concept_id: $cid, definition: $def },
+                created_at: $created,
+                updated_at: $created
+            }' "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
 
-    # Create concept node
-    jq --arg key "$node_key" \
-       --arg name "$cname" \
-       --arg cid "$cid" \
-       --arg def "$definition" \
-       --arg created "$now" \
-       '.nodes[$key] = {
-            type: "concept",
-            name: $name,
-            data: { concept_id: $cid, definition: $def },
-            created_at: $created,
-            updated_at: $created
-        }' "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+        concepts_created=$((concepts_created + 1))
+    fi
 
-    # Create grounds edges from grounded_by entries
+    # Create part_of edges from grounded_by entries (member -> concept)
     while IFS= read -r gid; do
         [[ -z "$gid" ]] && continue
-        # Determine type from ID prefix
-        gtype="decision"
-        [[ "$gid" == pat-* ]] && gtype="pattern"
-        g_node="${gtype}-$(echo -n "$gid" | md5sum | cut -c1-8)"
+        # Resolve member node key from ID prefix
+        case "$gid" in
+            pat-*) g_node="pattern-$(echo -n "$gid" | md5sum | cut -c1-8)" ;;
+            dec-*) g_node="decision-$(echo -n "$gid" | md5sum | cut -c1-8)" ;;
+            obs-*|sig-*)
+                # Observation nodes are keyed by content hash; look up by data.observation_id
+                g_node=$(jq -r --arg oid "$gid" \
+                    '.nodes | to_entries[] | select(.value.data.observation_id == $oid) | .key' \
+                    "$GRAPH_FILE" | head -1)
+                ;;
+            *) g_node="" ;;
+        esac
+        [[ -z "$g_node" ]] && continue
 
         # Check target exists in graph
         g_exists=$(jq -r --arg id "$g_node" '.nodes[$id] // empty' "$GRAPH_FILE")
@@ -82,20 +94,18 @@ while IFS=$'\t' read -r cid cname; do
 
         # Check edge doesn't already exist
         edge_exists=$(jq -r --arg from "$g_node" --arg to "$node_key" \
-            '[.edges[] | select(.from == $from and .to == $to and .relation == "grounds")] | length' \
+            '[.edges[] | select(.from == $from and .to == $to and .relation == "part_of")] | length' \
             "$GRAPH_FILE")
         [[ "$edge_exists" -gt 0 ]] && continue
 
         jq --arg from "$g_node" --arg to "$node_key" --arg created "$now" \
-           '.edges += [{from: $from, to: $to, relation: "grounds", weight: 1.0, bidirectional: false, created_at: $created}]' \
+           '.edges += [{from: $from, to: $to, relation: "part_of", weight: 1.0, bidirectional: false, created_at: $created}]' \
            "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
 
         edges_created=$((edges_created + 1))
-    done < <(yq -r ".concepts[] | select(.id == \"$cid\") | .grounded_by[]? // empty" "$CONCEPTS_FILE")
-
-    concepts_created=$((concepts_created + 1))
+    done < <(yq -r ".concepts[] | select(.id == \"$cid\") | .grounded_by[]?" "$CONCEPTS_FILE")
 done < <(yq -r '.concepts[] | [.id, .name] | @tsv' "$CONCEPTS_FILE" 2>/dev/null || true)
 
 existing_concept_nodes=$(jq '[.nodes | to_entries[] | select(.value.data.concept_id)] | length' "$GRAPH_FILE")
 echo -e "${DIM}Found ${existing_concept_nodes} concept nodes already in graph${NC}"
-echo -e "${GREEN}Synced ${concepts_created} new concept nodes, ${edges_created} grounds edges${NC}"
+echo -e "${GREEN}Synced ${concepts_created} new concept nodes, ${edges_created} part_of edges${NC}"
