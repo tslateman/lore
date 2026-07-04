@@ -34,7 +34,9 @@ Commands:
   capture <pattern>    Record a pattern
     --context "when"   Context when pattern applies
     --solution "how"   How to apply the pattern
-    --category <cat>   Category: bash, git, testing, architecture, naming, security
+    --category <cat>   Category: bash, git, testing, architecture, naming,
+                       security, docker, api, performance, general (default);
+                       unknown categories fall back to general with a warning
     --origin <session> Origin session/decision that taught this
     --example-bad      Bad example code
     --example-good     Good example code
