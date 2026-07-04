@@ -2,10 +2,11 @@
 #
 # Resume - Load context from previous session
 #
-# Fork-on-resume: Creates a NEW session inheriting context from the old one.
-# Historical sessions are never modified after handoff.
+# Read-only by default: displays context from the previous session
+# without creating any session file. Historical sessions are never
+# modified after handoff.
 #
-# Behavior:
+# With --fork:
 # 1. Display context from the parent session (read-only)
 # 2. Create new session with parent_session link
 # 3. Inherit: open_threads, handoff.next_steps → initial context
@@ -573,6 +574,7 @@ display_spec_context() {
 resume_session() {
     local session_id="$1"
     local json_output="${2:-false}"
+    local do_fork="${3:-false}"
 
     local session_file="${SESSIONS_DIR}/${session_id}.json"
 
@@ -796,17 +798,24 @@ resume_session() {
     # Suggest promoting recurring lessons to patterns
     suggest_promotions 2>/dev/null || true
 
-    # Fork: create new session inheriting from this one
-    local new_session_id
-    new_session_id=$(fork_session_from_parent "${session_id}")
+    # Fork only on request: default resume is read-only
+    if [[ "${do_fork}" == "true" ]]; then
+        local new_session_id
+        new_session_id=$(fork_session_from_parent "${session_id}")
 
-    echo "=============================================="
-    echo "  Forked new session: ${new_session_id}"
-    echo "  Parent: ${session_id}"
-    echo ""
-    echo "  Inherited ${threads_count} open threads."
-    echo "  Use 'lore snapshot' to save progress."
-    echo "=============================================="
+        echo "=============================================="
+        echo "  Forked new session: ${new_session_id}"
+        echo "  Parent: ${session_id}"
+        echo ""
+        echo "  Inherited ${threads_count} open threads."
+        echo "  Use 'lore snapshot' to save progress."
+        echo "=============================================="
+    else
+        echo "=============================================="
+        echo "  Resumed ${session_id} (read-only)."
+        echo "  Use 'lore resume --fork' to branch a new session."
+        echo "=============================================="
+    fi
 
     # Rebuild search index in background (fail-silent)
     bash "${LORE_DIR}/lib/search-index.sh" &>/dev/null &
@@ -869,6 +878,7 @@ find_latest_session() {
 # Resume from the most recent session
 #######################################
 resume_latest() {
+    local do_fork="${1:-false}"
     local latest
     latest=$(find_latest_session) || true
 
@@ -902,5 +912,5 @@ resume_latest() {
     fi
 
     echo "Resuming most recent session: ${latest}"
-    resume_session "${latest}"
+    resume_session "${latest}" "false" "${do_fork}"
 }

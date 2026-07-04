@@ -345,6 +345,61 @@ test_resume_preserves_patterns() {
     teardown
 }
 
+test_resume_default_does_not_fork() {
+    echo "Test: resume without --fork creates no new session file"
+    setup
+
+    create_session "session-nofork-test" "No-fork summary"
+
+    local before after
+    before=$(ls -1 "$TMPDIR/transfer/data/sessions/"*.json 2>/dev/null | wc -l | tr -d ' ')
+
+    local output
+    output=$("$TMPDIR/lore.sh" resume "session-nofork-test" 2>&1) || true
+
+    after=$(ls -1 "$TMPDIR/transfer/data/sessions/"*.json 2>/dev/null | wc -l | tr -d ' ')
+
+    if [[ "$after" -eq "$before" ]]; then
+        echo "  PASS: session count unchanged ($before)"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL: session count changed ($before -> $after)"
+        FAIL=$((FAIL + 1))
+    fi
+
+    assert_output_not_contains "output lacks fork banner" "$output" "Forked new session"
+    assert_output_contains "output notes read-only resume" "$output" "read-only"
+
+    teardown
+}
+
+test_resume_fork_flag_forks() {
+    echo "Test: resume with --fork creates a new session file"
+    setup
+
+    create_session "session-fork-test" "Fork summary"
+
+    local before after
+    before=$(ls -1 "$TMPDIR/transfer/data/sessions/"*.json 2>/dev/null | wc -l | tr -d ' ')
+
+    local output
+    output=$("$TMPDIR/lore.sh" resume "session-fork-test" --fork 2>&1) || true
+
+    after=$(ls -1 "$TMPDIR/transfer/data/sessions/"*.json 2>/dev/null | wc -l | tr -d ' ')
+
+    if [[ "$after" -eq $((before + 1)) ]]; then
+        echo "  PASS: session count grew by one ($before -> $after)"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL: expected one new session ($before -> $after)"
+        FAIL=$((FAIL + 1))
+    fi
+
+    assert_output_contains "output contains fork banner" "$output" "Forked new session"
+
+    teardown
+}
+
 # --- Runner ---
 
 echo "=== Curated Resume Integration Tests ==="
@@ -359,6 +414,10 @@ echo ""
 test_sparse_session_ranked_fallback
 echo ""
 test_resume_preserves_patterns
+echo ""
+test_resume_default_does_not_fork
+echo ""
+test_resume_fork_flag_forks
 echo ""
 
 echo "=== Results: $PASS passed, $FAIL failed ==="

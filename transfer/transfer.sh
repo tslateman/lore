@@ -42,7 +42,8 @@ USAGE:
 
 COMMANDS:
     snapshot                    Capture current session state
-    resume <session-id>         Load context from previous session
+    resume [session-id]         Load context from previous session (read-only)
+                                Add --fork to branch a new session
     handoff <message>           Create explicit handoff note for successor
     status                      Show what context is loaded
     diff <session1> <session2>  Compare what changed between sessions
@@ -398,10 +399,19 @@ main() {
             snapshot_session "$@"
             ;;
         resume)
-            if [[ $# -lt 1 ]]; then
-                resume_latest
+            local do_fork=false
+            local resume_args=()
+            local arg
+            for arg in "$@"; do
+                case "${arg}" in
+                    --fork) do_fork=true ;;
+                    *) resume_args+=("${arg}") ;;
+                esac
+            done
+            if [[ ${#resume_args[@]} -lt 1 ]]; then
+                resume_latest "${do_fork}"
             else
-                resume_session "$1" "${json_output}"
+                resume_session "${resume_args[0]}" "${json_output}" "${do_fork}"
             fi
             ;;
         handoff)

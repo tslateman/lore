@@ -149,7 +149,7 @@ Lore - Memory That Compounds
 Usage: lore <command> [options]
 
 SESSION LIFECYCLE
-  resume [session]        Load context from previous session (forks new session)
+  resume [session]        Load context from previous session (read-only; --fork branches)
   handoff <message>       Capture context for next session
   status                  Show current session state
   entire-resume <branch>  Resume Entire branch with Lore context injection
@@ -976,6 +976,15 @@ _search_fts5() {
     local graph_depth="${4:-0}"
     local compact="${5:-false}"
     local type_filter="${6:-}"
+    local rerank="${7:-false}"
+
+    # Model-judged reranking: over-fetch, rerank, trim (fail-silent)
+    local fetch_limit="$limit"
+    if [[ "$rerank" == true ]]; then
+        source "$LORE_DIR/lib/rerank.sh"
+        rerank_enabled || rerank=false
+    fi
+    [[ "$rerank" == true ]] && fetch_limit=$((limit * 3))
 
     # Escape for FTS5: quote each term to prevent operator interpretation,
     # then escape single quotes for SQL embedding
@@ -1038,13 +1047,20 @@ SELECT
 FROM ranked r
 LEFT JOIN frequency f ON r.type = f.record_type AND r.id = f.record_id
 ORDER BY final_score DESC
-LIMIT ${limit};
+LIMIT ${fetch_limit};
 SQL
     ) || true
 
     if [[ -z "$results" ]]; then
         [[ "$compact" != true ]] && echo -e "  ${DIM}(no results)${NC}"
         return
+    fi
+
+    if [[ "$rerank" == true ]]; then
+        local rerank_context
+        rerank_context=$(rerank_git_context 2>/dev/null) || rerank_context=""
+        results=$(printf '%s\n' "$results" | rerank_results "$query" "$rerank_context") || true
+        results=$(printf '%s\n' "$results" | head -n "$limit")
     fi
 
     if [[ "$compact" == true ]]; then
