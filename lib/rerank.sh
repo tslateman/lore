@@ -13,7 +13,7 @@
 #
 # Environment:
 #   LORE_RERANK=0          Kill switch — disables reranking everywhere
-#   LORE_RERANK_TIMEOUT    Seconds before the model call is killed (default 20)
+#   LORE_RERANK_TIMEOUT    Seconds before the model call is killed (default 45)
 #   LORE_RERANK_MODEL      Model id (default claude-haiku-4-5-20251001)
 #   LORE_RERANK_FILTER=1   Drop model-omitted candidates instead of appending
 #   LORE_RERANK_SEARCH=1   Force reranking in search-index.sh searches
@@ -47,7 +47,7 @@ rerank_git_context() {
 # Invoke claude -p with a timeout. Prompt arrives on stdin.
 # macOS ships no `timeout` command; fall back to the perl alarm pattern.
 _rerank_invoke_claude() {
-    local timeout_s="${LORE_RERANK_TIMEOUT:-20}"
+    local timeout_s="${LORE_RERANK_TIMEOUT:-45}"
     local model="${LORE_RERANK_MODEL:-claude-haiku-4-5-20251001}"
     if command -v timeout >/dev/null 2>&1; then
         timeout "$timeout_s" claude -p --model "$model" 2>/dev/null
