@@ -124,8 +124,17 @@ _recreate_triggers() {
     local restored=0
     for ddl in "${_TRIGGER_DDL[@]}"; do
         [[ -z "$ddl" ]] && continue
-        # DDL from sqlite_master lacks the trailing semicolon
-        sqlite3 "$db" "${ddl};" 2>/dev/null && restored=$((restored + 1))
+        # DDL from sqlite_master lacks the trailing semicolon.
+        # Strip sync_disabled() guards — that UDF is registered by Engram at
+        # runtime and unavailable in raw sqlite3. Removing the guard lets the
+        # trigger recreate; Engram re-registers it on restart.
+        # Two forms: WHEN (sync_disabled() = 0) and WHEN ((sync_disabled() = 0) AND ...)
+        local clean_ddl="$ddl"
+        # Form 1: sole condition — remove entire WHEN clause
+        clean_ddl="${clean_ddl//WHEN (sync_disabled() = 0)/}"
+        # Form 2: first of multiple conditions — remove guard and leading AND
+        clean_ddl="${clean_ddl//WHEN ((sync_disabled() = 0) AND /WHEN (}"
+        sqlite3 "$db" "${clean_ddl};" 2>/dev/null && restored=$((restored + 1))
     done
 
     _TRIGGERS_DROPPED=false
