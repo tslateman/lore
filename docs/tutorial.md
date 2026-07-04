@@ -29,9 +29,8 @@ If there's prior history, you'll see:
 - **What was accomplished** — goals addressed, decisions made
 - **Patterns learned** — lessons captured from previous work
 - **Handoff notes** — next steps, blockers, open questions
-- **Forked session ID** — your new session that inherits this context
 
-**Key point:** Resume creates a _new_ session. The parent session stays immutable. Your work writes to the forked session, not the historical record.
+**Key point:** Resume is read-only. It seeds your context without touching the historical record. Pass `--fork` to create a new session that inherits this context.
 
 ## Record an Observation
 
@@ -161,7 +160,6 @@ You'll see:
 - The parent session's summary and accomplishments
 - Inherited handoff notes (next steps, blockers, questions)
 - Relevant patterns matched to the context
-- Your new forked session ID
 
 The cycle continues. Context compounds instead of evaporating.
 

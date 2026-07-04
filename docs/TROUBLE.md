@@ -34,7 +34,8 @@ platform. Get `yq` from <https://github.com/mikefarah/yq>.
 created by `lore handoff` or `transfer.sh init`.
 
 **Fix:** Run `lore handoff "description of current work"` at the end of each
-session. The next `lore resume` finds and forks from that session.
+session. The next `lore resume` reads context from that session (add `--fork`
+to spawn a new session that inherits it).
 
 ## Duplicate detection blocks writes
 
