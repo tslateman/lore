@@ -49,9 +49,10 @@ Capture current session state including:
 ./transfer.sh snapshot "Completed authentication module"
 ```
 
-### `resume <session-id>`
+### `resume [session-id] [--fork]`
 
-Load context from a previous session. Displays:
+Load context from a previous session. Read-only by default: nothing is
+written, no session file is created. Displays:
 
 - What was accomplished (goals, decisions)
 - Patterns learned (important lessons)
@@ -59,9 +60,14 @@ Load context from a previous session. Displays:
 - Handoff notes with prioritized next steps
 - Blockers and open questions
 
+Pass `--fork` to branch a new session that inherits the parent's open
+threads and handoff items, and becomes the current session.
+
 ```bash
+./transfer.sh resume                                     # latest, read-only
 ./transfer.sh resume session-20240115-143022-a1b2c3d4
 ./transfer.sh resume session-20240115-143022-a1b2c3d4 --json
+./transfer.sh resume session-20240115-143022-a1b2c3d4 --fork
 ```
 
 ### `handoff <message>`
@@ -111,6 +117,47 @@ Compress a session to its essential elements while preserving:
 ```bash
 ./transfer.sh compress session-abc123
 ```
+
+### `prune [--days N] [--dry-run]`
+
+Archive sessions that carry no signal: empty summary, handoff,
+accomplishments, and open threads. Prune first backs up ALL session
+files to `data/sessions-backup-<date>.tar.gz`, then moves empty
+sessions older than N days (default 7) to `data/sessions/archive/`.
+Nothing is deleted, and the current session is never pruned.
+
+```bash
+./transfer.sh prune --dry-run     # preview what would move
+./transfer.sh prune               # archive empty sessions older than 7 days
+./transfer.sh prune --days 30     # widen the age window
+```
+
+## Auto-Handoff Hook
+
+`scripts/hooks/session-handoff.sh` writes handoffs automatically at the
+end of every Claude Code session. Registered under the `SessionEnd` and
+`PreCompact` hook events, it:
+
+1. Reads the hook JSON from stdin (`transcript_path`, `cwd`)
+2. Extracts the last ~80 user/assistant messages from the transcript
+3. Summarizes them with `claude -p` (Haiku, 60s timeout) into a concise
+   handoff: accomplishments, prioritized next steps, blockers, questions
+4. Records it via `lore handoff` with the project derived from the
+   session's working directory
+
+The hook is fail-silent end to end: missing transcript, tiny session
+(fewer than 10 messages), absent `claude` CLI, timeout, or empty output
+all exit 0 without writing anything. It never blocks Claude Code.
+
+Install it with:
+
+```bash
+./scripts/install-handoff-hook.sh
+```
+
+The installer backs up `~/.claude/settings.json`, then idempotently
+registers the hook for both events. Override the summarizer model with
+`LORE_HANDOFF_MODEL`.
 
 ## Session Structure
 
@@ -186,6 +233,11 @@ Sessions are stored as JSON in `data/sessions/`:
 - `add_next_step`, `add_blocker`, `add_question` - Add handoff items
 - `interactive_handoff` - Guided handoff creation
 - `format_handoff` - Display formatted handoff notes
+
+### prune.sh
+
+- `prune_sessions` - Back up all sessions, archive empty ones past the age window
+- `is_session_empty` - Check whether a session carries any signal
 
 ### compress.sh
 
