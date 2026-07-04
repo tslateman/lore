@@ -26,6 +26,7 @@ source "${SCRIPT_DIR}/lib/handoff.sh"
 source "${SCRIPT_DIR}/lib/compress.sh"
 source "${SCRIPT_DIR}/lib/search.sh"
 source "${SCRIPT_DIR}/lib/export.sh"
+source "${SCRIPT_DIR}/lib/prune.sh"
 
 # Ensure data directories exist
 mkdir -p "${SESSIONS_DIR}"
@@ -49,6 +50,7 @@ COMMANDS:
     diff <session1> <session2>  Compare what changed between sessions
     list                        List all saved sessions
     init                        Initialize a new session
+    prune [--days N] [--dry-run]  Archive empty sessions older than N days (default 7)
     search <query> [limit]      Search sessions by content
     export <session-id>         Export session to markdown or JSON
 
@@ -440,6 +442,9 @@ main() {
                 exit 1
             fi
             compress_session "$1"
+            ;;
+        prune)
+            prune_sessions "$@"
             ;;
         search)
             search_sessions "$@"
