@@ -43,12 +43,17 @@ lore resume
 
 # One verb reads from all sources — flags select mode
 lore recall "authentication"                                               # → search (default)
+lore recall "authentication" --rerank                                      # → model-judged reranking (haiku)
 lore recall --project council                                              # → project context
 lore recall --patterns "API design"                                        # → pattern suggestions
 lore recall --failures --type Timeout                                      # → filtered failures
 lore recall --triggers                                                     # → recurring failure analysis
 lore recall --brief "graph"                                                # → topic briefing
 ```
+
+`lore resume` reranks its "Relevant Context (ranked)" block with a fast model
+by default; `LORE_RERANK=0` disables reranking everywhere (env vars documented
+in `lib/rerank.sh`).
 
 ## Components
 

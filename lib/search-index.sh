@@ -818,17 +818,42 @@ cmd_search() {
         cmd_build >&2
     fi
 
-    local query="${1:?Usage: search-index.sh search <query> [--project P] [--limit N]}"
+    local query="${1:?Usage: search-index.sh search <query> [--project P] [--limit N] [--rerank]}"
     shift
-    local project="" limit="10"
+    local project="" limit="10" rerank=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --project|-p) project="$2"; shift 2 ;;
             --limit|-n)   limit="$2"; shift 2 ;;
+            --rerank)     rerank=true; shift ;;
             *) shift ;;
         esac
     done
+
+    # LORE_RERANK_SEARCH=1 forces reranking (set by `lore resume` for its
+    # ranked-context block). lib/rerank.sh honors the LORE_RERANK=0 kill
+    # switch and passes results through unchanged on any failure.
+    [[ "${LORE_RERANK_SEARCH:-0}" == "1" ]] && rerank=true
+
+    if [[ "$rerank" == true ]]; then
+        source "${LORE_DIR}/lib/rerank.sh"
+        if rerank_enabled; then
+            local output header body context
+            output=$(search_query "$query" "$project" $((limit * 3)))
+            [[ -z "$output" ]] && return 0
+            header=$(printf '%s\n' "$output" | head -n 1)
+            body=$(printf '%s\n' "$output" | tail -n +2)
+            if [[ -n "$body" ]]; then
+                context=$(rerank_git_context 2>/dev/null) || context=""
+                body=$(printf '%s\n' "$body" | rerank_results "$query" "$context" '|' 2) || true
+                body=$(printf '%s\n' "$body" | head -n "$limit")
+            fi
+            printf '%s\n' "$header"
+            [[ -n "$body" ]] && printf '%s\n' "$body"
+            return 0
+        fi
+    fi
 
     search_query "$query" "$project" "$limit"
 }
@@ -1078,6 +1103,7 @@ main() {
         echo "Search options:"
         echo "  --project, -p <name>        Boost results from project"
         echo "  --limit, -n <num>           Max results (default 10)"
+        echo "  --rerank                    Model-judged reranking (see lib/rerank.sh)"
         echo ""
         echo "Graph search options:"
         echo "  --depth, -d <num>           Graph traversal depth (default 1)"

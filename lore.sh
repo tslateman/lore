@@ -337,6 +337,7 @@ SEARCH (default)
   lore recall "query"
   lore recall "query" --graph-depth 2       Follow graph edges
   lore recall "query" --compact             Machine-readable output
+  lore recall "query" --rerank              Model-judged reranking (haiku)
 
 PROJECT CONTEXT
   lore recall --project <name>              Registry, decisions, patterns, graph
@@ -379,6 +380,17 @@ BASIC SEARCH
     BM25 * recency * frequency * importance * project_boost
 
   Falls back to grep when no search index exists.
+
+MODEL-JUDGED RERANKING
+  --rerank            Over-fetch 3x, rerank with a fast model, trim
+
+  lore search "auth" --rerank
+
+  BM25 scores lexical overlap; the model judges relevance to the
+  current work (project + recent commits). Fail-silent: results pass
+  through unchanged if the claude CLI is missing or times out.
+  Env: LORE_RERANK=0 (kill switch), LORE_RERANK_TIMEOUT (default 20s),
+  LORE_RERANK_FILTER=1 (drop model-omitted results).
 
 GRAPH TRAVERSAL
   --graph-depth N     Follow knowledge graph edges (0-3, default 0)
@@ -940,7 +952,11 @@ cmd_handoff() {
 }
 
 cmd_resume() {
-    "$LORE_DIR/transfer/transfer.sh" resume "$@"
+    # Rerank the "Relevant Context (ranked)" block by default: resume runs
+    # once at session start, so a model pass is affordable. LORE_RERANK=0
+    # disables. The flag reaches lib/search-index.sh via the environment.
+    LORE_RERANK_SEARCH="${LORE_RERANK_SEARCH:-1}" \
+        "$LORE_DIR/transfer/transfer.sh" resume "$@"
 
     # Check shadow sync health (advisory, fail-silent)
     _bridge_health_check 2>/dev/null || true
@@ -1169,6 +1185,7 @@ cmd_search() {
     local query=""
     local graph_depth=0
     local compact=false
+    local rerank=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -1184,9 +1201,13 @@ cmd_search() {
                 compact=true
                 shift
                 ;;
+            --rerank)
+                rerank=true
+                shift
+                ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}" >&2
-                echo "Usage: lore search <query> [--compact] [--graph-depth 0-3]" >&2
+                echo "Usage: lore search <query> [--compact] [--graph-depth 0-3] [--rerank]" >&2
                 return 1
                 ;;
             *)
@@ -1213,7 +1234,7 @@ cmd_search() {
             echo ""
         fi
 
-        _search_fts5 "$query" "$project" 10 "$graph_depth" "$compact"
+        _search_fts5 "$query" "$project" 10 "$graph_depth" "$compact" "" "$rerank"
     else
         echo -e "${BOLD}Searching Lore (grep fallback — run 'lore index' to enable ranked search)...${NC}"
         echo ""
@@ -1288,7 +1309,7 @@ cmd_recall() {
                 fi
                 shift 2
                 ;;
-            --graph-depth|--compact)
+            --graph-depth|--compact|--rerank)
                 # Search flags — pass through to cmd_search
                 pass_through+=("$1")
                 [[ "$1" == "--compact" ]] && compact=true
