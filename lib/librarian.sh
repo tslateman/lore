@@ -17,6 +17,7 @@ set -euo pipefail
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "${LORE_DIR}/lib/paths.sh"
 source "${LORE_DIR}/lib/lock.sh"
+source "${LORE_DIR}/lib/model.sh"
 
 # Colors (inherit from caller if set)
 RED="${RED:-\033[0;31m}"
@@ -533,7 +534,8 @@ _librarian_ask_claude() {
     local manifest="$1"
     printf '%s\n%s\n' "$(_librarian_prompt)" "$manifest" \
         | perl -e "alarm ${LIBRARIAN_TIMEOUT}; exec @ARGV" \
-            claude -p --model "$LIBRARIAN_MODEL" 2>/dev/null
+            claude -p --model "$LIBRARIAN_MODEL" \
+            "${LORE_CLAUDE_ISOLATION[@]}" 2>/dev/null
 }
 
 # Extract a JSON array from model output (tolerates markdown fences).

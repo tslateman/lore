@@ -24,6 +24,8 @@
 # (default 2). Matches both lore.sh _search_fts5 (tab-separated) and
 # lib/search-index.sh search_query (pipe-separated) rows.
 
+source "$(dirname "${BASH_SOURCE[0]}")/model.sh"
+
 # Reranking is available: not killed, claude CLI present.
 rerank_enabled() {
     [[ "${LORE_RERANK:-1}" == "0" ]] && return 1
@@ -50,12 +52,13 @@ _rerank_invoke_claude() {
     local timeout_s="${LORE_RERANK_TIMEOUT:-45}"
     local model="${LORE_RERANK_MODEL:-claude-haiku-4-5-20251001}"
     if command -v timeout >/dev/null 2>&1; then
-        timeout "$timeout_s" claude -p --model "$model" 2>/dev/null
+        timeout "$timeout_s" claude -p --model "$model" \
+            "${LORE_CLAUDE_ISOLATION[@]}" 2>/dev/null
     elif command -v perl >/dev/null 2>&1; then
         perl -e 'alarm shift @ARGV; exec @ARGV' "$timeout_s" \
-            claude -p --model "$model" 2>/dev/null
+            claude -p --model "$model" "${LORE_CLAUDE_ISOLATION[@]}" 2>/dev/null
     else
-        claude -p --model "$model" 2>/dev/null
+        claude -p --model "$model" "${LORE_CLAUDE_ISOLATION[@]}" 2>/dev/null
     fi
 }
 

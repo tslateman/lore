@@ -13,6 +13,7 @@ set -euo pipefail
 
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "${LORE_DIR}/lib/paths.sh"
+source "${LORE_DIR}/lib/model.sh"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "$LORE_DIR/.." && pwd)}"
 MANI_FILE="${MANI_FILE:-$WORKSPACE_ROOT/mani.yaml}"
 
@@ -601,7 +602,8 @@ check_prose_deep() {
         done
         judged=$(printf '%s\n\n%s' "$manifest" "$headers" | _run_with_timeout 60 \
             claude -p "Review these architectural claims from documentation against the source file headers that follow. List any claim the source contradicts, citing file and line. If none, say: No contradictions found." \
-            --model claude-haiku-4-5-20251001 2>/dev/null) || judged=""
+            --model claude-haiku-4-5-20251001 \
+            "${LORE_CLAUDE_ISOLATION[@]}" 2>/dev/null) || judged=""
         if [[ -n "$judged" ]]; then
             echo "$judged"
             return 0
