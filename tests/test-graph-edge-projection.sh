@@ -6,12 +6,16 @@
 
 set -euo pipefail
 
+# Hermetic: no live model calls from tests
+export LORE_RERANK=0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Setup temp environment
 TMPDIR=$(mktemp -d)
 export LORE_DATA_DIR="$TMPDIR"
+export LORE_SEARCH_DB="$TMPDIR/search.db"
 export LORE_DIR
 export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
 

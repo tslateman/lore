@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# Hermetic: no live model calls from tests
+export LORE_RERANK=0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE="$SCRIPT_DIR/../lore.sh"
 
@@ -55,6 +58,7 @@ YAML
 
     export LORE_DIR="$TMPDIR"
     export LORE_DATA_DIR="$TMPDIR"
+    export LORE_SEARCH_DB="$TMPDIR/search.db"
     # Reset paths.sh idempotency guard so it re-sources with new LORE_DIR
     unset _LORE_PATHS_LOADED
 }

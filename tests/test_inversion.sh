@@ -3,6 +3,9 @@
 
 set -e
 
+# Hermetic: no live model calls from tests
+export LORE_RERANK=0
+
 LORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export LORE_DIR
 PATTERNS_SCRIPT="$LORE_DIR/patterns/patterns.sh"
@@ -10,6 +13,7 @@ PATTERNS_SCRIPT="$LORE_DIR/patterns/patterns.sh"
 # Isolate test data in a temp directory so production files stay clean
 TEST_DATA_DIR="$(mktemp -d)"
 export LORE_DATA_DIR="$TEST_DATA_DIR"
+export LORE_SEARCH_DB="$TEST_DATA_DIR/search.db"
 
 cleanup() {
     rm -rf "$TEST_DATA_DIR"

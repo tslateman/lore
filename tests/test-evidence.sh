@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+# Hermetic: no live model calls from tests
+export LORE_RERANK=0
+
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE="$TEST_DIR/../lore.sh"
 
@@ -57,6 +60,7 @@ YAML
     unset _LORE_PATHS_LOADED
     export LORE_DIR="$TMPDIR"
     export LORE_DATA_DIR="$TMPDIR"
+    export LORE_SEARCH_DB="$TMPDIR/search.db"
 }
 
 teardown() {
@@ -106,6 +110,7 @@ load_evidence_lib() {
     unset _LORE_PATHS_LOADED
     export LORE_DIR="$TMPDIR"
     export LORE_DATA_DIR="$TMPDIR"
+    export LORE_SEARCH_DB="$TMPDIR/search.db"
     source "$TMPDIR/lib/paths.sh"
     source "$TMPDIR/evidence/lib/evidence.sh"
 }

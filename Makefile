@@ -22,6 +22,7 @@ sync-all: sync-entire sync-graph sync-memory
 # Run all tests
 test:
 	@echo "Running tests..."
+	@bash tests/test-isolation-guard.sh
 	@bash tests/test-capture-api.sh
 	@bash tests/test-goals.sh
 	@bash tests/test-recall.sh

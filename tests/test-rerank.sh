@@ -239,6 +239,7 @@ test_search_flag_parses() {
     mkdir -p "$tmp_lore"
     local output
     output=$(cd "$tmp_lore" && LORE_DATA_DIR="$tmp_lore" \
+        LORE_SEARCH_DB="$tmp_lore/search.db" \
         "$SCRIPT_DIR/../lore.sh" search "nothing-matches-this" --rerank 2>&1) || true
     if echo "$output" | grep -q "Unknown option"; then
         echo "  FAIL: --rerank rejected by cmd_search"

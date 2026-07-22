@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+# Hermetic: no live model calls from tests
+export LORE_RERANK=0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$SCRIPT_DIR/../scripts/hooks/session-handoff.sh"
 
@@ -17,6 +20,7 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 # Isolate any writes the hook might attempt
 export LORE_DATA_DIR="$TMPDIR/lore-data"
+export LORE_SEARCH_DB="$TMPDIR/lore-data/search.db"
 mkdir -p "$LORE_DATA_DIR/transfer/data/sessions"
 
 assert_exit_zero() {

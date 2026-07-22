@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+# Hermetic: no live model calls from tests
+export LORE_RERANK=0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE="$SCRIPT_DIR/../lore.sh"
 
@@ -71,6 +74,7 @@ SQL
     unset _LORE_PATHS_LOADED
     export LORE_DIR="$TMPDIR"
     export LORE_DATA_DIR="$TMPDIR"
+    export LORE_SEARCH_DB="$TMPDIR/search.db"
     export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
 }
 

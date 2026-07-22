@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+# Hermetic: no live model calls from tests
+export LORE_RERANK=0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- Test harness ---
@@ -44,13 +47,15 @@ setup() {
     mkdir -p "$TMPDIR/workspace/lore/registry/data"
 
     # Copy validate.sh and paths.sh
-    cp "$SCRIPT_DIR/../lib/validate.sh" "$TMPDIR/workspace/lore/lib/"
-    cp "$SCRIPT_DIR/../lib/paths.sh" "$TMPDIR/workspace/lore/lib/"
+    # Copy the whole lib: validate.sh sources siblings (paths, model),
+    # and a selective list breaks when a new lib file is added
+    cp "$SCRIPT_DIR/../lib/"*.sh "$TMPDIR/workspace/lore/lib/"
 
     # Set environment
     unset _LORE_PATHS_LOADED
     export LORE_DIR="$TMPDIR/workspace/lore"
     export LORE_DATA_DIR="$TMPDIR/workspace/lore"
+    export LORE_SEARCH_DB="$TMPDIR/workspace/lore/search.db"
     export WORKSPACE_ROOT="$TMPDIR/workspace"
     export MANI_FILE="$TMPDIR/workspace/mani.yaml"
 

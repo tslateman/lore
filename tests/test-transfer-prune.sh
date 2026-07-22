@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+# Hermetic: no live model calls from tests
+export LORE_RERANK=0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRANSFER="$SCRIPT_DIR/../transfer/transfer.sh"
 
@@ -19,6 +22,7 @@ setup() {
     mkdir -p "$TMPDIR/transfer/data/sessions"
     unset _LORE_PATHS_LOADED
     export LORE_DATA_DIR="$TMPDIR"
+    export LORE_SEARCH_DB="$TMPDIR/search.db"
     export LORE_TRANSFER_ROOT="$TMPDIR/transfer"
 }
 
