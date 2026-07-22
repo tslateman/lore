@@ -13,6 +13,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE_DIR="${LORE_DIR:-$(dirname "$SCRIPT_DIR")}"
 source "${LORE_DIR}/lib/paths.sh"
 GRAPH_FILE="${LORE_GRAPH_FILE}"
+
+# Serialize graph mutations: concurrent background syncs lose updates
+source "${LORE_DIR}/lib/lock.sh"
+if ! lore_sync_lock "$GRAPH_FILE"; then
+    echo "${0##*/}: could not lock ${GRAPH_FILE} after ${_SYNC_LOCK_TIMEOUT}s" >&2
+    exit 1
+fi
+trap 'lore_sync_unlock "$GRAPH_FILE"' EXIT
 FAILURES_FILE="${LORE_FAILURES_DATA}/failures.jsonl"
 
 # Colors
@@ -37,8 +45,14 @@ fi
 
 now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
+# --- Step 0: Snapshot the failures file ---
+# Hash table and additions pass must see the same rows; a concurrent
+# append between two reads would key the new node "failure-unknown".
+failures_snapshot="$(mktemp)"
+jq -s '.' "$FAILURES_FILE" > "$failures_snapshot"
+
 # --- Step 1: Pre-compute hashes ---
-names_to_hash=$(jq -rs '[.[].id] | unique | .[]' "$FAILURES_FILE") || true
+names_to_hash=$(jq -r '[.[].id] | unique | .[]' "$failures_snapshot") || true
 
 hash_entries=()
 while IFS= read -r name; do
@@ -52,11 +66,11 @@ hash_json="{$(IFS=,; echo "${hash_entries[*]}")}"
 
 # --- Step 2: Single jq pass — diff against graph, build additions ---
 additions_file="$(mktemp)"
-trap 'rm -f "$additions_file"' EXIT
+trap 'rm -f "$additions_file" "$failures_snapshot"; lore_sync_unlock "$GRAPH_FILE"' EXIT
 
 jq -n \
     --slurpfile graph "$GRAPH_FILE" \
-    --slurpfile failures <(jq -s '.' "$FAILURES_FILE") \
+    --slurpfile failures "$failures_snapshot" \
     --argjson hashes "$hash_json" \
     --arg now "$now" '
 

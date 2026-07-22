@@ -13,6 +13,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE_DIR="${LORE_DIR:-$(dirname "$SCRIPT_DIR")}"
 source "${LORE_DIR}/lib/paths.sh"
 GRAPH_FILE="${LORE_GRAPH_FILE}"
+
+# Serialize graph mutations: concurrent background syncs lose updates
+source "${LORE_DIR}/lib/lock.sh"
+if ! lore_sync_lock "$GRAPH_FILE"; then
+    echo "${0##*/}: could not lock ${GRAPH_FILE} after ${_SYNC_LOCK_TIMEOUT}s" >&2
+    exit 1
+fi
+trap 'lore_sync_unlock "$GRAPH_FILE"' EXIT
 PATTERNS_FILE="${LORE_PATTERNS_FILE}"
 
 # Colors
@@ -54,7 +62,7 @@ existing_ids=$(jq -r '[.nodes | to_entries[] | .value.data.pattern_id // empty] 
 
 # Build additions
 additions_file="$(mktemp)"
-trap 'rm -f "$additions_file"' EXIT
+trap 'rm -f "$additions_file"; lore_sync_unlock "$GRAPH_FILE"' EXIT
 
 # Pre-compute hashes for pattern IDs
 hash_entries=()

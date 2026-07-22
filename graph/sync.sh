@@ -14,6 +14,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE_DIR="${LORE_DIR:-$(dirname "$SCRIPT_DIR")}"
 source "${LORE_DIR}/lib/paths.sh"
 GRAPH_FILE="${LORE_GRAPH_FILE}"
+
+# Serialize graph mutations: concurrent background syncs lose updates
+source "${LORE_DIR}/lib/lock.sh"
+if ! lore_sync_lock "$GRAPH_FILE"; then
+    echo "${0##*/}: could not lock ${GRAPH_FILE} after ${_SYNC_LOCK_TIMEOUT}s" >&2
+    exit 1
+fi
+trap 'lore_sync_unlock "$GRAPH_FILE"' EXIT
 DECISIONS_FILE="${LORE_DECISIONS_FILE}"
 
 # Colors
@@ -38,15 +46,22 @@ fi
 
 now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
+# --- Step 0: Snapshot the decisions file ---
+# The hash table and the additions pass must see the same decisions. A
+# concurrent `lore remember` appending between two reads leaves the new
+# decision out of the hash table, and node_id() then keys its node
+# "decision-unknown" — permanently, since later syncs match journal_id.
+decisions_snapshot="$(mktemp)"
+jq -s 'group_by(.id) | map(.[-1])' "$DECISIONS_FILE" > "$decisions_snapshot"
+
 # --- Step 1: Extract all names that need md5 hashing ---
 # jq can't compute md5, so pre-compute in bash and pass as a lookup table.
-names_to_hash=$(jq -rs '
-    group_by(.id) | map(.[-1]) |
+names_to_hash=$(jq -r '
     (map("decision\t" + .id)) +
     ([.[].entities[]? // empty] | unique | map("file\t" + .)) +
     ([.[].related_decisions[]? // empty] | unique | map("decision\t" + .))
     | unique | .[]
-' "$DECISIONS_FILE") || true
+' "$decisions_snapshot") || true
 
 # Build JSON hash lookup: {"decision:dec-xxx": "decision-ab12cd34", "file:foo.sh": "file-ef56gh78"}
 hash_entries=()
@@ -62,11 +77,11 @@ hash_json="{$(IFS=,; echo "${hash_entries[*]}")}"
 
 # --- Step 2: Single jq pass — deduplicate, diff against graph, build additions ---
 additions_file="$(mktemp)"
-trap 'rm -f "$additions_file"' EXIT
+trap 'rm -f "$additions_file" "$decisions_snapshot"; lore_sync_unlock "$GRAPH_FILE"' EXIT
 
 jq -n \
     --slurpfile graph "$GRAPH_FILE" \
-    --slurpfile decisions <(jq -s 'group_by(.id) | map(.[-1])' "$DECISIONS_FILE") \
+    --slurpfile decisions "$decisions_snapshot" \
     --argjson hashes "$hash_json" \
     --arg now "$now" '
 

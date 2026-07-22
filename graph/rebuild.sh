@@ -14,6 +14,14 @@ LORE_DIR="${LORE_DIR:-$(dirname "$SCRIPT_DIR")}"
 source "${LORE_DIR}/lib/paths.sh"
 GRAPH_FILE="${LORE_GRAPH_FILE}"
 
+# Serialize graph mutations: concurrent background syncs lose updates
+source "${LORE_DIR}/lib/lock.sh"
+if ! lore_sync_lock "$GRAPH_FILE"; then
+    echo "${0##*/}: could not lock ${GRAPH_FILE} after ${_SYNC_LOCK_TIMEOUT}s" >&2
+    exit 1
+fi
+trap 'lore_sync_unlock "$GRAPH_FILE"' EXIT
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

@@ -15,6 +15,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE_DIR="${LORE_DIR:-$(dirname "$SCRIPT_DIR")}"
 source "${LORE_DIR}/lib/paths.sh"
 GRAPH_FILE="${LORE_GRAPH_FILE}"
+
+# Serialize graph mutations: concurrent background syncs lose updates
+source "${LORE_DIR}/lib/lock.sh"
+if ! lore_sync_lock "$GRAPH_FILE"; then
+    echo "${0##*/}: could not lock ${GRAPH_FILE} after ${_SYNC_LOCK_TIMEOUT}s" >&2
+    exit 1
+fi
+trap 'lore_sync_unlock "$GRAPH_FILE"' EXIT
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(dirname "$LORE_DIR")}"
 MANI_FILE="${MANI_FILE:-${WORKSPACE_ROOT}/mani.yaml}"
 # Session files may live in the external data dir or the repo dir
@@ -88,7 +96,7 @@ hash_json="{$(IFS=,; echo "${hash_entries[*]}")}"
 
 # --- Step 4: Single jq pass — diff against graph, build additions ---
 additions_file="$(mktemp)"
-trap 'rm -f "$additions_file"' EXIT
+trap 'rm -f "$additions_file"; lore_sync_unlock "$GRAPH_FILE"' EXIT
 
 jq -n \
     --argjson projects "$projects_json" \

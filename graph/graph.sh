@@ -743,6 +743,19 @@ main() {
     local command="$1"
     shift
 
+    # Serialize mutations with the background sync scripts — concurrent
+    # read-modify-write cycles on the graph file lose updates.
+    case "$command" in
+        add|link|connect|disconnect|deprecate|delete|rm|import)
+            source "${SCRIPT_DIR}/../lib/lock.sh"
+            if ! lore_sync_lock "$GRAPH_FILE"; then
+                echo "graph.sh: could not lock ${GRAPH_FILE} after ${_SYNC_LOCK_TIMEOUT}s" >&2
+                exit 1
+            fi
+            trap 'lore_sync_unlock "$GRAPH_FILE"' EXIT
+            ;;
+    esac
+
     case "$command" in
         add)
             cmd_add "$@"
