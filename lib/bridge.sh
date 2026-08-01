@@ -266,27 +266,25 @@ _sync_patterns() {
         return 0
     fi
 
+    # One yq pass converts YAML to JSON; one jq pass filters by validity and
+    # cutoff. Per-record extraction below only runs for records in the window.
+    local records
+    records=$(yq -o=json '.patterns // []' "$patterns_file" 2>/dev/null | jq -c --arg cutoff "$cutoff" '
+        map(select((.id // "") != "" and (.name // "") != ""))
+        | map(select((.created_at // "") == "" or .created_at >= $cutoff))
+    ' 2>/dev/null) || return 0
+
     local count
-    count=$(yq '.patterns | length' "$patterns_file" 2>/dev/null) || return 0
+    count=$(echo "$records" | jq 'length' 2>/dev/null) || return 0
     [[ "$count" -eq 0 ]] && return 0
 
-    local i=0
-    while [[ "$i" -lt "$count" ]]; do
+    while IFS= read -r row; do
         local id name problem solution created_at
-        id=$(yq -r ".patterns[$i].id // \"\"" "$patterns_file")
-        name=$(yq -r ".patterns[$i].name // \"\"" "$patterns_file")
-        problem=$(yq -r ".patterns[$i].problem // \"\"" "$patterns_file")
-        solution=$(yq -r ".patterns[$i].solution // \"\"" "$patterns_file")
-        created_at=$(yq -r ".patterns[$i].created_at // \"\"" "$patterns_file")
-
-        i=$((i + 1))
-
-        [[ -z "$id" || -z "$name" ]] && continue
-
-        # Filter by cutoff
-        if [[ -n "$created_at" ]] && ! _is_after "$created_at" "$cutoff"; then
-            continue
-        fi
+        id=$(echo "$row" | jq -r '.id')
+        name=$(echo "$row" | jq -r '.name')
+        problem=$(echo "$row" | jq -r '.problem // ""')
+        solution=$(echo "$row" | jq -r '.solution // ""')
+        created_at=$(echo "$row" | jq -r '.created_at // ""')
 
         local lore_id="lore:${id}"
         local body="[${lore_id}] ${name}: ${problem} -> ${solution}"
@@ -324,7 +322,7 @@ _sync_patterns() {
             fi
             _SYNCED_PATTERNS=$((_SYNCED_PATTERNS + 1))
         fi
-    done
+    done < <(echo "$records" | jq -c '.[]')
 }
 
 _sync_failures() {
@@ -735,67 +733,87 @@ _sync_graph_edges() {
     local edges_created=0
     local edges_skipped=0
 
-    # Read all edges from Lore graph
+    # One jq pass filters to decision/pattern edges and resolves node names,
+    # emitting one tab-separated row per edge. Node IDs and relations are
+    # single tokens, so TSV is safe.
     local edges
-    edges=$(jq -c '.edges[]' "$graph_file" 2>/dev/null) || return 0
+    edges=$(jq -r '
+        .nodes as $nodes
+        | .edges[]
+        | select((.from | test("^(decision|pattern)-")) and (.to | test("^(decision|pattern)-")))
+        | [($nodes[.from].name // ""), ($nodes[.to].name // ""), .relation, (.bidirectional // false)]
+        | @tsv
+    ' "$graph_file" 2>/dev/null) || return 0
+    [[ -z "$edges" ]] && return 0
 
-    while IFS= read -r edge; do
-        [[ -z "$edge" ]] && continue
-
-        # Extract edge data
-        local from to lore_relation
-        from=$(echo "$edge" | jq -r '.from')
-        to=$(echo "$edge" | jq -r '.to')
-        lore_relation=$(echo "$edge" | jq -r '.relation')
-
-        # Skip if nodes are not decision or pattern types (only those get synced as shadows)
-        [[ ! "$from" =~ ^(decision|pattern)- ]] && continue
-        [[ ! "$to" =~ ^(decision|pattern)- ]] && continue
-
-        # Get Lore record IDs from node names
-        # Need to look up the node in the graph to get its name (journal_id)
-        local from_lore_id to_lore_id
-        from_lore_id=$(jq -r --arg nid "$from" '.nodes[$nid].name // empty' "$graph_file" 2>/dev/null)
-        to_lore_id=$(jq -r --arg nid "$to" '.nodes[$nid].name // empty' "$graph_file" 2>/dev/null)
-
+    # Expand bidirectional edges, map relations, and build one VALUES list.
+    # A single sqlite invocation resolves shadow IDs and inserts all missing
+    # edges — per-edge sqlite spawns made this loop take minutes.
+    local values="" edge_count=0
+    while IFS=$'\t' read -r from_lore_id to_lore_id lore_relation bidirectional; do
         [[ -z "$from_lore_id" || -z "$to_lore_id" ]] && continue
 
-        # Get Engram Memory IDs for the shadows
-        local from_mem_id to_mem_id
-        from_mem_id=$(_get_shadow_memory_id "$db" "$from_lore_id")
-        to_mem_id=$(_get_shadow_memory_id "$db" "$to_lore_id")
-
-        # Skip if either shadow doesn't exist
-        [[ -z "$from_mem_id" || -z "$to_mem_id" ]] && { edges_skipped=$((edges_skipped + 1)); continue; }
-
-        # Map Lore relation to Engram relation
         local engram_relation
         engram_relation=$(_map_lore_relation_to_engram "$lore_relation")
 
-        # Create the edge
-        if _create_engram_edge "$db" "$from_mem_id" "$to_mem_id" "$engram_relation" "$dry_run"; then
-            edges_created=$((edges_created + 1))
-        else
-            edges_skipped=$((edges_skipped + 1))
-        fi
+        [[ -n "$values" ]] && values="${values},"
+        values="${values}('${from_lore_id//\'/\'\'}','${to_lore_id//\'/\'\'}','${engram_relation}')"
+        edge_count=$((edge_count + 1))
 
-        # If bidirectional, create reverse edge
-        local bidirectional
-        bidirectional=$(echo "$edge" | jq -r '.bidirectional // false')
         if [[ "$bidirectional" == "true" ]]; then
-            if _create_engram_edge "$db" "$to_mem_id" "$from_mem_id" "$engram_relation" "$dry_run"; then
-                edges_created=$((edges_created + 1))
-            else
-                edges_skipped=$((edges_skipped + 1))
-            fi
+            values="${values},('${to_lore_id//\'/\'\'}','${from_lore_id//\'/\'\'}','${engram_relation}')"
+            edge_count=$((edge_count + 1))
         fi
     done <<< "$edges"
+
+    [[ "$edge_count" -eq 0 ]] && return 0
+
+    local setup_sql="
+CREATE TEMP TABLE _lore_edges (from_lid TEXT, to_lid TEXT, relation TEXT);
+INSERT INTO _lore_edges VALUES ${values};
+CREATE TEMP TABLE _resolved AS
+    SELECT lid,
+           (SELECT MIN(m.id) FROM Memory m WHERE m.content LIKE '[lore:' || lid || ']%') AS mem_id
+    FROM (SELECT from_lid AS lid FROM _lore_edges UNION SELECT to_lid FROM _lore_edges);
+"
+    local match_sql="
+FROM _lore_edges e
+JOIN _resolved s ON s.lid = e.from_lid AND s.mem_id IS NOT NULL
+JOIN _resolved t ON t.lid = e.to_lid AND t.mem_id IS NOT NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM Edge x
+    WHERE x.sourceId = s.mem_id AND x.targetId = t.mem_id AND x.relation = e.relation
+)"
+
+    if [[ "$dry_run" == true ]]; then
+        local pending
+        pending=$(sqlite3 "$db" "${setup_sql}
+SELECT DISTINCT s.mem_id || ' --[' || e.relation || ']--> ' || t.mem_id ${match_sql};" 2>/dev/null) || pending=""
+        if [[ -n "$pending" ]]; then
+            while IFS= read -r line; do
+                echo "Would create edge: $line"
+            done <<< "$pending"
+            edges_created=$(echo "$pending" | wc -l | tr -d ' ')
+        fi
+        edges_skipped=$((edge_count - edges_created))
+    else
+        local created
+        created=$(sqlite3 "$db" "${setup_sql}
+INSERT INTO Edge (sourceId, targetId, relation, createdAt)
+SELECT src, tgt, rel, unixepoch('subsec') FROM (
+    SELECT DISTINCT s.mem_id AS src, t.mem_id AS tgt, e.relation AS rel ${match_sql}
+);
+SELECT changes();" 2>/dev/null) || created=0
+        edges_created="${created:-0}"
+        edges_skipped=$((edge_count - edges_created))
+    fi
 
     if [[ "$dry_run" == true ]]; then
         [[ "$edges_created" -gt 0 ]] && echo "Would create $edges_created graph edges (${edges_skipped} skipped)"
     else
         [[ "$edges_created" -gt 0 ]] && echo -e "${GREEN}Projected${NC} ${edges_created} graph edges ${DIM}(${edges_skipped} skipped)${NC}" >&2
     fi
+    return 0
 }
 
 # --- Main entry point ---
@@ -869,12 +887,28 @@ sync_to_claude_memory() {
         echo -e "${BOLD}Syncing Lore -> Engram (since ${since})${NC}" >&2
     fi
 
+    # Serialize real syncs: concurrent runs race on the trigger surgery.
+    # Skip (don't queue) when another sync holds the lock; steal locks
+    # older than 120s — no sync legitimately runs that long.
+    local lock_dir="${CLAUDE_MEMORY_DB}.lore-sync.lock"
     if [[ "$dry_run" != true ]]; then
+        if ! mkdir "$lock_dir" 2>/dev/null; then
+            local lock_age
+            lock_age=$(( $(date +%s) - $(stat -f %m "$lock_dir" 2>/dev/null || stat -c %Y "$lock_dir" 2>/dev/null || echo 0) ))
+            if [[ "$lock_age" -gt 120 ]]; then
+                rmdir "$lock_dir" 2>/dev/null || true
+            fi
+            if ! mkdir "$lock_dir" 2>/dev/null; then
+                echo -e "${YELLOW}Another sync holds the lock (age ${lock_age}s) — skipping${NC}" >&2
+                return 0
+            fi
+        fi
+
         # Capture and drop problematic triggers before any writes
         _capture_and_drop_triggers "$CLAUDE_MEMORY_DB"
 
-        # Safety trap: recreate triggers on any error
-        trap '_recreate_triggers' ERR
+        # Safety trap: recreate triggers and release the lock on any error
+        trap '_recreate_triggers; rmdir "'"$lock_dir"'" 2>/dev/null' ERR
     fi
 
     # Run syncs (type_filter gates which run)
@@ -897,9 +931,10 @@ sync_to_claude_memory() {
     fi
 
     if [[ "$dry_run" != true ]]; then
-        # Restore triggers
+        # Restore triggers and release the sync lock
         _recreate_triggers
         trap - ERR
+        rmdir "$lock_dir" 2>/dev/null || true
     fi
 
     # Summary
