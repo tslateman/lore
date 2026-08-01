@@ -46,6 +46,9 @@ COMMANDS:
     resume [session-id]         Load context from previous session (read-only)
                                 Add --fork to branch a new session
     handoff <message>           Create explicit handoff note for successor
+    handoff:next <step>         Add a prioritized next step to the handoff
+    handoff:blocker <issue>     Add a blocker to the handoff
+    handoff:question <q>        Add an open question to the handoff
     status                      Show what context is loaded
     diff <session1> <session2>  Compare what changed between sessions
     list                        List all saved sessions
@@ -422,6 +425,27 @@ main() {
                 exit 1
             fi
             create_handoff "$*"
+            ;;
+        handoff:next)
+            if [[ $# -lt 1 ]]; then
+                echo "Usage: transfer.sh handoff:next <step>"
+                exit 1
+            fi
+            add_next_step "$*"
+            ;;
+        handoff:blocker)
+            if [[ $# -lt 1 ]]; then
+                echo "Usage: transfer.sh handoff:blocker <issue>"
+                exit 1
+            fi
+            add_blocker "$*"
+            ;;
+        handoff:question)
+            if [[ $# -lt 1 ]]; then
+                echo "Usage: transfer.sh handoff:question <question>"
+                exit 1
+            fi
+            add_question "$*"
             ;;
         status)
             cmd_status "${json_output}"

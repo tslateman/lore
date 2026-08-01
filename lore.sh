@@ -121,6 +121,7 @@ Session:
   resume              Load context from previous session
   capture <text>      Record knowledge (type inferred from flags)
   handoff <message>   Capture context for next session
+  handoff:next <step> Add structured next step (also :blocker, :question)
   status              Show current session state
 
 Capture flags:
@@ -152,6 +153,7 @@ Usage: lore <command> [options]
 SESSION LIFECYCLE
   resume [session]        Load context from previous session (read-only; --fork branches)
   handoff <message>       Capture context for next session
+  handoff:next <step>     Add structured next step (also :blocker, :question)
   status                  Show current session state
   entire-resume <branch>  Resume Entire branch with Lore context injection
 
@@ -2827,6 +2829,7 @@ main() {
         remember)   shift; cmd_remember "$@" ;;
         learn)      shift; cmd_learn "$@" ;;
         handoff)    shift; cmd_handoff "$@" ;;
+        handoff:next|handoff:blocker|handoff:question) "$LORE_DIR/transfer/transfer.sh" "$@" ;;
         resume)     shift; cmd_resume "$@" ;;
         entire-resume) shift; "$LORE_DIR/scripts/entire-resume-with-context.sh" "$@" ;;
         search)     shift; cmd_search "$@" ;;
