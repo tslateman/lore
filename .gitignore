@@ -34,3 +34,4 @@ registry/data/*.yaml
 # Research reports
 .research/
 .gitnexus
+.claude/settings.local.json
