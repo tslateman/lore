@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/lore.sh resume 2>/dev/null || true",
+            "command": "LORE_RERANK=0 ${CLAUDE_PLUGIN_ROOT}/lore.sh resume 2>/dev/null || true",
             "async": true
           },
           {
