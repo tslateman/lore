@@ -246,7 +246,7 @@ the full context of previous work.
 
 Lore provides the written record — append-only decisions, curated patterns, failure analysis, session handoffs. Two databases, distinct roles.
 
-`lore sync` bridges them by projecting Lore records as shadow memories into Engram. Shadows carry a `[lore:{id}]` prefix for deduplication and use `zeroblob(0)` embeddings (FTS5-searchable, not vector-searchable). This makes Lore's durable knowledge visible to the advise hook without duplicating storage semantics.
+`lore sync` bridges them by projecting Lore records as shadow memories into Engram. Shadows carry a `[lore:{id}]` prefix for deduplication. Raw writes store a `zeroblob(0)` placeholder embedding; sync then re-embeds new and changed shadows through the Engram MCP server's `update` tool, so shadows participate in vector recall (including the advise hook) like native memories.
 
 `lore recall --routed` queries both systems, classifying queries by keyword shape (structural queries go to Lore first, temporal queries go to Engram first). `lore promote` moves high-value Engram memories into the durable record.
 

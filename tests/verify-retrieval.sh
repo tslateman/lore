@@ -232,7 +232,7 @@ fi
 section "Phase 2: Conflict Detection"
 
 # Test 2.1: Exact duplicate decision warns
-output=$(SEARCH_DB="$TEST_DB" LORE_DIR="$LORE_DIR" bash -c '
+output=$(LORE_SEARCH_DB="$TEST_DB" LORE_DIR="$LORE_DIR" bash -c '
     source "'"$LORE_DIR"'/lib/conflict.sh"
     lore_check_duplicate "decision" "Use JSONL for decision storage"
 ' 2>&1) || true
@@ -243,7 +243,7 @@ else
 fi
 
 # Test 2.2: Similar pattern warns (text must exceed 80% Jaccard vs "Safe bash arithmetic Use x=$((x+1)) instead of let")
-output=$(SEARCH_DB="$TEST_DB" LORE_DIR="$LORE_DIR" bash -c '
+output=$(LORE_SEARCH_DB="$TEST_DB" LORE_DIR="$LORE_DIR" bash -c '
     source "'"$LORE_DIR"'/lib/conflict.sh"
     lore_check_duplicate "pattern" "Safe bash arithmetic, use x=\$((x+1)) instead of let or expr"
 ' 2>&1) || true
@@ -254,7 +254,7 @@ else
 fi
 
 # Test 2.3: Unrelated content passes without warning
-output=$(SEARCH_DB="$TEST_DB" LORE_DIR="$LORE_DIR" bash -c '
+output=$(LORE_SEARCH_DB="$TEST_DB" LORE_DIR="$LORE_DIR" bash -c '
     source "'"$LORE_DIR"'/lib/conflict.sh"
     lore_check_duplicate "decision" "Completely unrelated quantum entanglement topic"
 ' 2>&1)

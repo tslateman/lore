@@ -379,7 +379,7 @@ rebuild_indexes() {
         [.id, (.timestamp | split("T")[0]), (.type // "other"),
          (.entities | join(",")), (.tags | join(","))]
         | @tsv
-    ' "$DECISIONS_FILE" | while IFS=$'\t' read -r id date_key type entities tags; do
+    ' "$DECISIONS_FILE" | tr '\t' '\037' | while IFS=$'\x1f' read -r id date_key type entities tags; do
         # Date index
         [[ -n "$date_key" ]] && echo "$id" >> "${INDEX_DIR}/date_${date_key}.idx"
 

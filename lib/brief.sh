@@ -232,7 +232,7 @@ _brief_patterns() {
             }
             id = ""
         }
-    ' "$patterns_file" 2>/dev/null) || true
+    ' "$patterns_file" 2>/dev/null | tr '\t' '\037') || true
 
     if [[ -z "$matches" ]]; then
         echo -e "${BLUE}## Patterns (0)${NC}"
@@ -245,7 +245,7 @@ _brief_patterns() {
     count=$(echo "$matches" | wc -l | tr -d ' ')
     echo -e "${BLUE}## Patterns (${count})${NC}"
 
-    while IFS=$'\t' read -r id name confidence validations spec_quality; do
+    while IFS=$'\x1f' read -r id name confidence validations spec_quality; do
         [[ -z "$id" ]] && continue
 
         local stale_flag=""

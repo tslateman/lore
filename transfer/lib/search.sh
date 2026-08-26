@@ -17,7 +17,7 @@ search_sessions_fts5() {
     local safe_query="${query//\'/\'\'}"
 
     local results
-    results=$(sqlite3 -separator $'\t' "${db}" <<SQL 2>/dev/null
+    results=$(sqlite3 -separator $'\x1f' "${db}" <<SQL 2>/dev/null
 SELECT 
     session_id,
     SUBSTR(handoff, 1, 80) as preview,
@@ -38,7 +38,7 @@ SQL
     printf "%-45s %-12s %s\n" "SESSION ID" "DATE" "PREVIEW"
     printf "%s\n" "$(printf '=%.0s' {1..90})"
 
-    while IFS=$'\t' read -r session_id preview date score; do
+    while IFS=$'\x1f' read -r session_id preview date score; do
         printf "%-45s %-12s %s\n" "${session_id}" "${date}" "${preview:0:60}"
     done <<< "${results}"
 }

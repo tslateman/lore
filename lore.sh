@@ -1042,7 +1042,9 @@ _search_fts5() {
     union_sql="${union_sql# UNION ALL }"
 
     local results
-    results=$(sqlite3 -separator $'\t' "$SEARCH_DB" <<SQL 2>/dev/null
+    # No stderr suppression: a query error must surface, not masquerade as
+    # an empty result set.
+    results=$(sqlite3 -separator $'\x1f' "$SEARCH_DB" <<SQL
 WITH ranked AS (
     ${union_sql}
 ),
@@ -1084,12 +1086,12 @@ SQL
     if [[ "$rerank" == true ]]; then
         local rerank_context
         rerank_context=$(rerank_git_context 2>/dev/null) || rerank_context=""
-        results=$(printf '%s\n' "$results" | rerank_results "$query" "$rerank_context") || true
+        results=$(printf '%s\n' "$results" | rerank_results "$query" "$rerank_context" $'\x1f') || true
         results=$(printf '%s\n' "$results" | head -n "$limit")
     fi
 
     if [[ "$compact" == true ]]; then
-        while IFS=$'\t' read -r type id content proj date score; do
+        while IFS=$'\x1f' read -r type id content proj date score; do
             local title="${content:0:80}"
             printf "  [%-8s] %-16s | %-80s | %-8s | %s | %s\n" \
                 "$type" "$id" "$title" "$proj" "$date" "$score"
@@ -1102,7 +1104,7 @@ SQL
         source "$LORE_DIR/lib/graph-traverse.sh"
     fi
 
-    while IFS=$'\t' read -r type id content proj date score; do
+    while IFS=$'\x1f' read -r type id content proj date score; do
         echo -e "  ${GREEN}[${type}]${NC} ${DIM}${id}:${NC} ${content} ${DIM}(score: ${score}, proj: ${proj}, date: ${date})${NC}"
         _log_access "$SEARCH_DB" "$type" "$id"
 

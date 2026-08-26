@@ -16,6 +16,16 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LORE_DATA_DIR=\"${LORE_DATA_DIR:-$HOME/.local/share/lore}\" ${CLAUDE_PLUGIN_ROOT}/hooks/inject-context.sh 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [

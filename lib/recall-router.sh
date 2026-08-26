@@ -6,7 +6,7 @@
 #
 # Public API:
 #   classify_query "$query"              → lore-first | memory-first | both
-#   query_claude_memory "$query" [limit] → tab-separated results
+#   query_claude_memory "$query" [limit] → 0x1f-separated results
 #   enrich_lore_shadow "$content"        → enrichment lines
 #   routed_recall "$query" [compact] [limit]
 
@@ -63,7 +63,7 @@ query_claude_memory() {
         where_parts="content LIKE '%${safe_q}%'"
     }
 
-    sqlite3 -separator $'\t' "$db" \
+    sqlite3 -separator $'\x1f' "$db" \
         "SELECT id, SUBSTR(content, 1, 120), COALESCE(topic, ''), COALESCE(source, ''), importance
          FROM Memory
          WHERE (${where_parts}) AND importance > 0
@@ -278,7 +278,7 @@ _route_lore_first() {
     mem_results=$(query_claude_memory "$query" "$limit")
     [[ -z "$mem_results" ]] && return 0
 
-    while IFS=$'\t' read -r mid msnip mtop msrc mimp; do
+    while IFS=$'\x1f' read -r mid msnip mtop msrc mimp; do
         [[ -z "$mid" ]] && continue
         # Dedup shadows already in Lore results
         if [[ "$msnip" =~ \[lore:([^\]]+)\] ]]; then
@@ -303,7 +303,7 @@ _route_memory_first() {
     mem_results=$(query_claude_memory "$query" "$limit")
 
     if [[ -n "$mem_results" ]]; then
-        while IFS=$'\t' read -r mid msnip mtop msrc mimp; do
+        while IFS=$'\x1f' read -r mid msnip mtop msrc mimp; do
             [[ -z "$mid" ]] && continue
             _emit_mem_line "$mid" "$msnip" "$mtop" "$msrc" "$mimp" "$compact"
             if [[ "$msnip" =~ \[lore:([^\]]+)\] ]]; then
@@ -392,7 +392,7 @@ _route_both() {
 
     # Emit Memory results, skip shadows already shown
     if [[ -n "$mem_results" ]]; then
-        while IFS=$'\t' read -r mid msnip mtop msrc mimp; do
+        while IFS=$'\x1f' read -r mid msnip mtop msrc mimp; do
             [[ -z "$mid" ]] && continue
             if [[ "$msnip" =~ \[lore:([^\]]+)\] ]]; then
                 local lid="${BASH_REMATCH[1]}"

@@ -28,6 +28,10 @@ NC='\033[0m'
 
 CLAUDE_MEMORY_DB="${CLAUDE_MEMORY_DB:-${HOME}/.claude/memory.sqlite}"
 
+# Engram's "never expires" sentinel (year 4001). Rows with expiresAt=0 read
+# as expired-since-1970 and are filtered out of recall entirely.
+_ENGRAM_NEVER_EXPIRES="64092211200"
+
 # Counters
 _SYNCED_DECISIONS=0
 _SYNCED_PATTERNS=0
@@ -44,13 +48,15 @@ _TRIGGERS_DROPPED=false
 # --- Timestamp helpers ---
 
 # Convert a --since spec ("2h", "8h", "7d", "2024-01-01") to ISO8601.
-# Uses macOS date -v syntax.
+# Tries macOS date -v, falls back to GNU date -d (Nix/Homebrew coreutils).
 _parse_since() {
     local spec="$1"
     if [[ "$spec" =~ ^([0-9]+)h$ ]]; then
-        date -u -v-"${BASH_REMATCH[1]}"H +"%Y-%m-%dT%H:%M:%SZ"
+        date -u -v-"${BASH_REMATCH[1]}"H +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null \
+            || date -u -d "-${BASH_REMATCH[1]} hours" +"%Y-%m-%dT%H:%M:%SZ"
     elif [[ "$spec" =~ ^([0-9]+)d$ ]]; then
-        date -u -v-"${BASH_REMATCH[1]}"d +"%Y-%m-%dT%H:%M:%SZ"
+        date -u -v-"${BASH_REMATCH[1]}"d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null \
+            || date -u -d "-${BASH_REMATCH[1]} days" +"%Y-%m-%dT%H:%M:%SZ"
     else
         # Treat as a date string; normalize to ISO8601
         if [[ "$spec" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
@@ -141,6 +147,55 @@ _recreate_triggers() {
     echo -e "${DIM}Restored ${restored}/${#_TRIGGER_DDL[@]} triggers${NC}" >&2
 }
 
+# --- Embedding backfill ---
+
+# Re-embed zero-embedding shadows through the Engram MCP server.
+# Raw sqlite3 writes cannot compute vectors, so they store zeroblob(0) and
+# stay invisible to Engram's vector recall. The server's update tool
+# recomputes the embedding in place, which keeps globalId and edges intact
+# and routes the write through the server's audit layer.
+# Call only with triggers restored so server writes are audited.
+_embed_backfill() {
+    local quiet="${1:-}"
+    local db="${CLAUDE_MEMORY_DB}"
+    local memory_bin="${CLAUDE_MEMORY_BIN:-${HOME}/.claude/bin/memory}"
+
+    [[ -x "$memory_bin" ]] || return 0
+    command -v jq &>/dev/null || return 0
+
+    local rows
+    rows=$(sqlite3 -json "$db" \
+        "SELECT globalId, content FROM Memory WHERE source='lore-bridge' AND length(embedding)=0;" \
+        2>/dev/null) || return 0
+    [[ -z "$rows" || "$rows" == "[]" ]] && return 0
+
+    local MEM MEM_PID resp line
+    coproc MEM { "$memory_bin" 2>/dev/null; }
+
+    printf '%s\n' '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"lore-bridge","version":"0.1.0"}}}' >&"${MEM[1]}" 2>/dev/null \
+        || { kill "$MEM_PID" 2>/dev/null || true; return 0; }
+    IFS= read -r -t 60 resp <&"${MEM[0]}" \
+        || { kill "$MEM_PID" 2>/dev/null || true; return 0; }
+    printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/initialized"}' >&"${MEM[1]}" 2>/dev/null \
+        || { kill "$MEM_PID" 2>/dev/null || true; return 0; }
+
+    local total=0 embedded=0
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        total=$((total + 1))
+        printf '%s\n' "$(printf '%s' "$line" | jq -c '{jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"update",arguments:{id:.globalId,content:.content}}}')" >&"${MEM[1]}" 2>/dev/null || break
+        IFS= read -r -t 60 resp <&"${MEM[0]}" || break
+        [[ "$resp" != *'"error"'* && "$resp" != *'"isError":true'* ]] && embedded=$((embedded + 1))
+    done < <(printf '%s' "$rows" | jq -c '.[]')
+
+    exec {MEM[1]}>&-
+    wait "$MEM_PID" 2>/dev/null || true
+
+    if [[ "$quiet" != "--quiet" ]]; then
+        echo -e "${GREEN}Embedded${NC} ${embedded}/${total} shadows" >&2
+    fi
+}
+
 # --- Dedup helpers ---
 
 # Compute md5 hash of a string (macOS md5, fallback to md5sum).
@@ -222,7 +277,7 @@ _sync_decisions() {
                     echo -e "  ${YELLOW}[retract]${NC} ${id}: ${decision:0:60}"
                 else
                     local safe_content="${content//\'/\'\'}"
-                    sqlite3 "$db" "UPDATE Memory SET importance = 0, content = '${safe_content}' WHERE id = ${existing_id};"
+                    sqlite3 "$db" "UPDATE Memory SET importance = 0, content = '${safe_content}', embedding = zeroblob(0) WHERE id = ${existing_id};"
                     _UPDATED=$((_UPDATED + 1))
                 fi
             else
@@ -234,7 +289,7 @@ _sync_decisions() {
                     echo -e "  ${CYAN}[update]${NC} ${id}: ${decision:0:60}"
                 else
                     local safe_content="${content//\'/\'\'}"
-                    sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};"
+                    sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}', embedding = zeroblob(0) WHERE id = ${existing_id};"
                     _UPDATED=$((_UPDATED + 1))
                 fi
             fi
@@ -245,7 +300,7 @@ _sync_decisions() {
                 local importance=3
                 [[ "$outcome" == "retracted" || "$outcome" == "abandoned" ]] && importance=0
                 local safe_content="${content//\'/\'\'}"
-                sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (${importance}, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', 0, '${safe_content}');"
+                sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (${importance}, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', ${_ENGRAM_NEVER_EXPIRES}, '${safe_content}');"
             fi
             _SYNCED_DECISIONS=$((_SYNCED_DECISIONS + 1))
         fi
@@ -310,7 +365,7 @@ _sync_patterns() {
                 echo -e "  ${CYAN}[update]${NC} ${id}: ${name:0:60}"
             else
                 local safe_content="${content//\'/\'\'}"
-                sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};"
+                sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}', embedding = zeroblob(0) WHERE id = ${existing_id};"
                 _UPDATED=$((_UPDATED + 1))
             fi
         else
@@ -318,7 +373,7 @@ _sync_patterns() {
                 echo -e "  ${GREEN}[insert]${NC} ${id}: ${name:0:60}"
             else
                 local safe_content="${content//\'/\'\'}"
-                sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (3, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-patterns', 0, '${safe_content}');"
+                sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (3, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-patterns', ${_ENGRAM_NEVER_EXPIRES}, '${safe_content}');"
             fi
             _SYNCED_PATTERNS=$((_SYNCED_PATTERNS + 1))
         fi
@@ -381,7 +436,7 @@ _sync_failures() {
                     echo -e "  ${CYAN}[update]${NC} trigger-${safe_type}: ${error_type} x${ecount}"
                 else
                     local safe_content="${content//\'/\'\'}"
-                    sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};"
+                    sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}', embedding = zeroblob(0) WHERE id = ${existing_id};"
                     _UPDATED=$((_UPDATED + 1))
                 fi
             fi
@@ -390,7 +445,7 @@ _sync_failures() {
                 echo -e "  ${GREEN}[insert]${NC} trigger-${safe_type}: ${error_type} x${ecount}"
             else
                 local safe_content="${content//\'/\'\'}"
-                sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (2, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-failures', 0, '${safe_content}');"
+                sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (2, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-failures', ${_ENGRAM_NEVER_EXPIRES}, '${safe_content}');"
             fi
             _SYNCED_TRIGGERS=$((_SYNCED_TRIGGERS + 1))
         fi
@@ -455,7 +510,7 @@ _sync_sessions() {
                 else
                     local existing_id="${existing%%|*}"
                     local safe_content="${content//\'/\'\'}"
-                    sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};"
+                    sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}', embedding = zeroblob(0) WHERE id = ${existing_id};"
                     _UPDATED=$((_UPDATED + 1))
                 fi
             fi
@@ -464,7 +519,7 @@ _sync_sessions() {
                 echo -e "  ${GREEN}[insert]${NC} sess-${session_id}: ${body:0:60}"
             else
                 local safe_content="${content//\'/\'\'}"
-                sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (2, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-sessions', 0, '${safe_content}');"
+                sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (2, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-sessions', ${_ENGRAM_NEVER_EXPIRES}, '${safe_content}');"
             fi
             _SYNCED_SESSIONS=$((_SYNCED_SESSIONS + 1))
         fi
@@ -512,21 +567,24 @@ sync_single_decision() {
 
         if [[ "$outcome" == "retracted" || "$outcome" == "abandoned" ]]; then
             local safe_content="${content//\'/\'\'}"
-            sqlite3 "$db" "UPDATE Memory SET importance = 0, content = '${safe_content}' WHERE id = ${existing_id};" 2>/dev/null || true
+            sqlite3 "$db" "UPDATE Memory SET importance = 0, content = '${safe_content}', embedding = zeroblob(0) WHERE id = ${existing_id};" 2>/dev/null || true
         else
             local existing_hash
             existing_hash=$(_extract_hash "$existing_content")
             if [[ "$existing_hash" != "$hash" ]]; then
                 local safe_content="${content//\'/\'\'}"
-                sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};" 2>/dev/null || true
+                sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}', embedding = zeroblob(0) WHERE id = ${existing_id};" 2>/dev/null || true
             fi
         fi
     else
         local importance=3
         [[ "$outcome" == "retracted" || "$outcome" == "abandoned" ]] && importance=0
         local safe_content="${content//\'/\'\'}"
-        sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (${importance}, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', 0, '${safe_content}');" 2>/dev/null || true
+        sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (${importance}, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', ${_ENGRAM_NEVER_EXPIRES}, '${safe_content}');" 2>/dev/null || true
     fi
+
+    _recreate_triggers 2>/dev/null
+    _embed_backfill --quiet 2>/dev/null || true
 }
 
 # Sync one pattern immediately after capture.
@@ -562,12 +620,15 @@ sync_single_pattern() {
         existing_hash=$(_extract_hash "$existing_content")
         if [[ "$existing_hash" != "$hash" ]]; then
             local safe_content="${content//\'/\'\'}"
-            sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}' WHERE id = ${existing_id};" 2>/dev/null || true
+            sqlite3 "$db" "UPDATE Memory SET content = '${safe_content}', embedding = zeroblob(0) WHERE id = ${existing_id};" 2>/dev/null || true
         fi
     else
         local safe_content="${content//\'/\'\'}"
-        sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (3, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-patterns', 0, '${safe_content}');" 2>/dev/null || true
+        sqlite3 "$db" "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (3, 0, ${epoch}, ${epoch}, 'lore', zeroblob(0), 'lore-bridge', 'lore-patterns', ${_ENGRAM_NEVER_EXPIRES}, '${safe_content}');" 2>/dev/null || true
     fi
+
+    _recreate_triggers 2>/dev/null
+    _embed_backfill --quiet 2>/dev/null || true
 }
 
 # Invalidate a shadow when its Lore record is revised or abandoned.
@@ -743,14 +804,14 @@ _sync_graph_edges() {
         | select((.from | test("^(decision|pattern)-")) and (.to | test("^(decision|pattern)-")))
         | [($nodes[.from].name // ""), ($nodes[.to].name // ""), .relation, (.bidirectional // false)]
         | @tsv
-    ' "$graph_file" 2>/dev/null) || return 0
+    ' "$graph_file" 2>/dev/null | tr '\t' '\037') || return 0
     [[ -z "$edges" ]] && return 0
 
     # Expand bidirectional edges, map relations, and build one VALUES list.
     # A single sqlite invocation resolves shadow IDs and inserts all missing
     # edges — per-edge sqlite spawns made this loop take minutes.
     local values="" edge_count=0
-    while IFS=$'\t' read -r from_lore_id to_lore_id lore_relation bidirectional; do
+    while IFS=$'\x1f' read -r from_lore_id to_lore_id lore_relation bidirectional; do
         [[ -z "$from_lore_id" || -z "$to_lore_id" ]] && continue
 
         local engram_relation
@@ -934,7 +995,14 @@ sync_to_claude_memory() {
         # Restore triggers and release the sync lock
         _recreate_triggers
         trap - ERR
+        _embed_backfill
         rmdir "$lock_dir" 2>/dev/null || true
+    else
+        local pending
+        pending=$(sqlite3 "$CLAUDE_MEMORY_DB" "SELECT COUNT(*) FROM Memory WHERE source='lore-bridge' AND length(embedding)=0;" 2>/dev/null) || pending=0
+        if [[ "$pending" -gt 0 ]]; then
+            echo "Would embed ${pending} shadows"
+        fi
     fi
 
     # Summary

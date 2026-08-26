@@ -283,14 +283,14 @@ load_concepts() {
     [[ -f "$LORE_CONCEPTS_FILE" ]] || return 0
 
     local count=0
-    while IFS=$'\t' read -r id name definition timestamp; do
+    while IFS=$'\x1f' read -r id name definition timestamp; do
         [[ -z "$id" ]] && continue
 
         sqlite3 "$DB" "INSERT INTO concepts(id, name, definition, timestamp)
             VALUES ($(sql_quote "$id"), $(sql_quote "$name"),
                     $(sql_quote "$definition"), $(sql_quote "$timestamp"));"
         count=$((count + 1))
-    done < <(yq -r '.concepts[] | [.id, .name, (.definition // ""), (.created_at // "")] | @tsv' "$LORE_CONCEPTS_FILE" 2>/dev/null)
+    done < <(yq -r '.concepts[] | [.id, .name, (.definition // ""), (.created_at // "")] | @tsv' "$LORE_CONCEPTS_FILE" 2>/dev/null | tr '\t' '\037')
     echo "  Loaded $count concepts"
 }
 
