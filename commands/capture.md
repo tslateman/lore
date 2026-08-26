@@ -80,7 +80,8 @@ lore learn "<pattern name>" \
 **Failures:**
 
 ```bash
-lore fail "<ErrorType>" "<what happened and how it was fixed>"
+lore fail <UserDeny|HardDeny|NonZeroExit|Timeout|ToolError|LogicError|PermissionError|EnvironmentError|UserError> \
+  "<what happened and how it was fixed>"
 ```
 
 **Observations:**
