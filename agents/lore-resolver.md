@@ -36,7 +36,7 @@ Record node count, edge count, orphan count, cluster count.
 Read graph data for batch analysis:
 
 ```bash
-cat ~/dev/lore/graph/data/graph.json | jq '.nodes | keys[]'
+cat $LORE_DATA_DIR/graph/data/graph.json | jq '.nodes | keys[]'
 ```
 
 For each node type, compare pairs by:

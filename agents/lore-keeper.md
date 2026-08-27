@@ -31,10 +31,10 @@ patterns, failures, and graph nodes to build a comprehensive context bundle.
    ```
 
 3. For deeper exploration, read the raw data:
-   - Decisions: `~/dev/lore/journal/data/*.jsonl`
-   - Patterns: `~/dev/lore/patterns/data/patterns.yaml`
-   - Failures: `~/dev/lore/failures/data/*.jsonl`
-   - Graph: `~/dev/lore/graph/data/graph.json`
+   - Decisions: `$LORE_DATA_DIR/journal/data/*.jsonl`
+   - Patterns: `$LORE_DATA_DIR/patterns/data/patterns.yaml`
+   - Failures: `$LORE_DATA_DIR/failures/data/*.jsonl`
+   - Graph: `$LORE_DATA_DIR/graph/data/graph.json`
 
 4. Follow graph edges for related concepts:
 

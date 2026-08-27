@@ -2649,7 +2649,7 @@ cmd_init() {
     mkdir -p "${LORE_PATTERNS_DATA}"
     mkdir -p "${LORE_FAILURES_DATA}"
     mkdir -p "${LORE_INBOX_DATA}"
-    mkdir -p "${LORE_TRANSFER_DATA}/sessions"
+    mkdir -p "${LORE_TRANSFER_DATA}/sessions/archive"
     mkdir -p "${LORE_GRAPH_DATA}"
     mkdir -p "${LORE_INTENT_DATA}/goals"
     mkdir -p "${LORE_REGISTRY_DATA}"
