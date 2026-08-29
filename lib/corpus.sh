@@ -55,7 +55,7 @@ decision_candidates() {
 
     jq -s --argjson tags "$tags_json" '
         group_by(.id) | map(.[-1])
-        | map(select((.status // "active") != "superseded"))
+        | map(select((.status // "active") == "active"))
         | map(select(.door != null))
         | map(select(($tags | length) == 0
                      or ((.tags // []) | any(. as $t | $tags | index($t)))))
@@ -171,7 +171,7 @@ corpus_assemble() {
     local unscored
     unscored=$(jq -s '
         group_by(.id) | map(.[-1])
-        | map(select((.status // "active") != "superseded"))
+        | map(select((.status // "active") == "active"))
         | map(select(.door == null)) | length
     ' "$LORE_DECISIONS_FILE")
 

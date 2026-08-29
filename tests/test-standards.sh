@@ -536,6 +536,32 @@ test_untagged_spec_names_both_axes() {
     teardown
 }
 
+test_withdrawn_decisions_never_reach_a_review() {
+    echo "Test: only an active decision can be a candidate"
+    setup
+    seed_corpus
+    write_spec
+
+    local keep drop
+    keep=$("$TMPDIR/lore.sh" journal record "Keep this one" --rationale "Live" \
+        --door one-way --tags api 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -o 'dec-[a-f0-9]*' | head -1)
+    drop=$("$TMPDIR/lore.sh" journal record "Retract this one" --rationale "Fixture" \
+        --door one-way --tags api 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -o 'dec-[a-f0-9]*' | head -1)
+    ( source "$TMPDIR/journal/lib/store.sh" && update_decision "$drop" "status" "retracted" )
+
+    local out
+    out=$("$TMPDIR/lore.sh" corpus "$TMPDIR/spec.md")
+
+    assert_eq "the retracted decision is not a candidate" "0" \
+        "$(echo "$out" | jq --arg d "$drop" '[.candidates[] | select(.id == $d)] | length')"
+    assert_eq "the active one still is" "1" \
+        "$(echo "$out" | jq --arg d "$keep" '[.candidates[] | select(.id == $d)] | length')"
+    assert_eq "a retracted decision is not counted as unscored either" "0" \
+        "$(echo "$out" | jq '.counts.unscored_decisions')"
+
+    teardown
+}
+
 test_prompt_isolates_untrusted_spec() {
     echo "Test: the prompt cannot be escaped from inside the spec"
     setup
@@ -587,6 +613,8 @@ echo ""
 test_undoored_decisions_are_unscored
 echo ""
 test_door_can_be_unset
+echo ""
+test_withdrawn_decisions_never_reach_a_review
 echo ""
 test_prompt_isolates_untrusted_spec
 echo ""
