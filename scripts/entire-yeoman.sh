@@ -11,7 +11,9 @@
 set -euo pipefail
 
 LORE_DIR="${LORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-MARKER_FILE="${LORE_DIR}/.entire-sync-marker"
+source "${LORE_DIR}/lib/paths.sh"
+MARKER_FILE="${LORE_DATA_DIR}/.entire-sync-marker"
+LEGACY_MARKER_FILE="${LORE_DIR}/.entire-sync-marker"
 BRANCH="entire/checkpoints/v1"
 
 # Check dependencies
@@ -25,7 +27,12 @@ if ! git show-ref --verify --quiet "refs/heads/${BRANCH}" 2>/dev/null; then
     exit 0
 fi
 
-# Read last synced checkpoint
+# Read last synced checkpoint, adopting the marker's former home in the repo
+if [[ ! -f "${MARKER_FILE}" && -f "${LEGACY_MARKER_FILE}" ]]; then
+    mkdir -p "$(dirname "${MARKER_FILE}")"
+    cp "${LEGACY_MARKER_FILE}" "${MARKER_FILE}"
+fi
+
 last_synced=""
 [[ -f "${MARKER_FILE}" ]] && last_synced=$(cat "${MARKER_FILE}")
 
@@ -83,7 +90,7 @@ while IFS= read -r checkpoint_path; do
     # Sync to Lore inbox
     if "${LORE_DIR}/lore.sh" observe "${summary}. ${rationale}" \
         --source "entire" \
-        --tags "${tags}" 2>/dev/null; then
+        --tags "${tags}"; then
         echo "Synced: ${checkpoint_id}"
         synced=$((synced + 1))
         last_processed="${checkpoint_id}"
