@@ -63,6 +63,7 @@ YAML
     unset _LORE_PATHS_LOADED
     export LORE_DIR="$TMPDIR"
     export LORE_DATA_DIR="$TMPDIR"
+    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
     # Isolate the FTS5 index: with LORE_DATA_DIR == LORE_DIR, paths.sh
     # would otherwise fall back to the legacy ~/.lore/search.db
     export LORE_SEARCH_DB="$TMPDIR/search.db"

@@ -56,6 +56,7 @@ YAML
     unset _LORE_PATHS_LOADED
     export LORE_DIR="$TMPDIR"
     export LORE_DATA_DIR="$TMPDIR"
+    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
     export LORE_SEARCH_DB="$TMPDIR/search.db"
 }
 

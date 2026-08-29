@@ -57,6 +57,7 @@ YAML
 
     export LORE_DIR="$TMPDIR"
     export LORE_DATA_DIR="$TMPDIR"
+    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
     export LORE_SEARCH_DB="$TMPDIR/search.db"
     # Reset paths.sh idempotency guard so it re-sources with new LORE_DIR
     unset _LORE_PATHS_LOADED
