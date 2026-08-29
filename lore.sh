@@ -157,7 +157,6 @@ SESSION LIFECYCLE
   handoff <message>       Capture context for next session
   handoff:next <step>     Add structured next step (also :blocker, :question)
   status                  Show current session state
-  entire-resume <branch>  Resume Entire branch with Lore context injection
 
 CAPTURE
   capture <text>          Universal write — type inferred from flags:
@@ -2835,7 +2834,6 @@ main() {
         handoff)    shift; cmd_handoff "$@" ;;
         handoff:next|handoff:blocker|handoff:question) "$LORE_DIR/transfer/transfer.sh" "$@" ;;
         resume)     shift; cmd_resume "$@" ;;
-        entire-resume) shift; "$LORE_DIR/scripts/entire-resume-with-context.sh" "$@" ;;
         search)     shift; cmd_search "$@" ;;
         overlay)    shift; cmd_overlay "$@" ;;
         suggest)    shift; cmd_suggest "$@" ;;

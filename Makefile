@@ -1,12 +1,8 @@
-.PHONY: install sync-memory sync-entire sync-graph sync-all check test
+.PHONY: install sync-memory sync-graph sync-all check test
 
 # Install lore CLI
 install:
 	@./scripts/install.sh $(ARGS)
-
-# Sync Entire CLI checkpoints to Lore journal
-sync-entire:
-	@./scripts/entire-yeoman.sh
 
 # Sync journal decisions to knowledge graph
 sync-graph:
@@ -17,7 +13,7 @@ sync-memory:
 	@./lib/bridge.sh $(ARGS)
 
 # Sync all sources
-sync-all: sync-entire sync-graph sync-memory
+sync-all: sync-graph sync-memory
 
 # Run all tests
 test:

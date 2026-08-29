@@ -35,5 +35,3 @@ registry/data/*.yaml
 .research/
 .claude/settings.local.json
 
-# Runtime sync state, keyed to LORE_DATA_DIR
-.entire-sync-marker
