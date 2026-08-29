@@ -21,6 +21,7 @@ export LORE_GRAPH_DATA="${LORE_DATA_DIR}/graph/data"
 export LORE_EVIDENCE_DATA="${LORE_DATA_DIR}/evidence/data"
 export LORE_EVIDENCE_FILE="${LORE_EVIDENCE_DATA}/evidence.jsonl"
 export LORE_REGISTRY_DATA="${LORE_DATA_DIR}/registry/data"
+export LORE_STANDARDS_DATA="${LORE_DATA_DIR}/standards/data"
 
 # Transfer supports a more specific override via LORE_TRANSFER_ROOT
 if [[ -n "${LORE_TRANSFER_ROOT:-}" ]]; then
@@ -35,6 +36,8 @@ export LORE_DECISIONS_FILE="${LORE_JOURNAL_DATA}/decisions.jsonl"
 export LORE_PATTERNS_FILE="${LORE_PATTERNS_DATA}/patterns.yaml"
 export LORE_CONCEPTS_FILE="${LORE_PATTERNS_DATA}/concepts.yaml"
 export LORE_GRAPH_FILE="${LORE_GRAPH_DATA}/graph.json"
+export LORE_STANDARDS_FILE="${LORE_STANDARDS_DATA}/standards.jsonl"
+export LORE_CLAUSES_FILE="${LORE_STANDARDS_DATA}/clauses.jsonl"
 
 # Search DB: under LORE_DATA_DIR when externalized, else legacy ~/.lore/
 if [[ -n "${LORE_SEARCH_DB:-}" ]]; then

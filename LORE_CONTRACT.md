@@ -16,6 +16,7 @@ Lore is the shared memory backbone for the orchestration stack. It accepts struc
 | intent    | goals with criteria       | goal records                         | `intent/data/goals/`            |
 | registry  | project metadata          | project details, context bundles     | `registry/data/*.yaml`          |
 | failures  | failure reports (JSONL)   | failure records, triggers, timelines | `failures/data/failures.jsonl`  |
+| standards | normative clauses         | active clauses filtered by tag       | `standards/data/clauses.jsonl`  |
 
 ## Write Interface
 
@@ -29,6 +30,25 @@ One verb, four destinations. Flags determine type:
 | `lore capture "X" --error-type ToolError` | failures   | `lore fail Type "X"` |
 
 Bare `capture` creates an observation. Add flags to signal importance.
+
+### Record a Standard Clause (standards)
+
+Standards are the one component with no `capture` shortcut. Clauses are
+normative and versioned, so they are written deliberately:
+
+```bash
+lore standards new "<title>" --applies-to <tag>,<tag> --owner <team>
+lore standards add <STD-id> MUST|MUST_NOT|SHOULD|SHOULD_NOT|MAY "<clause text>"
+```
+
+Revise by superseding, never by editing:
+
+```bash
+lore standards add <STD-id> MUST "<new text>" --supersedes <clause-id>
+```
+
+`lore standards lint` exits 1 when the corpus is structurally inconsistent.
+Run it in CI.
 
 ### Record a Decision (journal)
 
@@ -247,6 +267,50 @@ lore registry show <project>      # enriched project details
 lore registry list                # list all projects
 lore registry validate            # check registry consistency
 ```
+
+### Assemble a Review Corpus
+
+`lore corpus` answers one question: which clauses does this spec have to be
+judged against? It reads standards, decisions, and non-goals, filters them by
+the spec's frontmatter, and marks every clause the spec already cites.
+
+```bash
+lore corpus path/to/spec.md            # candidate set as JSON
+lore corpus path/to/spec.md --prompt   # ready-to-send review prompt
+```
+
+The two sources are tagged in different vocabularies, so they filter on
+different axes:
+
+| Frontmatter  | Vocabulary                          | Selects           |
+| ------------ | ----------------------------------- | ----------------- |
+| `applies_to` | concerns: api, code, prose, process | standards clauses |
+| `projects`   | projects: lore, reck, council       | decisions         |
+
+Non-goals match on either. Standards are cross-cutting and carry no project;
+the journal is tagged by project and topic and carries almost no concern tag.
+Filtering both on one axis retrieves one source and starves the other.
+
+A spec must declare at least one axis.
+
+Severity is assigned by source, not by the reviewer:
+
+| Source    | Critical        | Major              | Never fires             |
+| --------- | --------------- | ------------------ | ----------------------- |
+| standards | MUST, MUST_NOT  | SHOULD, SHOULD_NOT | MAY                     |
+| journal   | `door: one-way` | `door: two-way`    | superseded, no door set |
+| intent    | non-goals       | —                  | goals                   |
+
+`MAY` clauses and goals are left out of the candidate set. A finding that a
+spec fails to advance a goal would fire on every spec.
+
+A decision with no `door` declares no reversal cost, so it cannot be scored and
+is left out. `counts.unscored_decisions` reports how many were skipped, which is
+the backlog still worth classifying.
+
+A spec that declares neither axis gets no filtering at all, so every clause in
+the corpus is a candidate. `lore corpus` exits 1 rather than return a review
+nobody can read.
 
 ## Integration by Project
 

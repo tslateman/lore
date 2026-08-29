@@ -38,6 +38,9 @@ test:
 	@bash tests/test-cross-system-traversal.sh
 	@bash tests/test-storage-tiers.sh
 	@bash tests/test-validate.sh
+	@bash tests/test-standards.sh
 
 # Check all build freshness
 check:
+	@echo "Linting the standards corpus..."
+	@bash lore.sh standards lint

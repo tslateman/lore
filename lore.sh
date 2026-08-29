@@ -135,6 +135,8 @@ Query:
   recall <query>        Read from memory (mode inferred from flags)
   search <query>        Search all components
   review                Review pending decisions
+  corpus <spec-file>    Assemble the clauses a spec must be judged against
+  standards             Normative clauses (new | add | enforce | list | lint)
   librarian             Curate pending work (manifest | run [--apply])
   brief <topic>         Assemble topic-specific context
 
@@ -2889,6 +2891,8 @@ main() {
 
         # Registry (project metadata)
         registry)   shift; source "$LORE_DIR/registry/lib/registry.sh"; registry_main "$@" ;;
+        standards)  shift; source "$LORE_DIR/standards/lib/standards.sh"; standards_main "$@" ;;
+        corpus)     shift; source "$LORE_DIR/lib/corpus.sh"; corpus_main "$@" ;;
 
         # Help
         -h|--help)  show_help ;;
