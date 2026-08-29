@@ -171,6 +171,7 @@ priority: $priority
 deadline: $deadline_value
 
 success_criteria: []
+non_goals: []
 depends_on: []
 projects: []
 tags: []
@@ -353,6 +354,32 @@ intent_help() {
     echo "  lore intent export <goal-id> [--format yaml|markdown]"
 }
 
+add_non_goal() {
+    local goal_id="$1"
+    local text="$2"
+
+    if [[ -z "$goal_id" || -z "$text" ]]; then
+        echo -e "${RED}Usage: lore goal non-goal <goal-id> \"<what we are deliberately not doing>\"${NC}" >&2
+        return 1
+    fi
+
+    local goal_file
+    goal_file=$(get_goal_file "$goal_id")
+    if [[ ! -f "$goal_file" ]]; then
+        echo -e "${RED}Error: No such goal: $goal_id${NC}" >&2
+        return 1
+    fi
+
+    local count next_id
+    count=$(yq -r '.non_goals | length' "$goal_file" 2>/dev/null || echo "0")
+    [[ "$count" == "null" ]] && count=0
+    next_id="ng-$((count + 1))"
+
+    yq -i ".non_goals += [{\"id\": \"$next_id\", \"description\": \"$text\"}]" "$goal_file"
+
+    echo -e "${GREEN}Added non-goal:${NC} ${goal_id}.${next_id}"
+}
+
 intent_goal_main() {
     if [[ $# -eq 0 ]]; then
         intent_help
@@ -366,6 +393,7 @@ intent_goal_main() {
         create)   create_goal "$@" ;;
         list)     list_goals "$@" ;;
         show)     get_goal "$@" ;;
+        non-goal) add_non_goal "$@" ;;
         -h|--help|help) intent_help ;;
         *)
             echo -e "${RED}Unknown goal command: $command${NC}" >&2
