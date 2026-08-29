@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Sync Entire CLI checkpoints to Lore journal
+# Sync Entire CLI checkpoints to Lore inbox
 #
 # Entire stores checkpoints on the entire/checkpoints/v1 branch with structure:
 #   <prefix>/<checkpoint_id>/metadata.json     - checkpoint-level metadata
 #   <prefix>/<checkpoint_id>/N/metadata.json   - session-level metadata
 #
-# This script reads checkpoint metadata and writes decisions to Lore's journal.
+# This script reads checkpoint metadata and writes observations to Lore's inbox.
 # A marker file tracks the last synced checkpoint to prevent duplicates.
 
 set -euo pipefail
@@ -80,11 +80,10 @@ while IFS= read -r checkpoint_path; do
     # Build tags
     tags="entire,checkpoint:${checkpoint_id},branch:${branch}"
     
-    # Sync to Lore journal
-    if "${LORE_DIR}/lore.sh" remember "${summary}" \
-        --rationale "${rationale}" \
-        --tags "${tags}" \
-        --type "other" 2>/dev/null; then
+    # Sync to Lore inbox
+    if "${LORE_DIR}/lore.sh" observe "${summary}. ${rationale}" \
+        --source "entire" \
+        --tags "${tags}" 2>/dev/null; then
         echo "Synced: ${checkpoint_id}"
         synced=$((synced + 1))
         last_processed="${checkpoint_id}"
