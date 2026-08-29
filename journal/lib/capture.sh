@@ -121,6 +121,7 @@ create_decision_record() {
     local tags="${4:-}"
     local explicit_type="${5:-}"
     local valid_at="${6:-}"
+    local door="${7:-}"
 
     local id
     id=$(generate_decision_id)
@@ -187,6 +188,7 @@ create_decision_record() {
         --arg git_commit "$git_commit" \
         --arg valid_at "$valid_at" \
         --argjson spec_quality "$spec_quality" \
+        --arg door "$door" \
         '{
             id: $id,
             timestamp: $timestamp,
@@ -202,7 +204,8 @@ create_decision_record() {
             related_decisions: [],
             git_commit: (if $git_commit == "" then null else $git_commit end),
             valid_at: (if $valid_at == "" then null else $valid_at end),
-            spec_quality: $spec_quality
+            spec_quality: $spec_quality,
+            door: (if $door == "" then null else $door end)
         }'
 }
 

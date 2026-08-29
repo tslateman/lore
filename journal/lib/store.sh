@@ -191,7 +191,7 @@ update_decision() {
 
     # Create updated record (compact for JSONL)
     local updated
-    if [[ "$value" =~ ^\[ ]] || [[ "$value" =~ ^\{ ]]; then
+    if [[ "$value" =~ ^\[ ]] || [[ "$value" =~ ^\{ ]] || [[ "$value" == "null" ]]; then
         # JSON value
         updated=$(echo "$current" | jq -c --argjson val "$value" ".$field = \$val")
     else

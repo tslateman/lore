@@ -94,6 +94,9 @@ ${BOLD}EXAMPLES:${NC}
     # Update outcome
     journal.sh update dec-abc123 --outcome successful
 
+    # Classify decision reversibility (none clears it)
+    journal.sh update dec-abc123 --door one-way
+
     # Link related decisions
     journal.sh link dec-abc123 dec-def456
 
@@ -109,6 +112,7 @@ cmd_record() {
     local files=""
     local force=false
     local valid_at=""
+    local door=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -135,6 +139,14 @@ cmd_record() {
                 ;;
             --valid-at)
                 valid_at="$2"
+                shift 2
+                ;;
+            --door)
+                door="$2"
+                if [[ "$door" != "one-way" && "$door" != "two-way" ]]; then
+                    echo -e "${RED}Error: --door must be one-way or two-way${NC}" >&2
+                    return 1
+                fi
                 shift 2
                 ;;
             --force)
@@ -199,7 +211,7 @@ cmd_record() {
 
     # Create the decision record
     local record
-    record=$(create_decision_record "$decision" "$rationale" "$alternatives" "$tags" "$explicit_type" "$valid_at")
+    record=$(create_decision_record "$decision" "$rationale" "$alternatives" "$tags" "$explicit_type" "$valid_at" "$door")
 
     # Store it (pass --force to bypass deduplication guard)
     local id
@@ -373,6 +385,7 @@ cmd_update() {
 
     local outcome=""
     local rationale=""
+    local door=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -382,6 +395,14 @@ cmd_update() {
                 ;;
             --rationale|-r)
                 rationale="$2"
+                shift 2
+                ;;
+            --door)
+                door="$2"
+                if [[ "$door" != "one-way" && "$door" != "two-way" && "$door" != "none" ]]; then
+                    echo -e "${RED}Error: --door must be one-way, two-way, or none${NC}" >&2
+                    return 1
+                fi
                 shift 2
                 ;;
             *)
@@ -411,6 +432,14 @@ cmd_update() {
     if [[ -n "$rationale" ]]; then
         update_decision "$decision_id" "rationale" "$rationale"
         echo -e "${GREEN}Updated rationale${NC}"
+    fi
+
+    if [[ "$door" == "none" ]]; then
+        update_decision "$decision_id" "door" "null"
+        echo -e "${GREEN}Cleared door${NC}"
+    elif [[ -n "$door" ]]; then
+        update_decision "$decision_id" "door" "$door"
+        echo -e "${GREEN}Updated door to:${NC} $door"
     fi
 }
 
