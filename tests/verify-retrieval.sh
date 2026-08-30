@@ -11,6 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # --- Test harness ---
@@ -39,11 +40,11 @@ section() {
 
 # --- Setup: isolated temp environment ---
 
-TMPDIR_TEST=$(mktemp -d)
-trap 'rm -rf "$TMPDIR_TEST"' EXIT
+FIXTURE_DIR=$(mktemp -d)
+trap 'remove_fixture "$FIXTURE_DIR"' EXIT
 
-TEST_DB="$TMPDIR_TEST/search.db"
-TEST_GRAPH="$TMPDIR_TEST/graph.json"
+TEST_DB="$FIXTURE_DIR/search.db"
+TEST_GRAPH="$FIXTURE_DIR/graph.json"
 
 # Seed test graph
 cat > "$TEST_GRAPH" <<'GRAPH'

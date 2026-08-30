@@ -11,12 +11,13 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 # Minimal mani.yaml for tests
 MINI_MANI='
@@ -36,31 +37,31 @@ projects:
 '
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Create workspace with mani.yaml
-    mkdir -p "$TMPDIR/workspace"
-    echo "$MINI_MANI" > "$TMPDIR/workspace/mani.yaml"
+    mkdir -p "$FIXTURE_DIR/workspace"
+    echo "$MINI_MANI" > "$FIXTURE_DIR/workspace/mani.yaml"
 
     # Create a lore directory inside workspace
-    mkdir -p "$TMPDIR/workspace/lore/lib"
-    mkdir -p "$TMPDIR/workspace/lore/registry/data"
+    mkdir -p "$FIXTURE_DIR/workspace/lore/lib"
+    mkdir -p "$FIXTURE_DIR/workspace/lore/registry/data"
 
     # Copy validate.sh and paths.sh
     # Copy the whole lib: validate.sh sources siblings (paths, model),
     # and a selective list breaks when a new lib file is added
-    cp "$SCRIPT_DIR/../lib/"*.sh "$TMPDIR/workspace/lore/lib/"
+    cp "$SCRIPT_DIR/../lib/"*.sh "$FIXTURE_DIR/workspace/lore/lib/"
 
     # Set environment
     unset _LORE_PATHS_LOADED
-    export LORE_DIR="$TMPDIR/workspace/lore"
-    export LORE_DATA_DIR="$TMPDIR/workspace/lore"
-    export LORE_SEARCH_DB="$TMPDIR/workspace/lore/search.db"
-    export WORKSPACE_ROOT="$TMPDIR/workspace"
-    export MANI_FILE="$TMPDIR/workspace/mani.yaml"
+    export LORE_DIR="$FIXTURE_DIR/workspace/lore"
+    export LORE_DATA_DIR="$FIXTURE_DIR/workspace/lore"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/workspace/lore/search.db"
+    export WORKSPACE_ROOT="$FIXTURE_DIR/workspace"
+    export MANI_FILE="$FIXTURE_DIR/workspace/mani.yaml"
 
     # Source validate.sh (sets up paths and functions)
-    source "$TMPDIR/workspace/lore/lib/validate.sh"
+    source "$FIXTURE_DIR/workspace/lore/lib/validate.sh"
 
     # Reset counters (validate.sh uses global ERRORS/WARNINGS)
     ERRORS=0
@@ -68,8 +69,8 @@ setup() {
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
-    TMPDIR=""
+    remove_fixture "$FIXTURE_DIR"
+    FIXTURE_DIR=""
     ERRORS=0
     WARNINGS=0
     return 0
@@ -105,7 +106,7 @@ assert_contains() {
 # Sets CHECK_OUTPUT for assertions. Must NOT be called inside $(...).
 CHECK_OUTPUT=""
 run_check() {
-    local outfile="$TMPDIR/check_output"
+    local outfile="$FIXTURE_DIR/check_output"
     "$@" > "$outfile" 2>&1 || true
     CHECK_OUTPUT=$(cat "$outfile")
 }
@@ -249,8 +250,8 @@ test_relationships_missing_file() {
 
 test_contracts_pass() {
     # Create a file the contract points to
-    mkdir -p "$TMPDIR/workspace/alpha"
-    echo "# Contract" > "$TMPDIR/workspace/alpha/CONTRACT.md"
+    mkdir -p "$FIXTURE_DIR/workspace/alpha"
+    echo "# Contract" > "$FIXTURE_DIR/workspace/alpha/CONTRACT.md"
 
     cat > "$LORE_DIR/registry/data/contracts.yaml" <<YAML
 contracts:
@@ -412,8 +413,8 @@ test_initiatives_no_council() {
 
 test_initiatives_pass() {
     # Create matching initiative and CLAUDE.md
-    mkdir -p "$TMPDIR/workspace/council/initiatives"
-    cat > "$TMPDIR/workspace/council/initiatives/test-init.md" <<'MD'
+    mkdir -p "$FIXTURE_DIR/workspace/council/initiatives"
+    cat > "$FIXTURE_DIR/workspace/council/initiatives/test-init.md" <<'MD'
 # Test Initiative
 
 **Status:** Active
@@ -421,8 +422,8 @@ test_initiatives_pass() {
 Work in progress.
 MD
 
-    mkdir -p "$TMPDIR/workspace/alpha"
-    cat > "$TMPDIR/workspace/alpha/CLAUDE.md" <<'MD'
+    mkdir -p "$FIXTURE_DIR/workspace/alpha"
+    cat > "$FIXTURE_DIR/workspace/alpha/CLAUDE.md" <<'MD'
 # Alpha
 
 ## Active Initiatives
@@ -437,8 +438,8 @@ MD
 
 test_initiatives_stale_reference() {
     # Initiative is Completed but CLAUDE.md still lists it as active
-    mkdir -p "$TMPDIR/workspace/council/initiatives"
-    cat > "$TMPDIR/workspace/council/initiatives/old-init.md" <<'MD'
+    mkdir -p "$FIXTURE_DIR/workspace/council/initiatives"
+    cat > "$FIXTURE_DIR/workspace/council/initiatives/old-init.md" <<'MD'
 # Old Initiative
 
 **Status:** Completed
@@ -446,8 +447,8 @@ test_initiatives_stale_reference() {
 Done.
 MD
 
-    mkdir -p "$TMPDIR/workspace/alpha"
-    cat > "$TMPDIR/workspace/alpha/CLAUDE.md" <<'MD'
+    mkdir -p "$FIXTURE_DIR/workspace/alpha"
+    cat > "$FIXTURE_DIR/workspace/alpha/CLAUDE.md" <<'MD'
 # Alpha
 
 ## Active Initiatives
@@ -645,8 +646,8 @@ dependencies:
         type: runtime
 YAML
 
-    mkdir -p "$TMPDIR/workspace/alpha"
-    echo "# Contract" > "$TMPDIR/workspace/alpha/CONTRACT.md"
+    mkdir -p "$FIXTURE_DIR/workspace/alpha"
+    echo "# Contract" > "$FIXTURE_DIR/workspace/alpha/CONTRACT.md"
     cat > "$LORE_DIR/registry/data/contracts.yaml" <<YAML
 contracts:
   alpha-contract:
@@ -671,8 +672,8 @@ YAML
     # No other files -- warns for missing but doesn't error
     # cmd_validate returns ERRORS as exit code, so capture it
     local exit_code=0
-    cmd_validate > "$TMPDIR/check_output" 2>&1 || exit_code=$?
-    CHECK_OUTPUT=$(cat "$TMPDIR/check_output")
+    cmd_validate > "$FIXTURE_DIR/check_output" 2>&1 || exit_code=$?
+    CHECK_OUTPUT=$(cat "$FIXTURE_DIR/check_output")
     assert_eq "validation with errors exits non-zero" 1 "$exit_code"
     assert_contains "reports error count" "1 error" "$CHECK_OUTPUT"
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test Anti-Pattern Inversion
 
-set -e
+set -euo pipefail
 
 # Hermetic: no live model calls from tests
 export LORE_RERANK=0

@@ -7,13 +7,14 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-TMPDIR=$(mktemp -d)
-export LORE_DATA_DIR="$TMPDIR"
+FIXTURE_DIR=$(mktemp -d)
+export LORE_DATA_DIR="$FIXTURE_DIR"
 export LORE_DIR
-export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
-export LORE_SEARCH_DB="$TMPDIR/search.db"
+export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
+export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 
 source "$LORE_DIR/lib/paths.sh"
 
@@ -24,11 +25,11 @@ pass() { echo "✓ $1"; TESTS_PASSED=$((TESTS_PASSED + 1)); }
 fail() { echo "✗ $1"; }
 
 setup() {
-    rm -rf "$TMPDIR"
-    mkdir -p "$TMPDIR/graph/data"
+    remove_fixture "$FIXTURE_DIR"
+    mkdir -p "$FIXTURE_DIR/graph/data"
 
     # Create Lore search index
-    sqlite3 "$TMPDIR/search.db" <<'SQL'
+    sqlite3 "$FIXTURE_DIR/search.db" <<'SQL'
 CREATE TABLE search_index(id TEXT PRIMARY KEY, type TEXT, content TEXT);
 CREATE TABLE graph_edges(from_id TEXT, to_id TEXT, relation TEXT, weight REAL);
 INSERT INTO search_index VALUES ('dec-abc123', 'decision', 'Use JSONL for storage');
@@ -37,7 +38,7 @@ INSERT INTO graph_edges VALUES ('dec-abc123', 'pat-def456', 'learned_from', 1.0)
 SQL
 
     # Create Engram database
-    sqlite3 "$TMPDIR/memory.sqlite" <<'SQL'
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" <<'SQL'
 CREATE TABLE Memory(id INTEGER PRIMARY KEY, content TEXT, topic TEXT, importance INT, source TEXT);
 CREATE TABLE Edge(id INTEGER PRIMARY KEY, sourceId INT, targetId INT, relation TEXT, createdAt REAL);
 INSERT INTO Memory VALUES (1, '[lore:dec-abc123] Use JSONL for storage', 'lore-decisions', 3, 'lore-bridge');
@@ -48,7 +49,7 @@ INSERT INTO Edge VALUES (2, 2, 3, 'relates_to', 1708000000);    -- Shadow to nat
 SQL
 }
 
-teardown() { rm -rf "$TMPDIR"; }
+teardown() { remove_fixture "$FIXTURE_DIR"; }
 
 test_cross_system_traverse_depth_1() {
     echo "Test: cross-system traverse depth 1"

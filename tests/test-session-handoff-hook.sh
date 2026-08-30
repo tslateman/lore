@@ -11,16 +11,17 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 HOOK="$SCRIPT_DIR/../scripts/hooks/session-handoff.sh"
 
 PASS=0
 FAIL=0
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
+FIXTURE_DIR=$(mktemp -d)
+trap 'remove_fixture "$FIXTURE_DIR"' EXIT
 
 # Isolate any writes the hook might attempt
-export LORE_DATA_DIR="$TMPDIR/lore-data"
-export LORE_SEARCH_DB="$TMPDIR/lore-data/search.db"
+export LORE_DATA_DIR="$FIXTURE_DIR/lore-data"
+export LORE_SEARCH_DB="$FIXTURE_DIR/lore-data/search.db"
 mkdir -p "$LORE_DATA_DIR/transfer/data/sessions"
 
 assert_exit_zero() {
@@ -48,14 +49,14 @@ assert_exit_zero "missing transcript file exits 0" \
 echo ""
 echo "Test: tiny transcript is skipped without writing"
 
-tiny="$TMPDIR/tiny.jsonl"
+tiny="$FIXTURE_DIR/tiny.jsonl"
 {
     printf '%s\n' '{"type":"user","message":{"role":"user","content":"hi"}}'
     printf '%s\n' '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]}}'
 } > "$tiny"
 
 assert_exit_zero "tiny transcript exits 0" \
-    "{\"transcript_path\": \"$tiny\", \"cwd\": \"$TMPDIR\"}"
+    "{\"transcript_path\": \"$tiny\", \"cwd\": \"$FIXTURE_DIR\"}"
 
 session_count=$(ls -1 "$LORE_DATA_DIR/transfer/data/sessions" 2>/dev/null | wc -l | tr -d ' ')
 if [[ "$session_count" -eq 0 ]]; then

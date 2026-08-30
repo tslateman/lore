@@ -33,7 +33,7 @@ for suite in "$SCRIPT_DIR"/test*.sh "$SCRIPT_DIR"/verify*.sh; do
 
     if [[ "$data_dir_count" -gt 0 && "$search_db_count" -eq 0 ]]; then
         echo "  FAIL: $name sets LORE_DATA_DIR without LORE_SEARCH_DB"
-        echo "        Add: export LORE_SEARCH_DB=\"\$TMPDIR/search.db\" beside it,"
+        echo "        Add: export LORE_SEARCH_DB=\"\$FIXTURE_DIR/search.db\" beside it,"
         echo "        or the suite reads and writes the real search database."
         FAIL=$((FAIL + 1))
     else
@@ -52,7 +52,7 @@ for suite in "$SCRIPT_DIR"/test*.sh "$SCRIPT_DIR"/verify*.sh; do
 
     if [[ "$capture_count" -gt 0 && "$memory_db_count" -eq 0 ]]; then
         echo "  FAIL: $name captures without pinning CLAUDE_MEMORY_DB"
-        echo "        Add: export CLAUDE_MEMORY_DB=\"\$TMPDIR/memory.sqlite\" beside it,"
+        echo "        Add: export CLAUDE_MEMORY_DB=\"\$FIXTURE_DIR/memory.sqlite\" beside it,"
         echo "        or the suite writes test fixtures into the real Engram store."
         FAIL=$((FAIL + 1))
     else

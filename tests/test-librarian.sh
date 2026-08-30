@@ -10,47 +10,48 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE="$SCRIPT_DIR/../lore.sh"
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
-    mkdir -p "$TMPDIR/inbox/data" "$TMPDIR/journal/data" \
-        "$TMPDIR/failures/data" "$TMPDIR/graph/data" \
-        "$TMPDIR/patterns/data" "$TMPDIR/transfer/data" \
-        "$TMPDIR/evidence/data" "$TMPDIR/intent/data" "$TMPDIR/bin"
+    mkdir -p "$FIXTURE_DIR/inbox/data" "$FIXTURE_DIR/journal/data" \
+        "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/graph/data" \
+        "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/transfer/data" \
+        "$FIXTURE_DIR/evidence/data" "$FIXTURE_DIR/intent/data" "$FIXTURE_DIR/bin"
 
     # Raw observation (legacy obs- file) and raw signal
-    cat > "$TMPDIR/inbox/data/observations.jsonl" <<'JSONL'
+    cat > "$FIXTURE_DIR/inbox/data/observations.jsonl" <<'JSONL'
 {"id":"obs-aaaa0001","timestamp":"2026-01-01T00:00:00Z","source":"test","content":"Users retry after timeout","status":"raw","tags":["ux"]}
 {"id":"obs-aaaa0002","timestamp":"2026-01-02T00:00:00Z","source":"test","content":"Already handled","status":"raw","tags":[]}
 {"id":"obs-aaaa0002","timestamp":"2026-01-02T00:00:00Z","source":"test","content":"Already handled","status":"discarded","tags":[],"discard_reason":"dup","discarded_at":"2026-01-03T00:00:00Z"}
 JSONL
-    cat > "$TMPDIR/inbox/data/signals.jsonl" <<'JSONL'
+    cat > "$FIXTURE_DIR/inbox/data/signals.jsonl" <<'JSONL'
 {"id":"sig-bbbb0001","timestamp":"2026-02-01T00:00:00Z","source":"manual","content":"Prefer jq over sed for JSON","status":"raw","tags":["tooling"]}
 JSONL
 
     # Stale pending decision (old) + fresh pending decision (recent)
     local now
     now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    cat > "$TMPDIR/journal/data/decisions.jsonl" <<JSONL
+    cat > "$FIXTURE_DIR/journal/data/decisions.jsonl" <<JSONL
 {"id":"dec-cccc0001","timestamp":"2026-01-01T00:00:00Z","decision":"Build the widget","rationale":"Needed","outcome":"pending","status":"active","type":"implementation","tags":[]}
 {"id":"dec-cccc0002","timestamp":"${now}","decision":"Fresh decision","rationale":"New","outcome":"pending","status":"active","type":"implementation","tags":[]}
 {"id":"dec-cccc0003","timestamp":"2026-01-01T00:00:00Z","decision":"Resolved already","rationale":"Done","outcome":"successful","status":"active","type":"implementation","tags":[]}
 JSONL
 
     # One untyped failure, one typed
-    cat > "$TMPDIR/failures/data/failures.jsonl" <<'JSONL'
+    cat > "$FIXTURE_DIR/failures/data/failures.jsonl" <<'JSONL'
 {"id":"fail-dddd0001","timestamp":"2026-01-05T00:00:00Z","error_type":"unknown","error_message":"boom","tool":"widget"}
 {"id":"fail-dddd0002","timestamp":"2026-01-06T00:00:00Z","error_type":"Timeout","error_message":"slow"}
 JSONL
 
     # Graph: one orphan, one connected pair
-    cat > "$TMPDIR/graph/data/graph.json" <<'JSON'
+    cat > "$FIXTURE_DIR/graph/data/graph.json" <<'JSON'
 {
   "nodes": {
     "decision-orphan1": {"type": "decision", "name": "dec-cccc0001", "data": {"decision": "Build the widget"}, "created_at": "2026-01-01T00:00:00Z"},
@@ -63,19 +64,19 @@ JSONL
 }
 JSON
 
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 patterns: []
 anti_patterns: []
 YAML
-    : > "$TMPDIR/evidence/data/evidence.jsonl"
+    : > "$FIXTURE_DIR/evidence/data/evidence.jsonl"
 
     unset _LORE_PATHS_LOADED
-    export LORE_DATA_DIR="$TMPDIR"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_eq() {
@@ -103,7 +104,7 @@ assert_contains() {
 # Fake claude shim: ignores input, prints canned actions including one
 # invalid-id action that must be skipped.
 install_claude_shim() {
-    cat > "$TMPDIR/bin/claude" <<'SHIM'
+    cat > "$FIXTURE_DIR/bin/claude" <<'SHIM'
 #!/usr/bin/env bash
 cat > /dev/null
 cat <<'ACTIONS'
@@ -117,8 +118,8 @@ cat <<'ACTIONS'
 ]
 ACTIONS
 SHIM
-    chmod +x "$TMPDIR/bin/claude"
-    export PATH="$TMPDIR/bin:$PATH"
+    chmod +x "$FIXTURE_DIR/bin/claude"
+    export PATH="$FIXTURE_DIR/bin:$PATH"
 }
 
 test_manifest() {
@@ -172,11 +173,11 @@ test_dry_run() {
     assert_contains "skips invalid id" "$output" "skip discard_observation obs-nonexistent"
 
     assert_eq "observation still raw after dry-run" "raw" \
-        "$(jq -rs 'map(select(.id == "obs-aaaa0001")) | last | .status' "$TMPDIR/inbox/data/observations.jsonl")"
+        "$(jq -rs 'map(select(.id == "obs-aaaa0001")) | last | .status' "$FIXTURE_DIR/inbox/data/observations.jsonl")"
     assert_eq "decision still pending after dry-run" "pending" \
-        "$(jq -rs 'map(select(.id == "dec-cccc0001")) | last | .outcome' "$TMPDIR/journal/data/decisions.jsonl")"
+        "$(jq -rs 'map(select(.id == "dec-cccc0001")) | last | .outcome' "$FIXTURE_DIR/journal/data/decisions.jsonl")"
     assert_eq "no new edges after dry-run" "1" \
-        "$(jq '.edges | length' "$TMPDIR/graph/data/graph.json")"
+        "$(jq '.edges | length' "$FIXTURE_DIR/graph/data/graph.json")"
 }
 
 test_apply() {
@@ -189,24 +190,24 @@ test_apply() {
     assert_contains "reports skip of invalid id" "$output" "skip discard_observation obs-nonexistent"
 
     assert_eq "observation discarded (latest version)" "discarded" \
-        "$(jq -rs 'map(select(.id == "obs-aaaa0001")) | last | .status' "$TMPDIR/inbox/data/observations.jsonl")"
+        "$(jq -rs 'map(select(.id == "obs-aaaa0001")) | last | .status' "$FIXTURE_DIR/inbox/data/observations.jsonl")"
     assert_eq "signal promoted (latest version)" "promoted" \
-        "$(jq -rs 'map(select(.id == "sig-bbbb0001")) | last | .status' "$TMPDIR/inbox/data/signals.jsonl")"
+        "$(jq -rs 'map(select(.id == "sig-bbbb0001")) | last | .status' "$FIXTURE_DIR/inbox/data/signals.jsonl")"
     assert_contains "promotion created a decision" \
-        "$(jq -rs 'map(.decision) | join("\n")' "$TMPDIR/journal/data/decisions.jsonl")" \
+        "$(jq -rs 'map(.decision) | join("\n")' "$FIXTURE_DIR/journal/data/decisions.jsonl")" \
         "Prefer jq over sed for JSON"
     assert_eq "failure retyped (latest version)" "ToolError" \
-        "$(jq -rs 'map(select(.id == "fail-dddd0001")) | last | .error_type' "$TMPDIR/failures/data/failures.jsonl")"
+        "$(jq -rs 'map(select(.id == "fail-dddd0001")) | last | .error_type' "$FIXTURE_DIR/failures/data/failures.jsonl")"
     assert_eq "decision resolved (latest version)" "successful" \
-        "$(jq -rs 'map(select(.id == "dec-cccc0001")) | last | .outcome' "$TMPDIR/journal/data/decisions.jsonl")"
+        "$(jq -rs 'map(select(.id == "dec-cccc0001")) | last | .outcome' "$FIXTURE_DIR/journal/data/decisions.jsonl")"
     assert_eq "edge added" "2" \
-        "$(jq '.edges | length' "$TMPDIR/graph/data/graph.json")"
+        "$(jq '.edges | length' "$FIXTURE_DIR/graph/data/graph.json")"
 
     # Append-only: originals still present as earlier versions
     assert_eq "observation update appended, not edited" "2" \
-        "$(grep -c 'obs-aaaa0001' "$TMPDIR/inbox/data/observations.jsonl")"
+        "$(grep -c 'obs-aaaa0001' "$FIXTURE_DIR/inbox/data/observations.jsonl")"
     assert_eq "failure update appended, not edited" "2" \
-        "$(grep -c 'fail-dddd0001' "$TMPDIR/failures/data/failures.jsonl")"
+        "$(grep -c 'fail-dddd0001' "$FIXTURE_DIR/failures/data/failures.jsonl")"
 
     # Applied items drain from the next manifest
     local manifest
@@ -224,13 +225,13 @@ test_apply() {
 test_claude_failure() {
     echo "Test: run falls back to manifest when claude fails"
 
-    cat > "$TMPDIR/bin/claude" <<'SHIM'
+    cat > "$FIXTURE_DIR/bin/claude" <<'SHIM'
 #!/usr/bin/env bash
 cat > /dev/null
 exit 1
 SHIM
-    chmod +x "$TMPDIR/bin/claude"
-    export PATH="$TMPDIR/bin:$PATH"
+    chmod +x "$FIXTURE_DIR/bin/claude"
+    export PATH="$FIXTURE_DIR/bin:$PATH"
 
     local output
     output=$("$LORE" librarian run 2>/dev/null) || true

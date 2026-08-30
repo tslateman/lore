@@ -12,68 +12,69 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE="$SCRIPT_DIR/../lore.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Mirror the directory structure lore.sh expects
-    mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
-    mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
-    mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer/data/sessions" "$TMPDIR/transfer/lib"
-    mkdir -p "$TMPDIR/inbox/data" "$TMPDIR/inbox/lib"
-    mkdir -p "$TMPDIR/graph" "$TMPDIR/lib"
-    mkdir -p "$TMPDIR/intent/data/goals" "$TMPDIR/intent/lib"
+    mkdir -p "$FIXTURE_DIR/journal/data" "$FIXTURE_DIR/journal/lib"
+    mkdir -p "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/patterns/lib"
+    mkdir -p "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/failures/lib"
+    mkdir -p "$FIXTURE_DIR/transfer/data/sessions" "$FIXTURE_DIR/transfer/lib"
+    mkdir -p "$FIXTURE_DIR/inbox/data" "$FIXTURE_DIR/inbox/lib"
+    mkdir -p "$FIXTURE_DIR/graph" "$FIXTURE_DIR/lib"
+    mkdir -p "$FIXTURE_DIR/intent/data/goals" "$FIXTURE_DIR/intent/lib"
 
     # Copy component scripts and libraries
-    cp -R "$SCRIPT_DIR/../journal/"* "$TMPDIR/journal/"
-    cp -R "$SCRIPT_DIR/../patterns/"* "$TMPDIR/patterns/"
-    cp -R "$SCRIPT_DIR/../failures/"* "$TMPDIR/failures/"
-    cp -R "$SCRIPT_DIR/../transfer/"* "$TMPDIR/transfer/"
-    cp -R "$SCRIPT_DIR/../inbox/"* "$TMPDIR/inbox/"
-    cp -R "$SCRIPT_DIR/../graph/"* "$TMPDIR/graph/"
-    cp -R "$SCRIPT_DIR/../lib/"* "$TMPDIR/lib/"
-    cp -R "$SCRIPT_DIR/../intent/"* "$TMPDIR/intent/"
+    cp -R "$SCRIPT_DIR/../journal/"* "$FIXTURE_DIR/journal/"
+    cp -R "$SCRIPT_DIR/../patterns/"* "$FIXTURE_DIR/patterns/"
+    cp -R "$SCRIPT_DIR/../failures/"* "$FIXTURE_DIR/failures/"
+    cp -R "$SCRIPT_DIR/../transfer/"* "$FIXTURE_DIR/transfer/"
+    cp -R "$SCRIPT_DIR/../inbox/"* "$FIXTURE_DIR/inbox/"
+    cp -R "$SCRIPT_DIR/../graph/"* "$FIXTURE_DIR/graph/"
+    cp -R "$SCRIPT_DIR/../lib/"* "$FIXTURE_DIR/lib/"
+    cp -R "$SCRIPT_DIR/../intent/"* "$FIXTURE_DIR/intent/"
 
     # Copy lore.sh into the temp dir so LORE_DIR self-derives correctly
-    cp "$LORE" "$TMPDIR/lore.sh"
-    chmod +x "$TMPDIR/lore.sh"
+    cp "$LORE" "$FIXTURE_DIR/lore.sh"
+    chmod +x "$FIXTURE_DIR/lore.sh"
 
     # Initialize empty data files (Event tier - JSONL)
-    : > "$TMPDIR/journal/data/decisions.jsonl"
-    : > "$TMPDIR/failures/data/failures.jsonl"
-    : > "$TMPDIR/inbox/data/signals.jsonl"
+    : > "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    : > "$FIXTURE_DIR/failures/data/failures.jsonl"
+    : > "$FIXTURE_DIR/inbox/data/signals.jsonl"
 
     # Reference tier - YAML/JSON
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 # Pattern Learner Database
 patterns: []
 
 anti_patterns: []
 YAML
 
-    cat > "$TMPDIR/patterns/data/concepts.yaml" <<'YAML'
+    cat > "$FIXTURE_DIR/patterns/data/concepts.yaml" <<'YAML'
 # Concepts database
 concepts: []
 YAML
 
     unset _LORE_PATHS_LOADED
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
-    TMPDIR=""
+    remove_fixture "$FIXTURE_DIR"
+    FIXTURE_DIR=""
     return 0
 }
 
@@ -121,14 +122,14 @@ test_event_tier_jsonl_valid() {
     setup
 
     # Seed data
-    "$TMPDIR/lore.sh" remember "Test decision" --rationale "testing" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" fail ToolError "Test error" >/dev/null 2>&1
-    "$TMPDIR/lore.sh" capture "Test observation" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Test decision" --rationale "testing" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Test error" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" capture "Test observation" >/dev/null 2>&1
 
     # Verify JSONL files can be parsed by jq
-    assert_ok "decisions.jsonl is valid JSONL" jq -e '.' "$TMPDIR/journal/data/decisions.jsonl"
-    assert_ok "failures.jsonl is valid JSONL" jq -e '.' "$TMPDIR/failures/data/failures.jsonl"
-    assert_ok "signals.jsonl is valid JSONL" jq -e '.' "$TMPDIR/inbox/data/signals.jsonl"
+    assert_ok "decisions.jsonl is valid JSONL" jq -e '.' "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    assert_ok "failures.jsonl is valid JSONL" jq -e '.' "$FIXTURE_DIR/failures/data/failures.jsonl"
+    assert_ok "signals.jsonl is valid JSONL" jq -e '.' "$FIXTURE_DIR/inbox/data/signals.jsonl"
 
     teardown
 }
@@ -138,13 +139,13 @@ test_build_preserves_access_log() {
     setup
 
     # Seed a decision so we have data to index
-    "$TMPDIR/lore.sh" remember "Test decision" --rationale "testing" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Test decision" --rationale "testing" --force >/dev/null 2>&1
 
     # Build index first time
-    bash "$TMPDIR/lib/search-index.sh" build >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" build >/dev/null 2>&1
 
     # Get DB path from paths.sh
-    source "$TMPDIR/lib/paths.sh"
+    source "$FIXTURE_DIR/lib/paths.sh"
     local db="$LORE_SEARCH_DB"
 
     # Insert test access records
@@ -157,7 +158,7 @@ test_build_preserves_access_log() {
     count_before=$(sqlite3 "$db" "SELECT COUNT(*) FROM access_log;" 2>/dev/null)
 
     # Rebuild index
-    bash "$TMPDIR/lib/search-index.sh" build >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" build >/dev/null 2>&1
 
     local count_after
     count_after=$(sqlite3 "$db" "SELECT COUNT(*) FROM access_log;" 2>/dev/null)
@@ -172,12 +173,12 @@ test_export_import_cycle() {
     setup
 
     # Seed a decision so we have data to index
-    "$TMPDIR/lore.sh" remember "Test decision" --rationale "testing" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Test decision" --rationale "testing" --force >/dev/null 2>&1
 
     # Build index
-    bash "$TMPDIR/lib/search-index.sh" build >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" build >/dev/null 2>&1
 
-    source "$TMPDIR/lib/paths.sh"
+    source "$FIXTURE_DIR/lib/paths.sh"
     local db="$LORE_SEARCH_DB"
 
     # Insert test access records
@@ -192,17 +193,17 @@ test_export_import_cycle() {
     count_original=$(sqlite3 "$db" "SELECT COUNT(*) FROM access_log;" 2>/dev/null)
 
     # Export
-    bash "$TMPDIR/lib/search-index.sh" export-access "$TMPDIR/test_access_log.jsonl" >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" export-access "$FIXTURE_DIR/test_access_log.jsonl" >/dev/null 2>&1
 
     # Delete DB and rebuild (simulates fresh build)
     rm "$db"
-    bash "$TMPDIR/lib/search-index.sh" build >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" build >/dev/null 2>&1
 
     local count_after_rebuild
     count_after_rebuild=$(sqlite3 "$db" "SELECT COUNT(*) FROM access_log;" 2>/dev/null)
 
     # Import
-    bash "$TMPDIR/lib/search-index.sh" import-access "$TMPDIR/test_access_log.jsonl" >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" import-access "$FIXTURE_DIR/test_access_log.jsonl" >/dev/null 2>&1
 
     local count_after_import
     count_after_import=$(sqlite3 "$db" "SELECT COUNT(*) FROM access_log;" 2>/dev/null)
@@ -218,14 +219,14 @@ test_db_rebuild_from_sources() {
     setup
 
     # Seed data in event tier
-    "$TMPDIR/lore.sh" remember "Decision 1" --rationale "reason 1" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" remember "Decision 2" --rationale "reason 2" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" fail ToolError "Error message" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Decision 1" --rationale "reason 1" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Decision 2" --rationale "reason 2" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Error message" >/dev/null 2>&1
 
     # Build index first time
-    bash "$TMPDIR/lib/search-index.sh" build >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" build >/dev/null 2>&1
 
-    source "$TMPDIR/lib/paths.sh"
+    source "$FIXTURE_DIR/lib/paths.sh"
     local db="$LORE_SEARCH_DB"
 
     # Get initial counts
@@ -238,7 +239,7 @@ test_db_rebuild_from_sources() {
     rm "$db"
 
     # Rebuild from sources
-    bash "$TMPDIR/lib/search-index.sh" build >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" build >/dev/null 2>&1
 
     # Get counts after rebuild
     local decisions_after
@@ -250,8 +251,8 @@ test_db_rebuild_from_sources() {
     assert_eq "failures count restored" "$failures_before" "$failures_after"
 
     # Verify source files still exist
-    assert_file_exists "source decisions.jsonl still exists" "$TMPDIR/journal/data/decisions.jsonl"
-    assert_file_exists "source failures.jsonl still exists" "$TMPDIR/failures/data/failures.jsonl"
+    assert_file_exists "source decisions.jsonl still exists" "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    assert_file_exists "source failures.jsonl still exists" "$FIXTURE_DIR/failures/data/failures.jsonl"
 
     teardown
 }
@@ -261,10 +262,10 @@ test_reference_tier_yaml_parseable() {
     setup
 
     # Verify initial patterns.yaml is valid YAML
-    assert_ok "initial patterns.yaml is valid YAML" yq -e '.' "$TMPDIR/patterns/data/patterns.yaml"
+    assert_ok "initial patterns.yaml is valid YAML" yq -e '.' "$FIXTURE_DIR/patterns/data/patterns.yaml"
 
     # Verify concepts.yaml is valid YAML
-    assert_ok "initial concepts.yaml is valid YAML" yq -e '.' "$TMPDIR/patterns/data/concepts.yaml"
+    assert_ok "initial concepts.yaml is valid YAML" yq -e '.' "$FIXTURE_DIR/patterns/data/concepts.yaml"
 
     teardown
 }
@@ -274,14 +275,14 @@ test_export_access_default_path() {
     setup
 
     # Seed and build
-    "$TMPDIR/lore.sh" remember "Test decision" --rationale "testing" --force >/dev/null 2>&1
-    bash "$TMPDIR/lib/search-index.sh" build >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Test decision" --rationale "testing" --force >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" build >/dev/null 2>&1
 
     # Export without specifying path (uses default)
-    bash "$TMPDIR/lib/search-index.sh" export-access >/dev/null 2>&1
+    bash "$FIXTURE_DIR/lib/search-index.sh" export-access >/dev/null 2>&1
 
     # Verify default path exists
-    assert_file_exists "default export file created" "$TMPDIR/access_log.jsonl"
+    assert_file_exists "default export file created" "$FIXTURE_DIR/access_log.jsonl"
 
     teardown
 }

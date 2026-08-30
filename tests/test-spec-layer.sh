@@ -9,62 +9,63 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE="$SCRIPT_DIR/../lore.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Mirror the directory structure lore.sh expects
-    mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
-    mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
-    mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer/data/sessions" "$TMPDIR/transfer/lib"
-    mkdir -p "$TMPDIR/inbox/lib"
-    mkdir -p "$TMPDIR/graph/data" "$TMPDIR/graph/lib"
-    mkdir -p "$TMPDIR/lib"
+    mkdir -p "$FIXTURE_DIR/journal/data" "$FIXTURE_DIR/journal/lib"
+    mkdir -p "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/patterns/lib"
+    mkdir -p "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/failures/lib"
+    mkdir -p "$FIXTURE_DIR/transfer/data/sessions" "$FIXTURE_DIR/transfer/lib"
+    mkdir -p "$FIXTURE_DIR/inbox/lib"
+    mkdir -p "$FIXTURE_DIR/graph/data" "$FIXTURE_DIR/graph/lib"
+    mkdir -p "$FIXTURE_DIR/lib"
 
     # Copy component scripts and libraries
-    cp -R "$SCRIPT_DIR/../journal/"* "$TMPDIR/journal/"
-    cp -R "$SCRIPT_DIR/../patterns/"* "$TMPDIR/patterns/"
-    cp -R "$SCRIPT_DIR/../failures/"* "$TMPDIR/failures/"
-    cp -R "$SCRIPT_DIR/../transfer/"* "$TMPDIR/transfer/"
-    cp -R "$SCRIPT_DIR/../inbox/"* "$TMPDIR/inbox/"
-    cp -R "$SCRIPT_DIR/../graph/"* "$TMPDIR/graph/"
-    cp -R "$SCRIPT_DIR/../lib/"* "$TMPDIR/lib/"
+    cp -R "$SCRIPT_DIR/../journal/"* "$FIXTURE_DIR/journal/"
+    cp -R "$SCRIPT_DIR/../patterns/"* "$FIXTURE_DIR/patterns/"
+    cp -R "$SCRIPT_DIR/../failures/"* "$FIXTURE_DIR/failures/"
+    cp -R "$SCRIPT_DIR/../transfer/"* "$FIXTURE_DIR/transfer/"
+    cp -R "$SCRIPT_DIR/../inbox/"* "$FIXTURE_DIR/inbox/"
+    cp -R "$SCRIPT_DIR/../graph/"* "$FIXTURE_DIR/graph/"
+    cp -R "$SCRIPT_DIR/../lib/"* "$FIXTURE_DIR/lib/"
 
     # Copy lore.sh into the temp dir so LORE_DIR self-derives correctly
-    cp "$LORE" "$TMPDIR/lore.sh"
-    chmod +x "$TMPDIR/lore.sh"
+    cp "$LORE" "$FIXTURE_DIR/lore.sh"
+    chmod +x "$FIXTURE_DIR/lore.sh"
 
     # Initialize empty data files
-    : > "$TMPDIR/journal/data/decisions.jsonl"
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    : > "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 # Pattern Learner Database
 patterns: []
 
 anti_patterns: []
 YAML
-    : > "$TMPDIR/failures/data/failures.jsonl"
+    : > "$FIXTURE_DIR/failures/data/failures.jsonl"
 
     # Initialize graph
-    echo '{"nodes":{},"edges":[]}' > "$TMPDIR/graph/data/graph.json"
+    echo '{"nodes":{},"edges":[]}' > "$FIXTURE_DIR/graph/data/graph.json"
 
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
     # Reset paths.sh idempotency guard so it re-sources with new LORE_DIR
     unset _LORE_PATHS_LOADED
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_pass() {
@@ -109,7 +110,7 @@ test_spec_quality_decision() {
 
     # Record a well-specified decision
     local output
-    output=$("$TMPDIR/lore.sh" remember "Use PostgreSQL for data storage" \
+    output=$("$FIXTURE_DIR/lore.sh" remember "Use PostgreSQL for data storage" \
         --rationale "Need ACID guarantees and the team has experience with it" \
         --tags "database,architecture" \
         -f "data-layer" 2>&1) || true
@@ -119,7 +120,7 @@ test_spec_quality_decision() {
 
     # Check that spec_quality field exists in the JSONL
     local sq
-    sq=$(jq -r '.spec_quality // empty' "$TMPDIR/journal/data/decisions.jsonl" 2>/dev/null | head -1) || true
+    sq=$(jq -r '.spec_quality // empty' "$FIXTURE_DIR/journal/data/decisions.jsonl" 2>/dev/null | head -1) || true
     if [[ -n "$sq" && "$sq" != "null" ]]; then
         assert_pass "spec_quality stored in decision record ($sq)"
     else
@@ -134,10 +135,10 @@ test_spec_quality_missing_fields() {
     setup
 
     # Record a minimal decision (no rationale, no tags, no entities)
-    "$TMPDIR/lore.sh" remember "Do something" 2>&1 || true
+    "$FIXTURE_DIR/lore.sh" remember "Do something" 2>&1 || true
 
     local sq
-    sq=$(jq -r '.spec_quality // 0' "$TMPDIR/journal/data/decisions.jsonl" 2>/dev/null | head -1) || true
+    sq=$(jq -r '.spec_quality // 0' "$FIXTURE_DIR/journal/data/decisions.jsonl" 2>/dev/null | head -1) || true
 
     # Should have base score only (0.2)
     if awk "BEGIN { exit ($sq <= 0.3) ? 0 : 1 }" 2>/dev/null; then
@@ -154,7 +155,7 @@ test_spec_quality_pattern() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" learn "Quote shell variables" \
+    output=$("$FIXTURE_DIR/lore.sh" learn "Quote shell variables" \
         --context "Bash scripts with set -e" \
         --solution 'Always use "$var" not $var' \
         --problem "Word splitting causes subtle bugs" \
@@ -163,7 +164,7 @@ test_spec_quality_pattern() {
     assert_output_contains "pattern spec quality printed" "$output" "[Ss]pec quality"
 
     # Check patterns.yaml for spec_quality field
-    if grep -q "spec_quality:" "$TMPDIR/patterns/data/patterns.yaml" 2>/dev/null; then
+    if grep -q "spec_quality:" "$FIXTURE_DIR/patterns/data/patterns.yaml" 2>/dev/null; then
         assert_pass "spec_quality stored in pattern YAML"
     else
         assert_fail "spec_quality not found in pattern YAML"
@@ -177,12 +178,12 @@ test_review_list_pending() {
     setup
 
     # Record a decision (defaults to outcome: pending)
-    "$TMPDIR/lore.sh" remember "Use Redis for caching" \
+    "$FIXTURE_DIR/lore.sh" remember "Use Redis for caching" \
         --rationale "Fast in-memory store" \
         --tags "caching" 2>&1 >/dev/null || true
 
     local output
-    output=$("$TMPDIR/lore.sh" review --days 0 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" review --days 0 2>&1) || true
 
     # Should recognize the pending decision (either listed or counted)
     assert_output_contains "review finds pending" "$output" "pending"
@@ -195,21 +196,21 @@ test_review_resolve() {
     setup
 
     # Record a decision
-    "$TMPDIR/lore.sh" remember "Use JWT for auth" \
+    "$FIXTURE_DIR/lore.sh" remember "Use JWT for auth" \
         --rationale "Stateless, scalable" \
         --tags "auth" 2>&1 >/dev/null || true
 
     # Get the decision ID
     local dec_id
-    dec_id=$(jq -r '.id' "$TMPDIR/journal/data/decisions.jsonl" | head -1) || true
+    dec_id=$(jq -r '.id' "$FIXTURE_DIR/journal/data/decisions.jsonl" | head -1) || true
 
     # Resolve it
-    "$TMPDIR/lore.sh" review --resolve "$dec_id" --outcome successful \
+    "$FIXTURE_DIR/lore.sh" review --resolve "$dec_id" --outcome successful \
         --lesson "JWT worked well for our scale" 2>&1 >/dev/null || true
 
     # Check the latest version has updated outcome
     local outcome
-    outcome=$(jq -r '.outcome' "$TMPDIR/journal/data/decisions.jsonl" | tail -1) || true
+    outcome=$(jq -r '.outcome' "$FIXTURE_DIR/journal/data/decisions.jsonl" | tail -1) || true
 
     if [[ "$outcome" == "successful" ]]; then
         assert_pass "decision resolved as successful"
@@ -225,12 +226,12 @@ test_brief_decisions() {
     setup
 
     # Record a decision about caching
-    "$TMPDIR/lore.sh" remember "Use Redis for session caching" \
+    "$FIXTURE_DIR/lore.sh" remember "Use Redis for session caching" \
         --rationale "Need sub-ms reads" \
         --tags "caching,infrastructure" 2>&1 >/dev/null || true
 
     local output
-    output=$("$TMPDIR/lore.sh" brief "caching" 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" brief "caching" 2>&1) || true
 
     assert_output_contains "brief shows decision section" "$output" "Decisions"
     assert_output_contains "brief shows matching decision" "$output" "Redis"
@@ -243,7 +244,7 @@ test_brief_no_match() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" brief "nonexistent-topic-xyz" 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" brief "nonexistent-topic-xyz" 2>&1) || true
 
     assert_output_contains "brief shows topic header" "$output" "nonexistent-topic-xyz"
     assert_output_contains "brief shows decisions section" "$output" "Decisions (0)"
@@ -256,7 +257,7 @@ test_brief_requires_topic() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" brief 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" brief 2>&1) || true
 
     assert_output_contains "brief requires topic" "$output" "Topic required\|Usage"
 
@@ -271,13 +272,13 @@ test_subtraction_stale_decisions() {
     local old_ts
     old_ts=$(date -j -v-20d -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "20 days ago" +"%Y-%m-%dT%H:%M:%SZ")
 
-    cat > "$TMPDIR/journal/data/decisions.jsonl" <<EOF
+    cat > "$FIXTURE_DIR/journal/data/decisions.jsonl" <<EOF
 {"id":"dec-stale001","timestamp":"${old_ts}","decision":"Old pending decision","rationale":"test","outcome":"pending","type":"other","entities":[],"tags":[],"alternatives":[],"status":"active"}
 EOF
 
     # Source and run subtraction_check
-    source "$TMPDIR/lib/paths.sh"
-    source "$TMPDIR/lib/subtraction.sh"
+    source "$FIXTURE_DIR/lib/paths.sh"
+    source "$FIXTURE_DIR/lib/subtraction.sh"
     local output
     output=$(subtraction_check 2>&1) || true
 
@@ -291,7 +292,7 @@ test_subtraction_low_confidence() {
     setup
 
     # Write a pattern with low confidence and 0 validations
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 patterns:
   - id: "pat-000001-test"
     name: "Fragile pattern"
@@ -307,8 +308,8 @@ patterns:
 anti_patterns: []
 YAML
 
-    source "$TMPDIR/lib/paths.sh"
-    source "$TMPDIR/lib/subtraction.sh"
+    source "$FIXTURE_DIR/lib/paths.sh"
+    source "$FIXTURE_DIR/lib/subtraction.sh"
     local output
     output=$(subtraction_check 2>&1) || true
 
@@ -321,8 +322,8 @@ test_subtraction_clean() {
     echo "Test: subtraction_check produces no output when everything is healthy"
     setup
 
-    source "$TMPDIR/lib/paths.sh"
-    source "$TMPDIR/lib/subtraction.sh"
+    source "$FIXTURE_DIR/lib/paths.sh"
+    source "$FIXTURE_DIR/lib/subtraction.sh"
     local output
     output=$(subtraction_check 2>&1) || true
 

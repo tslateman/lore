@@ -11,51 +11,52 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE="$SCRIPT_DIR/../lore.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Mirror the directory structure lore.sh expects
-    mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
-    mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
-    mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer" "$TMPDIR/inbox/lib"
-    mkdir -p "$TMPDIR/graph" "$TMPDIR/lib"
-    mkdir -p "$TMPDIR/intent/data/goals" "$TMPDIR/intent/lib"
+    mkdir -p "$FIXTURE_DIR/journal/data" "$FIXTURE_DIR/journal/lib"
+    mkdir -p "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/patterns/lib"
+    mkdir -p "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/failures/lib"
+    mkdir -p "$FIXTURE_DIR/transfer" "$FIXTURE_DIR/inbox/lib"
+    mkdir -p "$FIXTURE_DIR/graph" "$FIXTURE_DIR/lib"
+    mkdir -p "$FIXTURE_DIR/intent/data/goals" "$FIXTURE_DIR/intent/lib"
 
     # Copy component scripts and libraries
-    cp -R "$SCRIPT_DIR/../journal/"* "$TMPDIR/journal/"
-    cp -R "$SCRIPT_DIR/../patterns/"* "$TMPDIR/patterns/"
-    cp -R "$SCRIPT_DIR/../failures/"* "$TMPDIR/failures/"
-    cp -R "$SCRIPT_DIR/../transfer/"* "$TMPDIR/transfer/"
-    cp -R "$SCRIPT_DIR/../inbox/"* "$TMPDIR/inbox/"
-    cp -R "$SCRIPT_DIR/../graph/"* "$TMPDIR/graph/"
-    cp -R "$SCRIPT_DIR/../lib/"* "$TMPDIR/lib/"
-    cp -R "$SCRIPT_DIR/../intent/"* "$TMPDIR/intent/"
+    cp -R "$SCRIPT_DIR/../journal/"* "$FIXTURE_DIR/journal/"
+    cp -R "$SCRIPT_DIR/../patterns/"* "$FIXTURE_DIR/patterns/"
+    cp -R "$SCRIPT_DIR/../failures/"* "$FIXTURE_DIR/failures/"
+    cp -R "$SCRIPT_DIR/../transfer/"* "$FIXTURE_DIR/transfer/"
+    cp -R "$SCRIPT_DIR/../inbox/"* "$FIXTURE_DIR/inbox/"
+    cp -R "$SCRIPT_DIR/../graph/"* "$FIXTURE_DIR/graph/"
+    cp -R "$SCRIPT_DIR/../lib/"* "$FIXTURE_DIR/lib/"
+    cp -R "$SCRIPT_DIR/../intent/"* "$FIXTURE_DIR/intent/"
 
     # Copy lore.sh into the temp dir so LORE_DIR self-derives correctly
-    cp "$LORE" "$TMPDIR/lore.sh"
-    chmod +x "$TMPDIR/lore.sh"
+    cp "$LORE" "$FIXTURE_DIR/lore.sh"
+    chmod +x "$FIXTURE_DIR/lore.sh"
 
     # Initialize empty data files
-    : > "$TMPDIR/journal/data/decisions.jsonl"
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    : > "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 # Pattern Learner Database
 patterns: []
 
 anti_patterns: []
 YAML
-    : > "$TMPDIR/failures/data/failures.jsonl"
+    : > "$FIXTURE_DIR/failures/data/failures.jsonl"
 
     # Create a test memory.sqlite with the Memory table
-    sqlite3 "$TMPDIR/memory.sqlite" <<'SQL'
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" <<'SQL'
 CREATE TABLE Memory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     importance INTEGER DEFAULT 3,
@@ -72,14 +73,14 @@ CREATE TABLE Memory (
 SQL
 
     unset _LORE_PATHS_LOADED
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_ok() {
@@ -138,7 +139,7 @@ assert_eq() {
 test_classify_query_lore_keywords() {
     echo "Test: classify_query routes decision/pattern/failure keywords to lore-first"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     assert_eq "decision keyword" "$(classify_query "why did we choose JSONL?")" "lore-first"
     assert_eq "rationale keyword" "$(classify_query "what rationale for this?")" "lore-first"
@@ -153,7 +154,7 @@ test_classify_query_lore_keywords() {
 test_classify_query_memory_keywords() {
     echo "Test: classify_query routes session/working keywords to memory-first"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     assert_eq "working on keyword" "$(classify_query "what was I working on?")" "memory-first"
     assert_eq "recent keyword" "$(classify_query "recent changes")" "memory-first"
@@ -167,7 +168,7 @@ test_classify_query_memory_keywords() {
 test_classify_query_default_both() {
     echo "Test: classify_query defaults to 'both' for generic queries"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     assert_eq "generic query" "$(classify_query "authentication")" "both"
     assert_eq "another generic" "$(classify_query "how does the API work")" "both"
@@ -179,10 +180,10 @@ test_classify_query_default_both() {
 test_query_claude_memory_returns_results() {
     echo "Test: query_claude_memory returns matching rows"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     # Seed test data
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, content) VALUES (3, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'conversation', 'debugging', 'npm fails in non-interactive shells');"
 
     local output
@@ -197,10 +198,10 @@ test_query_claude_memory_returns_results() {
 test_query_claude_memory_missing_db() {
     echo "Test: query_claude_memory returns empty when DB missing"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
-    rm -f "$TMPDIR/memory.sqlite"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
+    rm -f "$FIXTURE_DIR/memory.sqlite"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
 
     local output
     output=$(query_claude_memory "anything")
@@ -213,9 +214,9 @@ test_query_claude_memory_missing_db() {
 test_query_claude_memory_skips_low_importance() {
     echo "Test: query_claude_memory excludes importance=0 rows"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, content) VALUES (0, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', '[lore:dec-retracted] retracted decision');"
 
     local output
@@ -229,14 +230,14 @@ test_query_claude_memory_skips_low_importance() {
 test_enrich_decision_shadow() {
     echo "Test: enrich_lore_shadow fetches full decision record"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     # Seed a decision
-    "$TMPDIR/lore.sh" remember "Use JSONL for storage" --rationale "Append-only, simple" --tags "arch,storage" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL for storage" --rationale "Append-only, simple" --tags "arch,storage" --force >/dev/null 2>&1
 
     # Get the ID from the seeded decision
     local dec_id
-    dec_id=$(jq -r '.id' "$TMPDIR/journal/data/decisions.jsonl" | tail -1)
+    dec_id=$(jq -r '.id' "$FIXTURE_DIR/journal/data/decisions.jsonl" | tail -1)
 
     local output
     output=$(enrich_lore_shadow "[lore:${dec_id}] Use JSONL for storage")
@@ -250,14 +251,14 @@ test_enrich_decision_shadow() {
 test_enrich_pattern_shadow() {
     echo "Test: enrich_lore_shadow fetches full pattern record"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     # Seed a pattern
-    "$TMPDIR/lore.sh" learn "Safe bash arithmetic" --context "Shell scripts" --problem "Expr is fragile" --solution 'Use x=$((x+1))' --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" learn "Safe bash arithmetic" --context "Shell scripts" --problem "Expr is fragile" --solution 'Use x=$((x+1))' --force >/dev/null 2>&1
 
     # Get the pattern ID
     local pat_id
-    pat_id=$(yq -r '.patterns[-1].id' "$TMPDIR/patterns/data/patterns.yaml")
+    pat_id=$(yq -r '.patterns[-1].id' "$FIXTURE_DIR/patterns/data/patterns.yaml")
 
     local output
     output=$(enrich_lore_shadow "[lore:${pat_id}] Safe bash arithmetic")
@@ -271,7 +272,7 @@ test_enrich_pattern_shadow() {
 test_enrich_no_lore_prefix() {
     echo "Test: enrich_lore_shadow returns nothing for non-shadow content"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     local output
     output=$(enrich_lore_shadow "plain memory without lore prefix")
@@ -285,15 +286,15 @@ test_lore_first_without_memory_db() {
     echo "Test: lore-first path works without Engram DB"
     setup
 
-    rm -f "$TMPDIR/memory.sqlite"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
+    rm -f "$FIXTURE_DIR/memory.sqlite"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
 
     # Seed a decision
-    "$TMPDIR/lore.sh" remember "Use JSONL for storage" --rationale "Append-only" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL for storage" --rationale "Append-only" --force >/dev/null 2>&1
 
     # --routed without search.db falls back to grep; no crash
     local output
-    output=$("$TMPDIR/lore.sh" recall --routed "JSONL" 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" recall --routed "JSONL" 2>&1) || true
 
     assert_output_not_contains "no unknown command error" "$output" "Unknown command"
     assert_output_not_contains "no unknown option error" "$output" "Unknown option"
@@ -305,15 +306,15 @@ test_memory_first_fallback_to_lore() {
     echo "Test: memory-first falls back to Lore when Engram DB missing"
     setup
 
-    rm -f "$TMPDIR/memory.sqlite"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
+    rm -f "$FIXTURE_DIR/memory.sqlite"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
 
     # Seed a decision
-    "$TMPDIR/lore.sh" remember "Use JSONL for decisions" --rationale "Simple" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL for decisions" --rationale "Simple" --force >/dev/null 2>&1
 
     # Force memory-first route by using a memory-first keyword
     local output
-    output=$("$TMPDIR/lore.sh" recall --routed "recent session" 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" recall --routed "recent session" 2>&1) || true
 
     # Should not crash even without memory.sqlite
     assert_output_not_contains "no crash" "$output" "Unknown command"
@@ -324,19 +325,19 @@ test_memory_first_fallback_to_lore() {
 test_both_mode_dedup() {
     echo "Test: 'both' mode deduplicates shadow memories"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     # Seed a decision in Lore
-    "$TMPDIR/lore.sh" remember "Use JSONL for storage" --rationale "Append-only" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL for storage" --rationale "Append-only" --force >/dev/null 2>&1
     local dec_id
-    dec_id=$(jq -r '.id' "$TMPDIR/journal/data/decisions.jsonl" | tail -1)
+    dec_id=$(jq -r '.id' "$FIXTURE_DIR/journal/data/decisions.jsonl" | tail -1)
 
     # Seed the same as a shadow in Engram
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, content) VALUES (3, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', '[lore:${dec_id}] Use JSONL for storage. Why: Append-only <!-- hash:abc123 -->');"
 
     # Also seed a native memory (no shadow)
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, content) VALUES (3, 1, 1708000000, 1708000000, 'global', zeroblob(0), 'conversation', 'debugging', 'JSONL parsing tips from last session');"
 
     # Query both sources; without search.db, Lore leg is empty (grep fallback),
@@ -356,12 +357,12 @@ test_both_mode_dedup() {
 test_compact_provenance_prefix() {
     echo "Test: compact output includes provenance prefixes"
     setup
-    source "$TMPDIR/lib/recall-router.sh"
+    source "$FIXTURE_DIR/lib/recall-router.sh"
 
     # Seed shadow and native memory
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, content) VALUES (3, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', '[lore:dec-test123] Use JSONL for storage. Why: Append-only <!-- hash:abc -->');"
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, content) VALUES (3, 1, 1708000000, 1708000000, 'global', zeroblob(0), 'conversation', 'debugging', 'npm fails in non-interactive shells');"
 
     # Format shadow as compact
@@ -381,10 +382,10 @@ test_backward_compat_recall_unchanged() {
     echo "Test: lore recall without --routed still works"
     setup
 
-    "$TMPDIR/lore.sh" remember "Compat decision" --rationale "testing" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Compat decision" --rationale "testing" --force >/dev/null 2>&1
 
     local output
-    output=$("$TMPDIR/lore.sh" recall "compat" 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" recall "compat" 2>&1) || true
 
     assert_output_not_contains "no unknown command error" "$output" "Unknown command"
     assert_output_not_contains "no unknown option error" "$output" "Unknown option"
@@ -397,7 +398,7 @@ test_routed_recall_no_query_error() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" recall --routed 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" recall --routed 2>&1) || true
 
     assert_output_contains "shows error" "$output" "Error"
 

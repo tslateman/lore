@@ -9,26 +9,27 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 RERANK_LIB="$SCRIPT_DIR/../lib/rerank.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 SHIM_DIR=""
 ORIG_PATH="$PATH"
 
 setup() {
-    TMPDIR=$(mktemp -d)
-    SHIM_DIR="$TMPDIR/bin"
+    FIXTURE_DIR=$(mktemp -d)
+    SHIM_DIR="$FIXTURE_DIR/bin"
     mkdir -p "$SHIM_DIR"
     unset LORE_RERANK LORE_RERANK_FILTER LORE_RERANK_TIMEOUT 2>/dev/null || true
 }
 
 teardown() {
     PATH="$ORIG_PATH"
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
     unset LORE_RERANK LORE_RERANK_FILTER LORE_RERANK_TIMEOUT 2>/dev/null || true
 }
 
@@ -235,7 +236,7 @@ test_search_flag_parses() {
     echo "Test: lore search --rerank flag is accepted (no unknown-option error)"
     setup
 
-    local tmp_lore="$TMPDIR/lore-env"
+    local tmp_lore="$FIXTURE_DIR/lore-env"
     mkdir -p "$tmp_lore"
     local output
     output=$(cd "$tmp_lore" && LORE_DATA_DIR="$tmp_lore" \

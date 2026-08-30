@@ -11,61 +11,62 @@ set -euo pipefail
 export LORE_RERANK=0
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$TEST_DIR/fixture.sh"
 LORE="$TEST_DIR/../lore.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Mirror the directory structure lore.sh expects
-    mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
-    mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
-    mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer" "$TMPDIR/inbox/data" "$TMPDIR/inbox/lib"
-    mkdir -p "$TMPDIR/graph" "$TMPDIR/lib"
-    mkdir -p "$TMPDIR/evidence/data" "$TMPDIR/evidence/lib"
+    mkdir -p "$FIXTURE_DIR/journal/data" "$FIXTURE_DIR/journal/lib"
+    mkdir -p "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/patterns/lib"
+    mkdir -p "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/failures/lib"
+    mkdir -p "$FIXTURE_DIR/transfer" "$FIXTURE_DIR/inbox/data" "$FIXTURE_DIR/inbox/lib"
+    mkdir -p "$FIXTURE_DIR/graph" "$FIXTURE_DIR/lib"
+    mkdir -p "$FIXTURE_DIR/evidence/data" "$FIXTURE_DIR/evidence/lib"
 
     # Copy component scripts and libraries
-    cp -R "$TEST_DIR/../journal/"* "$TMPDIR/journal/"
-    cp -R "$TEST_DIR/../patterns/"* "$TMPDIR/patterns/"
-    cp -R "$TEST_DIR/../failures/"* "$TMPDIR/failures/"
-    cp -R "$TEST_DIR/../transfer/"* "$TMPDIR/transfer/"
-    cp -R "$TEST_DIR/../inbox/"* "$TMPDIR/inbox/"
-    cp -R "$TEST_DIR/../graph/"* "$TMPDIR/graph/"
-    cp -R "$TEST_DIR/../lib/"* "$TMPDIR/lib/"
-    cp -R "$TEST_DIR/../evidence/"* "$TMPDIR/evidence/"
+    cp -R "$TEST_DIR/../journal/"* "$FIXTURE_DIR/journal/"
+    cp -R "$TEST_DIR/../patterns/"* "$FIXTURE_DIR/patterns/"
+    cp -R "$TEST_DIR/../failures/"* "$FIXTURE_DIR/failures/"
+    cp -R "$TEST_DIR/../transfer/"* "$FIXTURE_DIR/transfer/"
+    cp -R "$TEST_DIR/../inbox/"* "$FIXTURE_DIR/inbox/"
+    cp -R "$TEST_DIR/../graph/"* "$FIXTURE_DIR/graph/"
+    cp -R "$TEST_DIR/../lib/"* "$FIXTURE_DIR/lib/"
+    cp -R "$TEST_DIR/../evidence/"* "$FIXTURE_DIR/evidence/"
 
     # Copy lore.sh into the temp dir so LORE_DIR self-derives correctly
-    cp "$LORE" "$TMPDIR/lore.sh"
-    chmod +x "$TMPDIR/lore.sh"
+    cp "$LORE" "$FIXTURE_DIR/lore.sh"
+    chmod +x "$FIXTURE_DIR/lore.sh"
 
     # Initialize empty data files
-    echo '[]' > "$TMPDIR/journal/data/decisions.jsonl"
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    echo '[]' > "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 # Pattern Learner Database
 patterns: []
 
 anti_patterns: []
 YAML
-    : > "$TMPDIR/failures/data/failures.jsonl"
-    : > "$TMPDIR/inbox/data/signals.jsonl"
-    : > "$TMPDIR/evidence/data/evidence.jsonl"
+    : > "$FIXTURE_DIR/failures/data/failures.jsonl"
+    : > "$FIXTURE_DIR/inbox/data/signals.jsonl"
+    : > "$FIXTURE_DIR/evidence/data/evidence.jsonl"
 
     # Reset paths.sh idempotency guard so it re-derives from new LORE_DIR
     unset _LORE_PATHS_LOADED
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_ok() {
@@ -109,11 +110,11 @@ assert_contains() {
 
 load_evidence_lib() {
     unset _LORE_PATHS_LOADED
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
-    source "$TMPDIR/lib/paths.sh"
-    source "$TMPDIR/evidence/lib/evidence.sh"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
+    source "$FIXTURE_DIR/lib/paths.sh"
+    source "$FIXTURE_DIR/evidence/lib/evidence.sh"
 }
 
 test_append_creates_record() {
@@ -127,7 +128,7 @@ test_append_creates_record() {
     assert_contains "returns evi- prefixed ID" "^evi-" "$id"
 
     local record
-    record=$(tail -1 "$TMPDIR/evidence/data/evidence.jsonl")
+    record=$(tail -1 "$FIXTURE_DIR/evidence/data/evidence.jsonl")
     assert_contains "record has content" "Login fails after token expiry" "$record"
     assert_contains "record has source" "council" "$record"
     assert_contains "record has confidence" "confirmed" "$record"
@@ -384,8 +385,8 @@ test_cli_capture_evidence() {
     echo "Test: lore capture --evidence works"
     setup
 
-    assert_ok "capture --evidence succeeds" "$TMPDIR/lore.sh" capture "CLI evidence test" --evidence
-    assert_contains "evidence.jsonl has content" "CLI evidence test" "$(cat "$TMPDIR/evidence/data/evidence.jsonl")"
+    assert_ok "capture --evidence succeeds" "$FIXTURE_DIR/lore.sh" capture "CLI evidence test" --evidence
+    assert_contains "evidence.jsonl has content" "CLI evidence test" "$(cat "$FIXTURE_DIR/evidence/data/evidence.jsonl")"
     teardown
 }
 
@@ -393,8 +394,8 @@ test_cli_capture_evidence_with_confidence() {
     echo "Test: lore capture --evidence --confidence confirmed works"
     setup
 
-    assert_ok "capture with confidence succeeds" "$TMPDIR/lore.sh" capture "Confirmed CLI evidence" --evidence --confidence confirmed
-    assert_contains "record has confirmed confidence" '"confidence":"confirmed"' "$(cat "$TMPDIR/evidence/data/evidence.jsonl")"
+    assert_ok "capture with confidence succeeds" "$FIXTURE_DIR/lore.sh" capture "Confirmed CLI evidence" --evidence --confidence confirmed
+    assert_contains "record has confirmed confidence" '"confidence":"confirmed"' "$(cat "$FIXTURE_DIR/evidence/data/evidence.jsonl")"
     teardown
 }
 
@@ -402,9 +403,9 @@ test_cli_evidence_list() {
     echo "Test: lore evidence list succeeds"
     setup
 
-    "$TMPDIR/lore.sh" capture "Listed evidence" --evidence >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" capture "Listed evidence" --evidence >/dev/null 2>&1
 
-    assert_ok "evidence list succeeds" "$TMPDIR/lore.sh" evidence list
+    assert_ok "evidence list succeeds" "$FIXTURE_DIR/lore.sh" evidence list
     teardown
 }
 
@@ -413,7 +414,7 @@ test_cli_evidence_get() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" capture "Gettable evidence" --evidence 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" capture "Gettable evidence" --evidence 2>&1)
 
     # Extract the evi-XXXXXXXX ID from the capture output
     local id
@@ -427,7 +428,7 @@ test_cli_evidence_get() {
     fi
 
     local result
-    result=$("$TMPDIR/lore.sh" evidence get "$id" 2>&1)
+    result=$("$FIXTURE_DIR/lore.sh" evidence get "$id" 2>&1)
     assert_contains "get returns the record" "Gettable evidence" "$result"
     teardown
 }
@@ -436,10 +437,10 @@ test_cli_evidence_stats() {
     echo "Test: lore evidence stats returns valid JSON"
     setup
 
-    "$TMPDIR/lore.sh" capture "Stats evidence" --evidence >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" capture "Stats evidence" --evidence >/dev/null 2>&1
 
     local result
-    result=$("$TMPDIR/lore.sh" evidence stats 2>&1)
+    result=$("$FIXTURE_DIR/lore.sh" evidence stats 2>&1)
 
     # Verify it parses as valid JSON with expected keys
     if echo "$result" | jq '.total' >/dev/null 2>&1; then
