@@ -13,7 +13,7 @@
 #   (default)   drain the queue
 #   --health    report queue depth, last success age, recent log lines
 
-set -u
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -45,8 +45,8 @@ log() {
 # Health report — human-facing, prints to stdout.
 #######################################
 if [[ "${1:-}" == "--health" ]]; then
-    pending=$(ls "${QUEUE_DIR}"/*.json 2>/dev/null | wc -l | tr -d ' ')
-    failed=$(ls "${FAILED_DIR}"/*.json 2>/dev/null | wc -l | tr -d ' ')
+    pending=$(ls "${QUEUE_DIR}"/*.json 2>/dev/null | wc -l | tr -d ' ') || pending=0
+    failed=$(ls "${FAILED_DIR}"/*.json 2>/dev/null | wc -l | tr -d ' ') || failed=0
     echo "Handoff pipeline health"
     echo "  Pending queue: ${pending}"
     echo "  Failed (needs inspection): ${failed}"
@@ -84,7 +84,7 @@ if ! mkdir "${LOCK_DIR}" 2>/dev/null; then
     fi
     log "WARN stealing stale lock (age ${lock_age}s)"
 fi
-trap 'rmdir "${LOCK_DIR}" 2>/dev/null' EXIT
+trap 'rmdir "${LOCK_DIR}" 2>/dev/null || true' EXIT
 
 #######################################
 # Run a command with a timeout (bash 3.2 / macOS safe).
@@ -94,14 +94,17 @@ run_with_timeout() {
     shift
     if command -v timeout >/dev/null 2>&1; then timeout "${secs}" "$@"; return $?; fi
     if command -v gtimeout >/dev/null 2>&1; then gtimeout "${secs}" "$@"; return $?; fi
-    "$@" &
+    local out rc=0
+    out=$(mktemp "${TMPDIR:-/tmp}/lore-timeout.XXXXXX")
+    "$@" >"${out}" &
     local pid=$!
-    ( sleep "${secs}"; kill "${pid}" 2>/dev/null ) &
+    ( sleep "${secs}"; kill "${pid}" 2>/dev/null ) >/dev/null 2>&1 &
     local killer=$!
-    local rc=0
     wait "${pid}" 2>/dev/null || rc=$?
     kill "${killer}" 2>/dev/null
     wait "${killer}" 2>/dev/null || true
+    cat "${out}"
+    rm -f "${out}"
     return "${rc}"
 }
 
@@ -252,7 +255,8 @@ print(d["attempts"])
         mv "${entry}" "${FAILED_DIR}/" 2>/dev/null || true
     fi
 done
-log "DONE drained=${drained} pending=$(ls "${QUEUE_DIR}"/*.json 2>/dev/null | wc -l | tr -d ' ')"
+remaining=$(ls "${QUEUE_DIR}"/*.json 2>/dev/null | wc -l | tr -d ' ') || remaining=0
+log "DONE drained=${drained} pending=${remaining}"
 
 # Cheap log rotation: keep the tail when the log grows large.
 if [[ -f "${LOG_FILE}" ]] && [[ $(wc -l < "${LOG_FILE}") -gt "${LOG_MAX_LINES}" ]]; then

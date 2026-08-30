@@ -10,14 +10,15 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Setup temp environment
-TMPDIR=$(mktemp -d)
-export LORE_DATA_DIR="$TMPDIR"
-export LORE_SEARCH_DB="$TMPDIR/search.db"
+FIXTURE_DIR=$(mktemp -d)
+export LORE_DATA_DIR="$FIXTURE_DIR"
+export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 export LORE_DIR
-export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
+export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
 
 # Source the code
 source "$LORE_DIR/lib/paths.sh"
@@ -36,11 +37,11 @@ fail() {
 }
 
 setup() {
-    rm -rf "$TMPDIR"
-    mkdir -p "$TMPDIR/graph/data"
+    remove_fixture "$FIXTURE_DIR"
+    mkdir -p "$FIXTURE_DIR/graph/data"
 
     # Create test Engram database with Memory and Edge tables
-    sqlite3 "$TMPDIR/memory.sqlite" <<'SQL'
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" <<'SQL'
 CREATE TABLE Memory(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     importance INTEGER NOT NULL,
@@ -65,7 +66,7 @@ CREATE TABLE Edge(
 SQL
 
     # Insert test shadow memories
-    sqlite3 "$TMPDIR/memory.sqlite" <<'SQL'
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" <<'SQL'
 INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content)
 VALUES
     (3, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', 0, '[lore:dec-abc123] Test decision A'),
@@ -74,7 +75,7 @@ VALUES
 SQL
 
     # Create test graph with nodes and edges
-    cat > "$TMPDIR/graph/data/graph.json" <<'JSON'
+    cat > "$FIXTURE_DIR/graph/data/graph.json" <<'JSON'
 {
   "nodes": {
     "decision-001": {
@@ -125,7 +126,7 @@ JSON
 }
 
 teardown() {
-    rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 # --- Test: _map_lore_relation_to_engram ---
@@ -174,7 +175,7 @@ test_get_shadow_memory_id_found() {
 
     source "$LORE_DIR/lib/bridge.sh"
     local result
-    result=$(_get_shadow_memory_id "$TMPDIR/memory.sqlite" "dec-abc123")
+    result=$(_get_shadow_memory_id "$FIXTURE_DIR/memory.sqlite" "dec-abc123")
 
     [[ "$result" == "1" ]] && pass "Finds shadow by lore_id" || fail "Expected '1', got '$result'"
     teardown
@@ -186,7 +187,7 @@ test_get_shadow_memory_id_not_found() {
 
     source "$LORE_DIR/lib/bridge.sh"
     local result
-    result=$(_get_shadow_memory_id "$TMPDIR/memory.sqlite" "dec-notfound")
+    result=$(_get_shadow_memory_id "$FIXTURE_DIR/memory.sqlite" "dec-notfound")
 
     [[ -z "$result" ]] && pass "Returns empty for missing shadow" || fail "Expected empty, got '$result'"
     teardown
@@ -199,10 +200,10 @@ test_create_engram_edge_success() {
     setup
 
     source "$LORE_DIR/lib/bridge.sh"
-    _create_engram_edge "$TMPDIR/memory.sqlite" 1 2 "relates_to" false
+    _create_engram_edge "$FIXTURE_DIR/memory.sqlite" 1 2 "relates_to" false
 
     local count
-    count=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=1 AND targetId=2 AND relation='relates_to';")
+    count=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=1 AND targetId=2 AND relation='relates_to';")
 
     [[ "$count" == "1" ]] && pass "Creates edge successfully" || fail "Expected 1 edge, got $count"
     teardown
@@ -213,11 +214,11 @@ test_create_engram_edge_duplicate() {
     setup
 
     source "$LORE_DIR/lib/bridge.sh"
-    _create_engram_edge "$TMPDIR/memory.sqlite" 1 2 "relates_to" false
-    _create_engram_edge "$TMPDIR/memory.sqlite" 1 2 "relates_to" false || true  # Returns 1 when skipping duplicate
+    _create_engram_edge "$FIXTURE_DIR/memory.sqlite" 1 2 "relates_to" false
+    _create_engram_edge "$FIXTURE_DIR/memory.sqlite" 1 2 "relates_to" false || true  # Returns 1 when skipping duplicate
 
     local count
-    count=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=1 AND targetId=2 AND relation='relates_to';")
+    count=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=1 AND targetId=2 AND relation='relates_to';")
 
     [[ "$count" == "1" ]] && pass "Skips duplicate edge" || fail "Expected 1 edge, got $count"
     teardown
@@ -228,10 +229,10 @@ test_create_engram_edge_dry_run() {
     setup
 
     source "$LORE_DIR/lib/bridge.sh"
-    _create_engram_edge "$TMPDIR/memory.sqlite" 1 2 "relates_to" true
+    _create_engram_edge "$FIXTURE_DIR/memory.sqlite" 1 2 "relates_to" true
 
     local count
-    count=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT COUNT(*) FROM Edge;")
+    count=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT COUNT(*) FROM Edge;")
 
     [[ "$count" == "0" ]] && pass "Dry-run doesn't create edge" || fail "Expected 0 edges, got $count"
     teardown
@@ -244,10 +245,10 @@ test_sync_graph_edges_creates_edges() {
     setup
 
     source "$LORE_DIR/lib/bridge.sh"
-    _sync_graph_edges "$TMPDIR/memory.sqlite" false
+    _sync_graph_edges "$FIXTURE_DIR/memory.sqlite" false
 
     local count
-    count=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT COUNT(*) FROM Edge;")
+    count=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT COUNT(*) FROM Edge;")
 
     # Should create 3 edges: 2 from bidirectional relates_to + 1 from learned_from
     # (references edge skipped because target is a file node)
@@ -260,11 +261,11 @@ test_sync_graph_edges_skips_file_edges() {
     setup
 
     source "$LORE_DIR/lib/bridge.sh"
-    _sync_graph_edges "$TMPDIR/memory.sqlite" false
+    _sync_graph_edges "$FIXTURE_DIR/memory.sqlite" false
 
     # Check that no edges have targetId pointing to a non-shadow memory
     local file_edges
-    file_edges=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT COUNT(*) FROM Edge e WHERE NOT EXISTS (SELECT 1 FROM Memory m WHERE m.id = e.targetId AND m.source = 'lore-bridge');")
+    file_edges=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT COUNT(*) FROM Edge e WHERE NOT EXISTS (SELECT 1 FROM Memory m WHERE m.id = e.targetId AND m.source = 'lore-bridge');")
 
     [[ "$file_edges" == "0" ]] && pass "Skips edges to non-shadow nodes" || fail "Found $file_edges edges to non-shadows"
     teardown
@@ -275,13 +276,13 @@ test_sync_graph_edges_bidirectional() {
     setup
 
     source "$LORE_DIR/lib/bridge.sh"
-    _sync_graph_edges "$TMPDIR/memory.sqlite" false
+    _sync_graph_edges "$FIXTURE_DIR/memory.sqlite" false
 
     # Check for bidirectional relates_to edges (1 <-> 2)
     local forward
-    forward=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=1 AND targetId=2 AND relation='relates_to';")
+    forward=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=1 AND targetId=2 AND relation='relates_to';")
     local reverse
-    reverse=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=2 AND targetId=1 AND relation='relates_to';")
+    reverse=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=2 AND targetId=1 AND relation='relates_to';")
 
     [[ "$forward" == "1" && "$reverse" == "1" ]] && pass "Creates bidirectional edges" || fail "Expected 1 forward + 1 reverse, got $forward + $reverse"
     teardown
@@ -292,11 +293,11 @@ test_sync_graph_edges_maps_relations() {
     setup
 
     source "$LORE_DIR/lib/bridge.sh"
-    _sync_graph_edges "$TMPDIR/memory.sqlite" false
+    _sync_graph_edges "$FIXTURE_DIR/memory.sqlite" false
 
     # Check that learned_from was mapped to derived_from
     local derived_count
-    derived_count=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=1 AND targetId=3 AND relation='derived_from';")
+    derived_count=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT COUNT(*) FROM Edge WHERE sourceId=1 AND targetId=3 AND relation='derived_from';")
 
     [[ "$derived_count" == "1" ]] && pass "Maps learned_from to derived_from" || fail "Expected 1 derived_from edge, got $derived_count"
     teardown

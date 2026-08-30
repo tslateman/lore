@@ -168,12 +168,14 @@ corpus_assemble() {
 
     all=$(mark_acknowledged "$spec_file" "$all")
 
-    local unscored
-    unscored=$(jq -s '
-        group_by(.id) | map(.[-1])
-        | map(select((.status // "active") == "active"))
-        | map(select(.door == null)) | length
-    ' "$LORE_DECISIONS_FILE")
+    local unscored=0
+    if [[ -s "$LORE_DECISIONS_FILE" ]]; then
+        unscored=$(jq -s '
+            group_by(.id) | map(.[-1])
+            | map(select((.status // "active") == "active"))
+            | map(select(.door == null)) | length
+        ' "$LORE_DECISIONS_FILE")
+    fi
 
     jq -n \
         --arg spec "$spec_file" \

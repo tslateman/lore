@@ -341,19 +341,19 @@ The graph functionality is split into reusable libraries:
 
 ## Edge Type Guidelines
 
-- **contradicts** — Use when a pattern says "don't X" and a decision says "we
+- **contradicts** -- Use when a pattern says "don't X" and a decision says "we
   chose X." Flag for review.
-- **supersedes** — Mark older decisions as superseded when new ones override
+- **supersedes** -- Mark older decisions as superseded when new ones override
   them. Old decision stays in journal but ranks lower.
-- **derived_from** — Link patterns back to the decision/session where they
+- **derived_from** -- Link patterns back to the decision/session where they
   were learned.
-- **part_of** — Group related patterns under a hub concept (e.g., "bash safety").
-- **summarized_by** — When consolidating patterns, link originals to summary
+- **part_of** -- Group related patterns under a hub concept (e.g., "bash safety").
+- **summarized_by** -- When consolidating patterns, link originals to summary
   with this edge. Original patterns drop to importance=1.
 
 ## Rebuild
 
-The graph is a derived projection — flat files (journal, patterns, failures,
+The graph is a derived projection -- flat files (journal, patterns, failures,
 sessions) are the source of truth. Rebuild from scratch:
 
 ```bash

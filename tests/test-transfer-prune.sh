@@ -11,23 +11,24 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 TRANSFER="$SCRIPT_DIR/../transfer/transfer.sh"
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
-    mkdir -p "$TMPDIR/transfer/data/sessions"
+    FIXTURE_DIR=$(mktemp -d)
+    mkdir -p "$FIXTURE_DIR/transfer/data/sessions"
     unset _LORE_PATHS_LOADED
-    export LORE_DATA_DIR="$TMPDIR"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
-    export LORE_TRANSFER_ROOT="$TMPDIR/transfer"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
+    export LORE_TRANSFER_ROOT="$FIXTURE_DIR/transfer"
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_true() {
@@ -59,7 +60,7 @@ create_session() {
     local id="$1"
     local summary="$2"
     local age_days="$3"
-    local file="$TMPDIR/transfer/data/sessions/${id}.json"
+    local file="$FIXTURE_DIR/transfer/data/sessions/${id}.json"
 
     jq -n --arg id "$id" --arg summary "$summary" '{
         id: $id,
@@ -91,9 +92,9 @@ test_prune() {
     create_session "session-old-signal" "Did real work" 10
     create_session "session-recent-empty" "" 0
     create_session "session-old-current" "" 10
-    echo "session-old-current" > "$TMPDIR/transfer/data/.current_session"
+    echo "session-old-current" > "$FIXTURE_DIR/transfer/data/.current_session"
 
-    local sessions="$TMPDIR/transfer/data/sessions"
+    local sessions="$FIXTURE_DIR/transfer/data/sessions"
 
     # Dry run: reports but moves nothing
     local output
@@ -105,12 +106,12 @@ test_prune() {
     assert_true "dry-run leaves file in place" test -f "$sessions/session-old-empty.json"
     assert_false "dry-run creates no archive dir" test -d "$sessions/archive"
     assert_false "dry-run creates no backup" \
-        bash -c "ls '$TMPDIR/transfer/data/'sessions-backup-*.tar.gz"
+        bash -c "ls '$FIXTURE_DIR/transfer/data/'sessions-backup-*.tar.gz"
 
     # Real prune
     output=$("$TRANSFER" prune 2>&1)
     assert_true "backup tar.gz created" \
-        bash -c "ls '$TMPDIR/transfer/data/'sessions-backup-*.tar.gz"
+        bash -c "ls '$FIXTURE_DIR/transfer/data/'sessions-backup-*.tar.gz"
     assert_true "old empty session archived" \
         test -f "$sessions/archive/session-old-empty.json"
     assert_false "old empty session removed from sessions/" \
@@ -123,7 +124,7 @@ test_prune() {
 
     # Backup contains all four sessions
     local backup
-    backup=$(ls "$TMPDIR/transfer/data/"sessions-backup-*.tar.gz | head -1)
+    backup=$(ls "$FIXTURE_DIR/transfer/data/"sessions-backup-*.tar.gz | head -1)
     local backed_up
     backed_up=$(tar -tzf "$backup" | grep -c 'session-.*\.json' || true)
     if [[ "$backed_up" -eq 4 ]]; then
@@ -143,7 +144,7 @@ test_prune_days_flag() {
 
     create_session "session-five-days" "" 5
 
-    local sessions="$TMPDIR/transfer/data/sessions"
+    local sessions="$FIXTURE_DIR/transfer/data/sessions"
 
     # Default window (7 days): 5-day-old session survives
     "$TRANSFER" prune >/dev/null 2>&1

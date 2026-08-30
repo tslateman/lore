@@ -30,7 +30,7 @@ Add `--json` to emit a structured payload:
   "query": "...",
   "project": "...",
   "items": [
-    {"type": "decision", "id": "dec-...", "title": "...", "score": 2.41}
+    { "type": "decision", "id": "dec-...", "title": "...", "score": 2.41 }
   ]
 }
 ```

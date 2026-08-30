@@ -16,25 +16,25 @@ You should see the command list. If not, see the [README](../README.md) for inst
 
 ## Start a Session
 
-Every session begins with `resume`. This loads context from the previous session—what was done, what's next, what's blocked.
+Every session begins with `resume`. This loads context from the previous session -- what was done, what's next, what's blocked.
 
 ```bash
 lore resume
 ```
 
-If this is your first session, you'll see minimal output. That's fine—there's no history yet.
+If this is your first session, you'll see minimal output. That's fine -- there's no history yet.
 
 If there's prior history, you'll see:
 
-- **What was accomplished** — goals addressed, decisions made
-- **Patterns learned** — lessons captured from previous work
-- **Handoff notes** — next steps, blockers, open questions
+- **What was accomplished** -- goals addressed, decisions made
+- **Patterns learned** -- lessons captured from previous work
+- **Handoff notes** -- next steps, blockers, open questions
 
 **Key point:** Resume is read-only. It seeds your context without touching the historical record. Pass `--fork` to create a new session that inherits this context.
 
 ## Record an Observation
 
-You noticed something worth remembering but don't yet know what it means. Capture it as an observation—the lowest-friction write.
+You noticed something worth remembering but don't yet know what it means. Capture it as an observation -- the lowest-friction write.
 
 ```bash
 lore capture "Users frequently ask about retry logic"
@@ -70,7 +70,7 @@ Recording rejected alternatives prevents revisiting settled decisions.
 
 ## Capture a Pattern
 
-You've learned something reusable—a technique, a gotcha, a best practice. Add `--solution` to route to patterns.
+You've learned something reusable -- a technique, a gotcha, a best practice. Add `--solution` to route to patterns.
 
 ```bash
 lore capture "Retry with exponential backoff" \
@@ -99,7 +99,7 @@ lore fail ToolError "Permission denied writing to /etc/hosts"
 
 Error types: `Timeout`, `NonZeroExit`, `UserDeny`, `ToolError`, `LogicError`
 
-When the same error type recurs three times, `lore triggers` surfaces it—the Rule of Three. Recurring failures become patterns worth solving.
+When the same error type recurs three times, `lore triggers` surfaces it -- the Rule of Three. Recurring failures become patterns worth solving.
 
 ## Recall Information
 
@@ -125,7 +125,7 @@ lore recall --triggers
 lore recall --brief "authentication"
 ```
 
-Shortcuts like `lore search`, `lore context`, and `lore triggers` still work — `recall` unifies them under one verb.
+Shortcuts like `lore search`, `lore context`, and `lore triggers` still work -- `recall` unifies them under one verb.
 
 ## Promote Concepts
 
@@ -145,7 +145,7 @@ lore concepts list
 
 `propose` clusters decisions, patterns, and promoted observations by word
 similarity, skipping records that already belong to a concept. Review each
-candidate and promote only coherent clusters — concepts need curation.
+candidate and promote only coherent clusters -- concepts need curation.
 `promote` writes the concept to `patterns/data/concepts.yaml`, creates a
 concept node with `part_of` edges from each member, and indexes it so
 `lore recall` finds it alongside decisions and patterns.

@@ -3,7 +3,7 @@ description: Record session handoff to Lore with structured context for the next
 allowed-tools: [Bash, Read, Grep]
 ---
 
-Summarize this session's work into a single `lore handoff` command. Do not ask clarifying questions — infer from context.
+Summarize this session's work into a single `lore handoff` command. Do not ask clarifying questions -- infer from context.
 
 ## Step 1: Gather Context
 
@@ -20,7 +20,7 @@ Write a single dense paragraph covering all three areas. Follow Strunk's style:
 - Active voice, positive form
 - Omit needless words
 - Be definite, specific, concrete
-- Name files, commands, and components — not vague summaries
+- Name files, commands, and components -- not vague summaries
 
 ## Step 3: Run the Command
 

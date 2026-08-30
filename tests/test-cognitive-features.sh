@@ -10,62 +10,63 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE="$SCRIPT_DIR/../lore.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Mirror the directory structure lore.sh expects
-    mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
-    mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
-    mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer/data/sessions" "$TMPDIR/transfer/lib"
-    mkdir -p "$TMPDIR/inbox/lib"
-    mkdir -p "$TMPDIR/graph/data" "$TMPDIR/graph/lib"
-    mkdir -p "$TMPDIR/lib"
+    mkdir -p "$FIXTURE_DIR/journal/data" "$FIXTURE_DIR/journal/lib"
+    mkdir -p "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/patterns/lib"
+    mkdir -p "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/failures/lib"
+    mkdir -p "$FIXTURE_DIR/transfer/data/sessions" "$FIXTURE_DIR/transfer/lib"
+    mkdir -p "$FIXTURE_DIR/inbox/lib"
+    mkdir -p "$FIXTURE_DIR/graph/data" "$FIXTURE_DIR/graph/lib"
+    mkdir -p "$FIXTURE_DIR/lib"
 
     # Copy component scripts and libraries
-    cp -R "$SCRIPT_DIR/../journal/"* "$TMPDIR/journal/"
-    cp -R "$SCRIPT_DIR/../patterns/"* "$TMPDIR/patterns/"
-    cp -R "$SCRIPT_DIR/../failures/"* "$TMPDIR/failures/"
-    cp -R "$SCRIPT_DIR/../transfer/"* "$TMPDIR/transfer/"
-    cp -R "$SCRIPT_DIR/../inbox/"* "$TMPDIR/inbox/"
-    cp -R "$SCRIPT_DIR/../graph/"* "$TMPDIR/graph/"
-    cp -R "$SCRIPT_DIR/../lib/"* "$TMPDIR/lib/"
+    cp -R "$SCRIPT_DIR/../journal/"* "$FIXTURE_DIR/journal/"
+    cp -R "$SCRIPT_DIR/../patterns/"* "$FIXTURE_DIR/patterns/"
+    cp -R "$SCRIPT_DIR/../failures/"* "$FIXTURE_DIR/failures/"
+    cp -R "$SCRIPT_DIR/../transfer/"* "$FIXTURE_DIR/transfer/"
+    cp -R "$SCRIPT_DIR/../inbox/"* "$FIXTURE_DIR/inbox/"
+    cp -R "$SCRIPT_DIR/../graph/"* "$FIXTURE_DIR/graph/"
+    cp -R "$SCRIPT_DIR/../lib/"* "$FIXTURE_DIR/lib/"
 
     # Copy lore.sh into the temp dir so LORE_DIR self-derives correctly
-    cp "$LORE" "$TMPDIR/lore.sh"
-    chmod +x "$TMPDIR/lore.sh"
+    cp "$LORE" "$FIXTURE_DIR/lore.sh"
+    chmod +x "$FIXTURE_DIR/lore.sh"
 
     # Initialize empty data files
-    echo '[]' > "$TMPDIR/journal/data/decisions.jsonl"
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    echo '[]' > "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 # Pattern Learner Database
 patterns: []
 
 anti_patterns: []
 YAML
-    : > "$TMPDIR/failures/data/failures.jsonl"
+    : > "$FIXTURE_DIR/failures/data/failures.jsonl"
 
     # Initialize graph
-    echo '{"nodes":{},"edges":[]}' > "$TMPDIR/graph/data/graph.json"
+    echo '{"nodes":{},"edges":[]}' > "$FIXTURE_DIR/graph/data/graph.json"
 
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
     # Reset paths.sh idempotency guard so it re-sources with new LORE_DIR
     unset _LORE_PATHS_LOADED
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_pass() {
@@ -109,20 +110,20 @@ test_contradiction_detection() {
     setup
 
     # Record first decision about config.yaml
-    "$TMPDIR/lore.sh" remember "Use YAML for config.yaml storage format" \
+    "$FIXTURE_DIR/lore.sh" remember "Use YAML for config.yaml storage format" \
         --rationale "Human-readable, supports comments" --force 2>/dev/null
 
     # Record contradicting decision about the same entity (config.yaml)
     # but with a different conclusion — should trigger contradiction warning
     local output
-    output=$("$TMPDIR/lore.sh" remember "Use JSON for config.yaml storage format" \
+    output=$("$FIXTURE_DIR/lore.sh" remember "Use JSON for config.yaml storage format" \
         --rationale "Faster parsing, schema validation" --force 2>&1) || true
 
     # The contradiction checker looks for shared entities + low text similarity.
     # Both decisions mention config.yaml and storage format, but reach opposite conclusions.
     # Check that the system ran without crashing (contradiction check is warn-only)
     local dec_count
-    dec_count=$(wc -l < "$TMPDIR/journal/data/decisions.jsonl" | tr -d ' ')
+    dec_count=$(wc -l < "$FIXTURE_DIR/journal/data/decisions.jsonl" | tr -d ' ')
     if [[ "$dec_count" -ge 2 ]]; then
         assert_pass "two decisions recorded despite contradiction"
     else
@@ -137,7 +138,7 @@ test_contradiction_entity_extraction() {
     setup
 
     # Source conflict.sh to test _extract_entities_for_conflict directly
-    source "$TMPDIR/lib/conflict.sh"
+    source "$FIXTURE_DIR/lib/conflict.sh"
 
     local entities
     entities=$(_extract_entities_for_conflict "Use src/main.rs with parse_config() and \`YAML\` format")
@@ -169,12 +170,12 @@ test_failure_promotion_threshold() {
     setup
 
     # Record 3 failures of the same type
-    "$TMPDIR/lore.sh" fail ToolError "Permission denied on /tmp/a" 2>/dev/null || true
-    "$TMPDIR/lore.sh" fail ToolError "Permission denied on /tmp/b" 2>/dev/null || true
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Permission denied on /tmp/a" 2>/dev/null || true
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Permission denied on /tmp/b" 2>/dev/null || true
 
     # Third failure should trigger the suggestion
     local output
-    output=$("$TMPDIR/lore.sh" fail ToolError "Permission denied on /tmp/c" 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" fail ToolError "Permission denied on /tmp/c" 2>&1) || true
 
     assert_output_contains "suggests promote-failure at threshold" "$output" "promote-failure"
 
@@ -186,18 +187,18 @@ test_failure_promotion_creates_antipattern() {
     setup
 
     # Record 3 failures of the same type
-    "$TMPDIR/lore.sh" fail ToolError "Cannot read file" 2>/dev/null || true
-    "$TMPDIR/lore.sh" fail ToolError "Cannot write file" 2>/dev/null || true
-    "$TMPDIR/lore.sh" fail ToolError "Cannot delete file" 2>/dev/null || true
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Cannot read file" 2>/dev/null || true
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Cannot write file" 2>/dev/null || true
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Cannot delete file" 2>/dev/null || true
 
     local pat_before
-    pat_before=$(wc -c < "$TMPDIR/patterns/data/patterns.yaml" | tr -d ' ')
+    pat_before=$(wc -c < "$FIXTURE_DIR/patterns/data/patterns.yaml" | tr -d ' ')
 
     # Promote should create an anti-pattern
-    "$TMPDIR/lore.sh" promote-failure ToolError --fix "Check file permissions" 2>/dev/null || true
+    "$FIXTURE_DIR/lore.sh" promote-failure ToolError --fix "Check file permissions" 2>/dev/null || true
 
     local pat_after
-    pat_after=$(wc -c < "$TMPDIR/patterns/data/patterns.yaml" | tr -d ' ')
+    pat_after=$(wc -c < "$FIXTURE_DIR/patterns/data/patterns.yaml" | tr -d ' ')
 
     if [[ "$pat_after" -gt "$pat_before" ]]; then
         assert_pass "patterns.yaml grew after promotion"
@@ -206,7 +207,7 @@ test_failure_promotion_creates_antipattern() {
     fi
 
     assert_contains "anti-pattern name includes error type" \
-        "$TMPDIR/patterns/data/patterns.yaml" "PITFALL: ToolError"
+        "$FIXTURE_DIR/patterns/data/patterns.yaml" "PITFALL: ToolError"
 
     teardown
 }
@@ -216,11 +217,11 @@ test_failure_promotion_below_threshold() {
     setup
 
     # Record only 2 failures (below default threshold of 3)
-    "$TMPDIR/lore.sh" fail ToolError "Error A" 2>/dev/null || true
-    "$TMPDIR/lore.sh" fail ToolError "Error B" 2>/dev/null || true
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Error A" 2>/dev/null || true
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Error B" 2>/dev/null || true
 
     local output
-    output=$("$TMPDIR/lore.sh" promote-failure ToolError 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" promote-failure ToolError 2>&1) || true
 
     assert_output_contains "reports below threshold" "$output" "No recurring failure types"
 
@@ -231,13 +232,13 @@ test_valid_at_field() {
     echo "Test: --valid-at records bi-temporal timestamp"
     setup
 
-    "$TMPDIR/lore.sh" remember "Switch to PostgreSQL" \
+    "$FIXTURE_DIR/lore.sh" remember "Switch to PostgreSQL" \
         --rationale "Need transactions" \
         --valid-at "2026-01-15T00:00:00Z" \
         --force 2>/dev/null
 
     assert_contains "valid_at stored in decision" \
-        "$TMPDIR/journal/data/decisions.jsonl" "2026-01-15T00:00:00Z"
+        "$FIXTURE_DIR/journal/data/decisions.jsonl" "2026-01-15T00:00:00Z"
 
     teardown
 }
@@ -246,10 +247,10 @@ test_valid_at_null_when_omitted() {
     echo "Test: valid_at is null when --valid-at omitted"
     setup
 
-    "$TMPDIR/lore.sh" remember "Use SQLite" --rationale "Simple" --force 2>/dev/null
+    "$FIXTURE_DIR/lore.sh" remember "Use SQLite" --rationale "Simple" --force 2>/dev/null
 
     local valid_at_value
-    valid_at_value=$(jq -r '.valid_at // "null"' "$TMPDIR/journal/data/decisions.jsonl" 2>/dev/null)
+    valid_at_value=$(jq -r '.valid_at // "null"' "$FIXTURE_DIR/journal/data/decisions.jsonl" 2>/dev/null)
 
     if [[ "$valid_at_value" == "null" ]]; then
         assert_pass "valid_at is null when omitted"
@@ -264,7 +265,7 @@ test_jaccard_similarity() {
     echo "Test: Jaccard similarity function"
     setup
 
-    source "$TMPDIR/lib/conflict.sh"
+    source "$FIXTURE_DIR/lib/conflict.sh"
 
     # Identical texts should yield 100%
     local sim
@@ -316,12 +317,12 @@ test_cognitive_promotion_suggest() {
                 lesson_learned: $lesson,
                 entities: [],
                 tags: []
-            }' >> "$TMPDIR/journal/data/decisions.jsonl"
+            }' >> "$FIXTURE_DIR/journal/data/decisions.jsonl"
     done
 
     # Source resume.sh and call suggest_promotions
     export DIM=''
-    source "$TMPDIR/transfer/lib/resume.sh"
+    source "$FIXTURE_DIR/transfer/lib/resume.sh"
 
     local output
     output=$(suggest_promotions 2>&1) || true

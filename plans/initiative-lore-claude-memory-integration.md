@@ -60,7 +60,7 @@ exposes routing to agents. `inject-context.sh` uses routed recall.
 or accessCount ≥ 3), presents them for curation, and promotes approved
 candidates to Lore. Original Engram memories updated with `[lore:{id}]` prefix
 to become shadows. Classification (decision/pattern/observation) inferred from
-content. 15 integration tests. Phase 3c (reinforcement signal) deferred—requires
+content. 15 integration tests. Phase 3c (reinforcement signal) deferred -- requires
 cross-MCP communication.
 
 **Phase 4a (complete):** Graph edge projection via `lib/bridge.sh`.

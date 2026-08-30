@@ -7,9 +7,9 @@ surfaces them automatically.
 
 Two databases, zero overlap today:
 
-- **ClaudeMemory**: `~/.claude/memory.sqlite` — working memory (semantic
+- **ClaudeMemory**: `~/.claude/memory.sqlite` -- working memory (semantic
   recall, graph, episodes)
-- **Lore**: `~/.local/share/lore/` — written record (decisions, patterns,
+- **Lore**: `~/.local/share/lore/` -- written record (decisions, patterns,
   failures, sessions)
 
 The advise hook fires before every turn and queries only ClaudeMemory. Lore
@@ -29,7 +29,7 @@ Each shadow carries a `[lore:{id}]` prefix for deduplication and traceability.
 
 Not bridged: individual failures, raw observations, Lore graph edges.
 
-Shadows get `zeroblob(0)` for embeddings — FTS5-searchable, not
+Shadows get `zeroblob(0)` for embeddings -- FTS5-searchable, not
 vector-searchable. Acceptable because shadow content is keyword-rich and the
 `[lore:{id}]` prefix enables exact lookups.
 
@@ -93,17 +93,17 @@ Runs automatically when a Claude Code session ends.
 
 ## What Does NOT Change
 
-- ClaudeMemory binary (`~/.claude/bin/memory`) — black box consumer
-- Lore MCP server (`mcp/src/index.ts`) — no changes
+- ClaudeMemory binary (`~/.claude/bin/memory`) -- black box consumer
+- Lore MCP server (`mcp/src/index.ts`) -- no changes
 - Existing Lore write paths (journal, patterns, failures, transfer)
-- Advise hook — shadows discovered through existing recall pipeline
-- `lore resume` — still works for full session context (git state, blockers)
+- Advise hook -- shadows discovered through existing recall pipeline
+- `lore resume` -- still works for full session context (git state, blockers)
 
 ## Dependencies
 
-- `sqlite3` — ships with macOS
-- `jq` — JSONL parsing
-- `yq` (Go version) — YAML parsing; verify with `yq --version`
+- `sqlite3` -- ships with macOS
+- `jq` -- JSONL parsing
+- `yq` (Go version) -- YAML parsing; verify with `yq --version`
 
 ## Deduplication
 
@@ -128,7 +128,7 @@ lore sync --since "2024-01-01"              # execute
 1. **FTS5 trigger maintenance**: Does inserting directly into the Memory table
    auto-update `_Memory_content_fts`? Need to check if it's a content-sync
    FTS5 table or requires manual INSERT. The schema shows
-   `content='Memory', content_rowid='id'` — this is a content-sync table, so
+   `content='Memory', content_rowid='id'` -- this is a content-sync table, so
    manual INSERT into the FTS5 table is required after each Memory INSERT.
 
 2. **AuditLog triggers**: The Memory table has INSERT/UPDATE/DELETE triggers

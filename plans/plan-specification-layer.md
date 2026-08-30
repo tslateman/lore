@@ -9,16 +9,16 @@ layer that improves intent _before_ execution and measures whether it worked.
 
 Three documents frame the opportunity:
 
-- **specification-bottleneck-pitch.md** — AI compresses execution;
+- **specification-bottleneck-pitch.md** -- AI compresses execution;
   specification quality determines whether that produces value or waste.
-- **five-levels-of-ai-coding.md** — Level 4+ requires specs precise enough
+- **five-levels-of-ai-coding.md** -- Level 4+ requires specs precise enough
   that review becomes verification against intent. Most teams plateau at
   Level 2.
-- **the-subtraction-test.md** — Autonomy without understanding is a liability
+- **the-subtraction-test.md** -- Autonomy without understanding is a liability
   with a delayed fuse. Volume without specification quality is activity
   mistaken for progress.
 
-Lore already does specification archaeology — extracting implicit knowledge
+Lore already does specification archaeology -- extracting implicit knowledge
 into queryable form. The gap: it records specifications after execution, never
 measures whether they worked, and doesn't help write better ones next time.
 
@@ -29,7 +29,7 @@ measures whether they worked, and doesn't help write better ones next time.
 Decisions have an `outcome` field (`pending|successful|revised|abandoned`) but
 nothing updates it. Of 57 decisions, most are `pending` indefinitely.
 
-**`lore review`** — surface unresolved decisions at resume time and prompt for
+**`lore review`** -- surface unresolved decisions at resume time and prompt for
 resolution.
 
 Implementation:
@@ -56,9 +56,9 @@ Feedback loop:
 
 Files:
 
-- `lore.sh` — add `cmd_review()`, wire `review)` case
-- `journal/lib/store.sh` — add `journal_update_outcome()` for in-place update
-- `transfer/lib/resume.sh` — call review summary after line 710
+- `lore.sh` -- add `cmd_review()`, wire `review)` case
+- `journal/lib/store.sh` -- add `journal_update_outcome()` for in-place update
+- `transfer/lib/resume.sh` -- call review summary after line 710
 
 ### 2. Specification quality scoring
 
@@ -100,9 +100,9 @@ Store as `spec_quality` on pattern records. Compute in
 
 Files:
 
-- `journal/lib/capture.sh` — add `compute_spec_quality()`, store on record
-- `patterns/lib/capture.sh` — add `compute_spec_quality()`, store on record
-- `transfer/lib/resume.sh` — print rolling average at resume
+- `journal/lib/capture.sh` -- add `compute_spec_quality()`, store on record
+- `patterns/lib/capture.sh` -- add `compute_spec_quality()`, store on record
+- `transfer/lib/resume.sh` -- print rolling average at resume
 
 ### 3. Pre-execution briefing
 
@@ -110,7 +110,7 @@ Files:
 project metadata. Neither answers: "What does Lore know about _this topic_
 before I start working on it?"
 
-**`lore brief <topic>`** — topic-specific context assembly for pre-execution.
+**`lore brief <topic>`** -- topic-specific context assembly for pre-execution.
 
 Implementation:
 
@@ -126,13 +126,13 @@ Implementation:
 
 This differs from `lore search` (flat ranked list) and `lore context`
 (project-scoped metadata). `lore brief` is topic-scoped, multi-component,
-and opinionated — it surfaces problems (contradictions, stale patterns,
+and opinionated -- it surfaces problems (contradictions, stale patterns,
 unresolved decisions) alongside knowledge.
 
 Files:
 
-- `lore.sh` — add `cmd_brief()`, wire `brief)` case
-- `lib/brief.sh` — main implementation (sourced by lore.sh)
+- `lore.sh` -- add `cmd_brief()`, wire `brief)` case
+- `lib/brief.sh` -- main implementation (sourced by lore.sh)
 
 ### 4. Active subtraction at resume
 
@@ -154,13 +154,13 @@ confidence signals into resume as subtraction recommendations.
    corresponding anti-pattern. Print: "N deprecated patterns lack
    anti-pattern replacements."
 
-Keep the output brief — one summary line per category, not per record. The
+Keep the output brief -- one summary line per category, not per record. The
 details live in `lore review` and `lore brief`.
 
 Files:
 
-- `transfer/lib/resume.sh` — add `subtraction_check()` after line 710
-- `lib/conflict.sh` — expose `find_contradictions()` for batch scanning (the
+- `transfer/lib/resume.sh` -- add `subtraction_check()` after line 710
+- `lib/conflict.sh` -- expose `find_contradictions()` for batch scanning (the
   current `lore_check_contradiction` checks one text at write time; this scans
   all active decisions pairwise)
 

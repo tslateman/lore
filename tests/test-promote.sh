@@ -10,16 +10,17 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Setup temp environment
-TMPDIR=$(mktemp -d)
-export LORE_DATA_DIR="$TMPDIR"
-export LORE_SEARCH_DB="$TMPDIR/search.db"
+FIXTURE_DIR=$(mktemp -d)
+export LORE_DATA_DIR="$FIXTURE_DIR"
+export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 export LORE_DIR
 
 # Override Engram DB location
-export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
+export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
 
 # Source the code
 source "$LORE_DIR/lib/promote.sh"
@@ -40,19 +41,19 @@ fail() {
 
 setup() {
     # Reset temp dir
-    rm -rf "$TMPDIR"
-    mkdir -p "$TMPDIR"
-    mkdir -p "$TMPDIR/journal/data"
-    mkdir -p "$TMPDIR/patterns/data"
-    mkdir -p "$TMPDIR/inbox/data"
+    remove_fixture "$FIXTURE_DIR"
+    mkdir -p "$FIXTURE_DIR"
+    mkdir -p "$FIXTURE_DIR/journal/data"
+    mkdir -p "$FIXTURE_DIR/patterns/data"
+    mkdir -p "$FIXTURE_DIR/inbox/data"
 
     # Initialize Lore data files
-    touch "$TMPDIR/journal/data/decisions.jsonl"
-    echo "patterns: []" > "$TMPDIR/patterns/data/patterns.yaml"
-    touch "$TMPDIR/inbox/data/observations.jsonl"
+    touch "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    echo "patterns: []" > "$FIXTURE_DIR/patterns/data/patterns.yaml"
+    touch "$FIXTURE_DIR/inbox/data/observations.jsonl"
 
     # Create test Engram database
-    sqlite3 "$TMPDIR/memory.sqlite" <<'SQL'
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" <<'SQL'
 CREATE TABLE Memory(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     importance INTEGER NOT NULL,
@@ -70,7 +71,7 @@ SQL
 }
 
 teardown() {
-    rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 # --- Test: count_promotion_candidates ---
@@ -78,7 +79,7 @@ teardown() {
 test_count_no_db() {
     echo "Test: count returns 0 when DB missing"
     setup
-    rm -f "$TMPDIR/memory.sqlite"
+    rm -f "$FIXTURE_DIR/memory.sqlite"
 
     local count
     count=$(count_promotion_candidates)
@@ -103,15 +104,15 @@ test_count_with_candidates() {
     setup
 
     # Insert high-importance memory
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'architecture', 0, 'Use JSONL for storage');"
 
     # Insert high-access memory
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (2, 5, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'patterns', 0, 'Always validate input');"
 
     # Insert low-value memory (should be excluded)
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (2, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'misc', 0, 'Some note');"
 
     local count
@@ -126,11 +127,11 @@ test_count_excludes_shadows() {
     setup
 
     # Insert shadow memory (should be excluded)
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 10, 1708000000, 1708000000, 'lore', zeroblob(0), 'lore-bridge', 'lore-decisions', 0, '[lore:dec-abc123] Use JSONL for storage');"
 
     # Insert non-shadow (should be counted)
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'architecture', 0, 'Use JSONL for storage');"
 
     local count
@@ -145,11 +146,11 @@ test_count_excludes_expired() {
     setup
 
     # Insert expired memory (expiresAt in the past)
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 10, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'temp', 1000000, 'Temporary note');"
 
     # Insert non-expired (should be counted)
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'architecture', 0, 'Use JSONL for storage');"
 
     local count
@@ -165,7 +166,7 @@ test_query_returns_json() {
     echo "Test: query returns JSON array"
     setup
 
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 3, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'architecture', 0, 'Use JSONL for storage');"
 
     local result
@@ -182,13 +183,13 @@ test_query_sorts_by_priority() {
     setup
 
     # Insert memories with different priority scores
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (4, 2, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'topic1', 0, 'Memory A');" # score: 8
 
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 5, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'topic2', 0, 'Memory B');" # score: 25
 
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (3, 4, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'topic3', 0, 'Memory C');" # score: 12
 
     local results
@@ -208,7 +209,7 @@ test_query_respects_limit() {
 
     # Insert 5 memories
     for i in {1..5}; do
-        sqlite3 "$TMPDIR/memory.sqlite" \
+        sqlite3 "$FIXTURE_DIR/memory.sqlite" \
             "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 1, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'topic', 0, 'Memory $i');"
     done
 
@@ -263,7 +264,7 @@ test_get_candidate_returns_json() {
     echo "Test: get_candidate returns JSON"
     setup
 
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 3, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'architecture', 0, 'Use JSONL for storage');"
 
     local result
@@ -291,13 +292,13 @@ test_mark_as_promoted_updates_content() {
     echo "Test: mark_as_promoted updates content with [lore:id] prefix"
     setup
 
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 3, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'architecture', 0, 'Use JSONL for storage');"
 
     mark_as_promoted 1 "dec-abc123"
 
     local updated_content
-    updated_content=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT content FROM Memory WHERE id = 1;")
+    updated_content=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT content FROM Memory WHERE id = 1;")
 
     [[ "$updated_content" == "[lore:dec-abc123] Use JSONL for storage" ]] && pass "Adds [lore:id] prefix" || fail "Expected prefix, got '$updated_content'"
     teardown
@@ -307,13 +308,13 @@ test_mark_as_promoted_updates_source() {
     echo "Test: mark_as_promoted updates source to 'lore-promoted'"
     setup
 
-    sqlite3 "$TMPDIR/memory.sqlite" \
+    sqlite3 "$FIXTURE_DIR/memory.sqlite" \
         "INSERT INTO Memory (importance, accessCount, createdAt, lastAccessedAt, project, embedding, source, topic, expiresAt, content) VALUES (5, 3, 1708000000, 1708000000, 'lore', zeroblob(0), 'user', 'architecture', 0, 'Use JSONL for storage');"
 
     mark_as_promoted 1 "dec-abc123"
 
     local updated_source
-    updated_source=$(sqlite3 "$TMPDIR/memory.sqlite" "SELECT source FROM Memory WHERE id = 1;")
+    updated_source=$(sqlite3 "$FIXTURE_DIR/memory.sqlite" "SELECT source FROM Memory WHERE id = 1;")
 
     [[ "$updated_source" == "lore-promoted" ]] && pass "Updates source to 'lore-promoted'" || fail "Expected 'lore-promoted', got '$updated_source'"
     teardown

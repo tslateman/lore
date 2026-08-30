@@ -5,7 +5,7 @@ Completed: 2026-02-15
 
 ## Problem
 
-Sessions are JSON — great for machines, awkward for humans. Sharing session history, reviewing past work, or including session context in documentation requires manual extraction. Journal already has `export --format markdown`; transfer should match.
+Sessions are JSON -- great for machines, awkward for humans. Sharing session history, reviewing past work, or including session context in documentation requires manual extraction. Journal already has `export --format markdown`; transfer should match.
 
 ## Solution
 

@@ -1,4 +1,6 @@
-.PHONY: install sync-memory sync-graph sync-all check test
+CHECKS = check-format check-lint check-prose check-links check-corpus check-standards
+
+.PHONY: install sync-memory sync-graph sync-all test check $(CHECKS)
 
 # Install lore CLI
 install:
@@ -15,28 +17,51 @@ sync-memory:
 # Sync all sources
 sync-all: sync-graph sync-memory
 
-# Run all tests
+# Run every test suite, then report which failed
 test:
-	@echo "Running tests..."
-	@bash tests/test-isolation-guard.sh
-	@bash tests/test-capture-api.sh
-	@bash tests/test-goals.sh
-	@bash tests/test-recall.sh
-	@bash tests/test-concepts.sh
-	@bash tests/verify-retrieval.sh
-	@bash tests/test_inversion.sh
-	@bash tests/test-cognitive-features.sh
-	@bash tests/test-spec-layer.sh
-	@bash tests/test-curated-resume.sh
-	@bash tests/test-recall-router.sh
-	@bash tests/test-promote.sh
-	@bash tests/test-graph-edge-projection.sh
-	@bash tests/test-cross-system-traversal.sh
-	@bash tests/test-storage-tiers.sh
-	@bash tests/test-validate.sh
-	@bash tests/test-standards.sh
+	@./scripts/run-tests.sh $(ARGS)
 
-# Check all build freshness
-check:
+# prettier over tracked markdown
+check-format:
+	@./scripts/check-format.sh
+
+# shellcheck over tracked shell scripts
+check-lint:
+	@./scripts/check-shell.sh
+
+# House prose rules: no emdashes
+check-prose:
+	@./scripts/check-prose.sh
+
+# Markdown links resolve on disk
+check-links:
+	@./scripts/check-links.sh
+
+# Specs judged against the standards corpus
+check-corpus:
+	@./scripts/check-corpus.sh
+
+# Standards corpus internal consistency
+check-standards:
 	@echo "Linting the standards corpus..."
 	@bash lore.sh standards lint
+
+# Run every gate, then report which failed
+check:
+	@fail=""; \
+	for gate in $(CHECKS); do \
+		echo ""; \
+		echo "=============================================================="; \
+		echo "  $$gate"; \
+		echo "=============================================================="; \
+		$(MAKE) --no-print-directory $$gate || fail="$$fail $$gate"; \
+	done; \
+	echo ""; \
+	echo "=============================================================="; \
+	if [ -n "$$fail" ]; then \
+		echo "  check: FAILED --$$fail"; \
+		echo "=============================================================="; \
+		exit 1; \
+	fi; \
+	echo "  check: all gates passed"; \
+	echo "=============================================================="

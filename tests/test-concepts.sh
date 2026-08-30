@@ -11,66 +11,67 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE="$SCRIPT_DIR/../lore.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Mirror the directory structure lore.sh expects
-    mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
-    mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
-    mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer" "$TMPDIR/inbox/lib"
-    mkdir -p "$TMPDIR/graph/data" "$TMPDIR/lib"
-    mkdir -p "$TMPDIR/intent/data/goals" "$TMPDIR/intent/lib"
+    mkdir -p "$FIXTURE_DIR/journal/data" "$FIXTURE_DIR/journal/lib"
+    mkdir -p "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/patterns/lib"
+    mkdir -p "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/failures/lib"
+    mkdir -p "$FIXTURE_DIR/transfer" "$FIXTURE_DIR/inbox/lib"
+    mkdir -p "$FIXTURE_DIR/graph/data" "$FIXTURE_DIR/lib"
+    mkdir -p "$FIXTURE_DIR/intent/data/goals" "$FIXTURE_DIR/intent/lib"
 
     # Copy component scripts and libraries
-    cp -R "$SCRIPT_DIR/../journal/"* "$TMPDIR/journal/"
-    cp -R "$SCRIPT_DIR/../patterns/"* "$TMPDIR/patterns/"
-    cp -R "$SCRIPT_DIR/../failures/"* "$TMPDIR/failures/"
-    cp -R "$SCRIPT_DIR/../transfer/"* "$TMPDIR/transfer/"
-    cp -R "$SCRIPT_DIR/../inbox/"* "$TMPDIR/inbox/"
-    cp -R "$SCRIPT_DIR/../graph/"* "$TMPDIR/graph/"
-    cp -R "$SCRIPT_DIR/../lib/"* "$TMPDIR/lib/"
-    cp -R "$SCRIPT_DIR/../intent/"* "$TMPDIR/intent/"
+    cp -R "$SCRIPT_DIR/../journal/"* "$FIXTURE_DIR/journal/"
+    cp -R "$SCRIPT_DIR/../patterns/"* "$FIXTURE_DIR/patterns/"
+    cp -R "$SCRIPT_DIR/../failures/"* "$FIXTURE_DIR/failures/"
+    cp -R "$SCRIPT_DIR/../transfer/"* "$FIXTURE_DIR/transfer/"
+    cp -R "$SCRIPT_DIR/../inbox/"* "$FIXTURE_DIR/inbox/"
+    cp -R "$SCRIPT_DIR/../graph/"* "$FIXTURE_DIR/graph/"
+    cp -R "$SCRIPT_DIR/../lib/"* "$FIXTURE_DIR/lib/"
+    cp -R "$SCRIPT_DIR/../intent/"* "$FIXTURE_DIR/intent/"
 
     # Copy lore.sh into the temp dir so LORE_DIR self-derives correctly
-    cp "$LORE" "$TMPDIR/lore.sh"
-    chmod +x "$TMPDIR/lore.sh"
+    cp "$LORE" "$FIXTURE_DIR/lore.sh"
+    chmod +x "$FIXTURE_DIR/lore.sh"
 
     # Initialize empty data files
-    : > "$TMPDIR/journal/data/decisions.jsonl"
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    : > "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 # Pattern Learner Database
 patterns: []
 
 anti_patterns: []
 YAML
-    : > "$TMPDIR/failures/data/failures.jsonl"
+    : > "$FIXTURE_DIR/failures/data/failures.jsonl"
 
     # Seed empty concepts file
-    echo "concepts: []" > "$TMPDIR/patterns/data/concepts.yaml"
+    echo "concepts: []" > "$FIXTURE_DIR/patterns/data/concepts.yaml"
 
     # Initialize empty graph
-    echo '{"nodes":{},"edges":[]}' > "$TMPDIR/graph/data/graph.json"
+    echo '{"nodes":{},"edges":[]}' > "$FIXTURE_DIR/graph/data/graph.json"
 
     unset _LORE_PATHS_LOADED
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
     # Isolate the FTS5 index: with LORE_DATA_DIR == LORE_DIR, paths.sh
     # would otherwise fall back to the legacy ~/.lore/search.db
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_ok() {
@@ -130,7 +131,7 @@ test_concept_id_format() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" capture "Format Test" --concept --definition "Testing ID format" 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" capture "Format Test" --concept --definition "Testing ID format" 2>&1)
 
     local concept_id
     concept_id=$(echo "$output" | grep -oE 'concept-[a-f0-9]+' | head -1) || true
@@ -151,11 +152,11 @@ test_concept_init_seeding() {
     setup
 
     # Remove the seeded file
-    rm -f "$TMPDIR/patterns/data/concepts.yaml"
+    rm -f "$FIXTURE_DIR/patterns/data/concepts.yaml"
 
-    "$TMPDIR/lore.sh" capture "Auto Seed" --concept --definition "First concept" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" capture "Auto Seed" --concept --definition "First concept" >/dev/null 2>&1
 
-    local cf="$TMPDIR/patterns/data/concepts.yaml"
+    local cf="$FIXTURE_DIR/patterns/data/concepts.yaml"
     if [[ -f "$cf" ]]; then
         echo "  PASS: concepts.yaml created on first write"
         PASS=$((PASS + 1))
@@ -176,21 +177,21 @@ test_consolidate_promote() {
     setup
 
     # Seed 3+ similar decisions with high Jaccard overlap
-    "$TMPDIR/lore.sh" remember "Use JSONL for append-only storage in journal data" \
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL for append-only storage in journal data" \
         --rationale "Append-only JSONL is simple and reliable for journal storage" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" remember "Use JSONL format for append-only journal storage" \
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL format for append-only journal storage" \
         --rationale "JSONL append-only format keeps journal storage simple" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" remember "JSONL is the right format for append-only journal storage" \
+    "$FIXTURE_DIR/lore.sh" remember "JSONL is the right format for append-only journal storage" \
         --rationale "Append-only JSONL storage keeps the journal simple and reliable" --force >/dev/null 2>&1
 
     local output
-    output=$("$TMPDIR/lore.sh" consolidate --write --promote --threshold 40 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" consolidate --write --promote --threshold 40 2>&1) || true
 
     # Check that a concept was promoted
     assert_output_contains "consolidate reports concept promotion" "$output" "concept"
 
     # Check concepts.yaml has content
-    local cf="$TMPDIR/patterns/data/concepts.yaml"
+    local cf="$FIXTURE_DIR/patterns/data/concepts.yaml"
     if [[ -f "$cf" ]]; then
         local count
         count=$(yq '.concepts | length' "$cf" 2>/dev/null) || count=0
@@ -213,10 +214,10 @@ test_consolidate_too_few_decisions() {
     echo "Test: consolidate with fewer than 3 decisions exits cleanly"
     setup
 
-    "$TMPDIR/lore.sh" remember "Single decision" --rationale "Testing" --force >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" remember "Single decision" --rationale "Testing" --force >/dev/null 2>&1
 
     local output
-    output=$("$TMPDIR/lore.sh" consolidate 2>&1) || true
+    output=$("$FIXTURE_DIR/lore.sh" consolidate 2>&1) || true
 
     assert_output_contains "reports too few decisions" "$output" "Fewer than 3"
 
@@ -228,17 +229,17 @@ test_consolidate_no_promote() {
     setup
 
     # Seed 3+ similar decisions with high Jaccard overlap
-    "$TMPDIR/lore.sh" remember "Use JSONL for append-only storage in journal data" \
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL for append-only storage in journal data" \
         --rationale "Append-only JSONL is simple and reliable for journal storage" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" remember "Use JSONL format for append-only journal storage" \
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL format for append-only journal storage" \
         --rationale "JSONL append-only format keeps journal storage simple" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" remember "JSONL is the right format for append-only journal storage" \
+    "$FIXTURE_DIR/lore.sh" remember "JSONL is the right format for append-only journal storage" \
         --rationale "Append-only JSONL storage keeps the journal simple and reliable" --force >/dev/null 2>&1
 
-    "$TMPDIR/lore.sh" consolidate --write --threshold 40 >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" consolidate --write --threshold 40 >/dev/null 2>&1
 
     local count
-    count=$(yq '.concepts | length' "$TMPDIR/patterns/data/concepts.yaml" 2>/dev/null) || count=0
+    count=$(yq '.concepts | length' "$FIXTURE_DIR/patterns/data/concepts.yaml" 2>/dev/null) || count=0
 
     if [[ "$count" -eq 0 ]]; then
         echo "  PASS: consolidate without --promote keeps concepts empty"
@@ -255,7 +256,7 @@ test_capture_concept_no_name_fails() {
     echo "Test: capture --concept without name shows error"
     setup
 
-    assert_fails "concept without name fails" "$TMPDIR/lore.sh" capture --concept
+    assert_fails "concept without name fails" "$FIXTURE_DIR/lore.sh" capture --concept
 
     teardown
 }
@@ -265,12 +266,12 @@ test_fts5_searches_new_types() {
     setup
 
     # Seed a failure
-    "$TMPDIR/lore.sh" fail ToolError "Permission denied on config file" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Permission denied on config file" >/dev/null 2>&1
 
     # Build the index (may fail if sqlite3 not available)
-    if "$TMPDIR/lore.sh" index build >/dev/null 2>&1; then
+    if "$FIXTURE_DIR/lore.sh" index build >/dev/null 2>&1; then
         local output
-        output=$("$TMPDIR/lore.sh" recall "permission" 2>&1)
+        output=$("$FIXTURE_DIR/lore.sh" recall "permission" 2>&1)
         assert_output_contains "search finds failures" "$output" "ermission"
     else
         echo "  SKIP: sqlite3 not available for FTS5 test"
@@ -282,16 +283,16 @@ test_fts5_searches_new_types() {
 # Seed three similar decisions plus one outlier and project them into
 # the graph. Used by the concepts-command tests below.
 seed_cluster() {
-    "$TMPDIR/lore.sh" remember "Use JSONL for append-only storage in journal data" \
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL for append-only storage in journal data" \
         --rationale "Append-only JSONL is simple and reliable for journal storage" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" remember "Use JSONL format for append-only journal storage" \
+    "$FIXTURE_DIR/lore.sh" remember "Use JSONL format for append-only journal storage" \
         --rationale "JSONL append-only format keeps journal storage simple" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" remember "JSONL is the right format for append-only journal storage" \
+    "$FIXTURE_DIR/lore.sh" remember "JSONL is the right format for append-only journal storage" \
         --rationale "Append-only JSONL storage keeps the journal simple and reliable" --force >/dev/null 2>&1
-    "$TMPDIR/lore.sh" remember "Cache invalidation happens on write not read" \
+    "$FIXTURE_DIR/lore.sh" remember "Cache invalidation happens on write not read" \
         --rationale "Write-time invalidation avoids stale reads" --force >/dev/null 2>&1
     sleep 1  # let background graph sync from remember settle
-    bash "$TMPDIR/graph/sync.sh" >/dev/null 2>&1
+    bash "$FIXTURE_DIR/graph/sync.sh" >/dev/null 2>&1
 }
 
 test_concepts_propose_finds_cluster() {
@@ -300,7 +301,7 @@ test_concepts_propose_finds_cluster() {
     seed_cluster
 
     local json
-    json=$("$TMPDIR/lore.sh" concepts propose --threshold 40 2>/dev/null)
+    json=$("$FIXTURE_DIR/lore.sh" concepts propose --threshold 40 2>/dev/null)
 
     local cluster_count member_count
     cluster_count=$(echo "$json" | jq 'length' 2>/dev/null) || cluster_count=0
@@ -317,7 +318,7 @@ test_concepts_propose_finds_cluster() {
     # The outlier decision must not appear in any cluster
     local outlier_id
     outlier_id=$(jq -rs '.[] | select(.decision | test("Cache invalidation")) | .id' \
-        "$TMPDIR/journal/data/decisions.jsonl" | head -1)
+        "$FIXTURE_DIR/journal/data/decisions.jsonl" | head -1)
     assert_output_not_contains "outlier excluded from clusters" "$json" "$outlier_id"
 
     # Cluster has a suggested name and cohesion score
@@ -341,21 +342,21 @@ test_concepts_promote_creates_artifacts() {
     seed_cluster
 
     local have_sqlite=false
-    if "$TMPDIR/lore.sh" index build >/dev/null 2>&1; then
+    if "$FIXTURE_DIR/lore.sh" index build >/dev/null 2>&1; then
         have_sqlite=true
     fi
 
     local ids
-    ids=$("$TMPDIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
+    ids=$("$FIXTURE_DIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
         | jq -r '.[0].members | map(.id) | join(",")')
 
     local output
-    output=$("$TMPDIR/lore.sh" concepts promote "append-only-storage" --members "$ids" 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" concepts promote "append-only-storage" --members "$ids" 2>&1)
     assert_output_contains "promote reports concept id" "$output" "concept-[a-f0-9]"
 
     # YAML entry with 3 members
     local member_count
-    member_count=$(yq '.concepts[0].grounded_by | length' "$TMPDIR/patterns/data/concepts.yaml" 2>/dev/null) || member_count=0
+    member_count=$(yq '.concepts[0].grounded_by | length' "$FIXTURE_DIR/patterns/data/concepts.yaml" 2>/dev/null) || member_count=0
     if [[ "$member_count" -eq 3 ]]; then
         echo "  PASS: concepts.yaml entry has 3 members"
         PASS=$((PASS + 1))
@@ -367,7 +368,7 @@ test_concepts_promote_creates_artifacts() {
     # Graph node
     local node_count
     node_count=$(jq '[.nodes | to_entries[] | select(.value.type == "concept")] | length' \
-        "$TMPDIR/graph/data/graph.json")
+        "$FIXTURE_DIR/graph/data/graph.json")
     if [[ "$node_count" -eq 1 ]]; then
         echo "  PASS: graph has 1 concept node"
         PASS=$((PASS + 1))
@@ -379,7 +380,7 @@ test_concepts_promote_creates_artifacts() {
     # part_of edges from each member
     local edge_count
     edge_count=$(jq '[.edges[] | select(.relation == "part_of")] | length' \
-        "$TMPDIR/graph/data/graph.json")
+        "$FIXTURE_DIR/graph/data/graph.json")
     if [[ "$edge_count" -eq 3 ]]; then
         echo "  PASS: graph has 3 part_of edges"
         PASS=$((PASS + 1))
@@ -391,7 +392,7 @@ test_concepts_promote_creates_artifacts() {
     # FTS5 write-through row
     if [[ "$have_sqlite" == true ]]; then
         local fts_count
-        fts_count=$(sqlite3 "$TMPDIR/search.db" "SELECT COUNT(*) FROM concepts;" 2>/dev/null) || fts_count=0
+        fts_count=$(sqlite3 "$FIXTURE_DIR/search.db" "SELECT COUNT(*) FROM concepts;" 2>/dev/null) || fts_count=0
         if [[ "$fts_count" -eq 1 ]]; then
             echo "  PASS: FTS5 concepts table has 1 row"
             PASS=$((PASS + 1))
@@ -412,21 +413,21 @@ test_concepts_promote_validation() {
     seed_cluster
 
     assert_fails "promote without members fails" \
-        "$TMPDIR/lore.sh" concepts promote "no-members"
+        "$FIXTURE_DIR/lore.sh" concepts promote "no-members"
     assert_fails "promote with empty member list fails" \
-        "$TMPDIR/lore.sh" concepts promote "empty-members" --members ", ,"
+        "$FIXTURE_DIR/lore.sh" concepts promote "empty-members" --members ", ,"
     assert_fails "promote with unknown id fails" \
-        "$TMPDIR/lore.sh" concepts promote "bad-id" --members "dec-doesnotexist"
+        "$FIXTURE_DIR/lore.sh" concepts promote "bad-id" --members "dec-doesnotexist"
 
     # Duplicate name rejected
     local ids
-    ids=$("$TMPDIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
+    ids=$("$FIXTURE_DIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
         | jq -r '.[0].members | map(.id) | join(",")')
-    "$TMPDIR/lore.sh" concepts promote "dupe-name" --members "$ids" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" concepts promote "dupe-name" --members "$ids" >/dev/null 2>&1
     local first_id
     first_id=$(echo "$ids" | cut -d',' -f1)
     assert_fails "duplicate concept name fails" \
-        "$TMPDIR/lore.sh" concepts promote "dupe-name" --members "$first_id"
+        "$FIXTURE_DIR/lore.sh" concepts promote "dupe-name" --members "$first_id"
 
     teardown
 }
@@ -437,12 +438,12 @@ test_concepts_propose_excludes_members() {
     seed_cluster
 
     local ids
-    ids=$("$TMPDIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
+    ids=$("$FIXTURE_DIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
         | jq -r '.[0].members | map(.id) | join(",")')
-    "$TMPDIR/lore.sh" concepts promote "append-only-storage" --members "$ids" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" concepts promote "append-only-storage" --members "$ids" >/dev/null 2>&1
 
     local json cluster_count
-    json=$("$TMPDIR/lore.sh" concepts propose --threshold 40 2>/dev/null)
+    json=$("$FIXTURE_DIR/lore.sh" concepts propose --threshold 40 2>/dev/null)
     cluster_count=$(echo "$json" | jq 'length' 2>/dev/null) || cluster_count=99
 
     if [[ "$cluster_count" -eq 0 ]]; then
@@ -461,22 +462,22 @@ test_concepts_recall() {
     setup
     seed_cluster
 
-    if ! "$TMPDIR/lore.sh" index build >/dev/null 2>&1; then
+    if ! "$FIXTURE_DIR/lore.sh" index build >/dev/null 2>&1; then
         echo "  SKIP: sqlite3 not available"
         teardown
         return 0
     fi
 
     local ids
-    ids=$("$TMPDIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
+    ids=$("$FIXTURE_DIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
         | jq -r '.[0].members | map(.id) | join(",")')
-    "$TMPDIR/lore.sh" concepts promote "append-only-storage" --members "$ids" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" concepts promote "append-only-storage" --members "$ids" >/dev/null 2>&1
 
     local output
-    output=$("$TMPDIR/lore.sh" recall "append-only storage" 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" recall "append-only storage" 2>&1)
     assert_output_contains "recall surfaces the concept" "$output" "concept-[a-f0-9]"
 
-    output=$("$TMPDIR/lore.sh" recall --concepts "storage" 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" recall --concepts "storage" 2>&1)
     assert_output_contains "recall --concepts finds the concept" "$output" "append-only-storage"
 
     teardown
@@ -488,12 +489,12 @@ test_concepts_list() {
     seed_cluster
 
     local ids
-    ids=$("$TMPDIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
+    ids=$("$FIXTURE_DIR/lore.sh" concepts propose --threshold 40 2>/dev/null \
         | jq -r '.[0].members | map(.id) | join(",")')
-    "$TMPDIR/lore.sh" concepts promote "append-only-storage" --members "$ids" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" concepts promote "append-only-storage" --members "$ids" >/dev/null 2>&1
 
     local output
-    output=$("$TMPDIR/lore.sh" concepts list 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" concepts list 2>&1)
     assert_output_contains "list shows the concept" "$output" "append-only-storage"
     assert_output_contains "list shows member count" "$output" "3 members"
 

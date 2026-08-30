@@ -121,4 +121,4 @@ lore capture "Permission denied writing to /var/log" \
    - Promote unified (if it reduces friction)
    - Drop unified (if type inference causes confusion)
 
-**Low-risk experiment** — old commands never break.
+**Low-risk experiment** -- old commands never break.

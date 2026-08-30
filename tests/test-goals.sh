@@ -10,60 +10,61 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE="$SCRIPT_DIR/../lore.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Mirror the directory structure lore.sh expects
-    mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
-    mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
-    mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer" "$TMPDIR/inbox/lib"
-    mkdir -p "$TMPDIR/graph" "$TMPDIR/lib"
-    mkdir -p "$TMPDIR/intent/data/goals" "$TMPDIR/intent/lib"
+    mkdir -p "$FIXTURE_DIR/journal/data" "$FIXTURE_DIR/journal/lib"
+    mkdir -p "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/patterns/lib"
+    mkdir -p "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/failures/lib"
+    mkdir -p "$FIXTURE_DIR/transfer" "$FIXTURE_DIR/inbox/lib"
+    mkdir -p "$FIXTURE_DIR/graph" "$FIXTURE_DIR/lib"
+    mkdir -p "$FIXTURE_DIR/intent/data/goals" "$FIXTURE_DIR/intent/lib"
 
     # Copy component scripts and libraries
-    cp -R "$SCRIPT_DIR/../journal/"* "$TMPDIR/journal/"
-    cp -R "$SCRIPT_DIR/../patterns/"* "$TMPDIR/patterns/"
-    cp -R "$SCRIPT_DIR/../failures/"* "$TMPDIR/failures/"
-    cp -R "$SCRIPT_DIR/../transfer/"* "$TMPDIR/transfer/"
-    cp -R "$SCRIPT_DIR/../inbox/"* "$TMPDIR/inbox/"
-    cp -R "$SCRIPT_DIR/../graph/"* "$TMPDIR/graph/"
-    cp -R "$SCRIPT_DIR/../lib/"* "$TMPDIR/lib/"
-    cp -R "$SCRIPT_DIR/../intent/"* "$TMPDIR/intent/"
+    cp -R "$SCRIPT_DIR/../journal/"* "$FIXTURE_DIR/journal/"
+    cp -R "$SCRIPT_DIR/../patterns/"* "$FIXTURE_DIR/patterns/"
+    cp -R "$SCRIPT_DIR/../failures/"* "$FIXTURE_DIR/failures/"
+    cp -R "$SCRIPT_DIR/../transfer/"* "$FIXTURE_DIR/transfer/"
+    cp -R "$SCRIPT_DIR/../inbox/"* "$FIXTURE_DIR/inbox/"
+    cp -R "$SCRIPT_DIR/../graph/"* "$FIXTURE_DIR/graph/"
+    cp -R "$SCRIPT_DIR/../lib/"* "$FIXTURE_DIR/lib/"
+    cp -R "$SCRIPT_DIR/../intent/"* "$FIXTURE_DIR/intent/"
 
     # Copy lore.sh into the temp dir so LORE_DIR self-derives correctly
-    cp "$LORE" "$TMPDIR/lore.sh"
-    chmod +x "$TMPDIR/lore.sh"
+    cp "$LORE" "$FIXTURE_DIR/lore.sh"
+    chmod +x "$FIXTURE_DIR/lore.sh"
 
     # Initialize empty data files
-    echo '[]' > "$TMPDIR/journal/data/decisions.jsonl"
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    echo '[]' > "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 # Pattern Learner Database
 patterns: []
 
 anti_patterns: []
 YAML
-    : > "$TMPDIR/failures/data/failures.jsonl"
+    : > "$FIXTURE_DIR/failures/data/failures.jsonl"
 
     # Clear any goal files copied from the source tree
-    rm -f "$TMPDIR/intent/data/goals/"*.yaml
+    rm -f "$FIXTURE_DIR/intent/data/goals/"*.yaml
 
     unset _LORE_PATHS_LOADED
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_ok() {
@@ -118,7 +119,7 @@ test_goal_create() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" goal create "Test Goal Alpha" 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" goal create "Test Goal Alpha" 2>&1)
 
     local goal_id
     goal_id=$(extract_goal_id "$output")
@@ -127,7 +128,7 @@ test_goal_create() {
     assert_output_contains "create output mentions goal ID" "$output" "goal-"
 
     # Verify goal file exists
-    local goal_file="$TMPDIR/intent/data/goals/${goal_id}.yaml"
+    local goal_file="$FIXTURE_DIR/intent/data/goals/${goal_id}.yaml"
     assert_file_exists "goal file created on disk" "$goal_file"
 
     # Verify file contains the goal name
@@ -147,12 +148,12 @@ test_goal_create_with_priority() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" goal create "High Priority Goal" --priority high 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" goal create "High Priority Goal" --priority high 2>&1)
 
     local goal_id
     goal_id=$(extract_goal_id "$output")
 
-    local goal_file="$TMPDIR/intent/data/goals/${goal_id}.yaml"
+    local goal_file="$FIXTURE_DIR/intent/data/goals/${goal_id}.yaml"
     if [[ -f "$goal_file" ]]; then
         local file_content
         file_content=$(cat "$goal_file")
@@ -170,11 +171,11 @@ test_goal_list() {
     setup
 
     # Create two goals
-    "$TMPDIR/lore.sh" goal create "Goal One" >/dev/null 2>&1
-    "$TMPDIR/lore.sh" goal create "Goal Two" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" goal create "Goal One" >/dev/null 2>&1
+    "$FIXTURE_DIR/lore.sh" goal create "Goal Two" >/dev/null 2>&1
 
     local output
-    output=$("$TMPDIR/lore.sh" goal list 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" goal list 2>&1)
 
     assert_output_contains "list shows Goal One" "$output" "Goal One"
     assert_output_contains "list shows Goal Two" "$output" "Goal Two"
@@ -188,7 +189,7 @@ test_goal_list_empty() {
     setup
 
     local output
-    output=$("$TMPDIR/lore.sh" goal list 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" goal list 2>&1)
 
     assert_output_contains "empty list shows no goals message" "$output" "No goals found"
 
@@ -200,13 +201,13 @@ test_goal_show() {
     setup
 
     local create_output
-    create_output=$("$TMPDIR/lore.sh" goal create "Detailed Goal" --priority high 2>&1)
+    create_output=$("$FIXTURE_DIR/lore.sh" goal create "Detailed Goal" --priority high 2>&1)
 
     local goal_id
     goal_id=$(extract_goal_id "$create_output")
 
     local output
-    output=$("$TMPDIR/lore.sh" goal show "$goal_id" 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" goal show "$goal_id" 2>&1)
 
     assert_output_contains "show displays goal name" "$output" "Detailed Goal"
     assert_output_contains "show displays ID" "$output" "$goal_id"
@@ -221,7 +222,7 @@ test_goal_show_missing() {
     setup
 
     local output
-    if "$TMPDIR/lore.sh" goal show "goal-nonexistent" >/dev/null 2>&1; then
+    if "$FIXTURE_DIR/lore.sh" goal show "goal-nonexistent" >/dev/null 2>&1; then
         echo "  FAIL: show should fail for missing goal (got success)"
         FAIL=$((FAIL + 1))
     else
@@ -237,24 +238,24 @@ test_goal_complete() {
     setup
 
     local create_output
-    create_output=$("$TMPDIR/lore.sh" goal create "Complete Me" 2>&1)
+    create_output=$("$FIXTURE_DIR/lore.sh" goal create "Complete Me" 2>&1)
 
     local goal_id
     goal_id=$(extract_goal_id "$create_output")
 
-    local goal_file="$TMPDIR/intent/data/goals/${goal_id}.yaml"
+    local goal_file="$FIXTURE_DIR/intent/data/goals/${goal_id}.yaml"
 
     # Update status to completed (no CLI command exists; yq is the mechanism)
     yq -i '.status = "completed"' "$goal_file"
 
     # Verify via lore goal show
     local output
-    output=$("$TMPDIR/lore.sh" goal show "$goal_id" 2>&1)
+    output=$("$FIXTURE_DIR/lore.sh" goal show "$goal_id" 2>&1)
     assert_output_contains "show reflects completed status" "$output" "completed"
 
     # Verify via lore goal list --status completed
     local list_output
-    list_output=$("$TMPDIR/lore.sh" goal list --status completed 2>&1)
+    list_output=$("$FIXTURE_DIR/lore.sh" goal list --status completed 2>&1)
     assert_output_contains "list filters by completed status" "$list_output" "Complete Me"
 
     teardown
@@ -265,19 +266,19 @@ test_goal_cleanup() {
     setup
 
     local create_output
-    create_output=$("$TMPDIR/lore.sh" goal create "Ephemeral Goal" 2>&1)
+    create_output=$("$FIXTURE_DIR/lore.sh" goal create "Ephemeral Goal" 2>&1)
 
     local goal_id
     goal_id=$(extract_goal_id "$create_output")
 
-    local goal_file="$TMPDIR/intent/data/goals/${goal_id}.yaml"
+    local goal_file="$FIXTURE_DIR/intent/data/goals/${goal_id}.yaml"
     assert_file_exists "goal file exists before cleanup" "$goal_file"
 
     # Remove the goal file (manual cleanup, as delete command does not exist)
     rm -f "$goal_file"
 
     local list_output
-    list_output=$("$TMPDIR/lore.sh" goal list 2>&1)
+    list_output=$("$FIXTURE_DIR/lore.sh" goal list 2>&1)
     assert_output_contains "goal absent after removal" "$list_output" "No goals found"
 
     teardown

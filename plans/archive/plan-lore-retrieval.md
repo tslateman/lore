@@ -43,15 +43,15 @@ use case. Adapt the ranking/indexing concepts, skip the tool.
 
 Borrow these concepts from [ClaudeMemory](https://github.com/jsflax/ClaudeMemory):
 
-- **Hybrid FTS5 + vector search** — Phase 1 uses FTS5 (BM25), Phase 2 adds
+- **Hybrid FTS5 + vector search** -- Phase 1 uses FTS5 (BM25), Phase 2 adds
   vector embeddings when FTS5 demonstrably fails (Rule of Three)
-- **Reinforcement scoring** — Blend frequency, importance, and recency
+- **Reinforcement scoring** -- Blend frequency, importance, and recency
   signals with BM25 base score
-- **Project scoping** — Soft ranking boost for same-project results, but
+- **Project scoping** -- Soft ranking boost for same-project results, but
   cross-project results still surface if relevant
-- **Conflict detection** — Block near-duplicate patterns/decisions with
+- **Conflict detection** -- Block near-duplicate patterns/decisions with
   similarity check before write
-- **Knowledge graph integration** — Lore's `graph/` component already has
+- **Knowledge graph integration** -- Lore's `graph/` component already has
   typed edges (`relates_to`, `depends_on`, `implements`, etc.). Extend with
   ClaudeMemory's semantic edge types (`contradicts`, `supersedes`,
   `derived_from`, `part_of`, `summarized_by`)
@@ -421,14 +421,14 @@ lore search "authentication" --graph-depth 2
 
 When creating graph edges:
 
-- **contradicts** — Use when a pattern says "don't X" and a decision says "we
+- **contradicts** -- Use when a pattern says "don't X" and a decision says "we
   chose X." Flag for review.
-- **supersedes** — Mark older decisions as superseded when new ones override
+- **supersedes** -- Mark older decisions as superseded when new ones override
   them. Old decision stays in journal but ranks lower.
-- **derived_from** — Link patterns back to the decision/session where they
+- **derived_from** -- Link patterns back to the decision/session where they
   were learned.
-- **part_of** — Group related patterns under a hub concept (e.g., "bash safety").
-- **summarized_by** — When consolidating patterns, link originals to summary
+- **part_of** -- Group related patterns under a hub concept (e.g., "bash safety").
+- **summarized_by** -- When consolidating patterns, link originals to summary
   with this edge. Original patterns drop to importance=1.
 
 ---
@@ -521,9 +521,9 @@ Add MCP tool for ad-hoc queries.
 
 Inspired by [Agentic RAG patterns](https://docs.kanaries.net/articles/agentic-rag):
 
-1. **Query planning** — Agent decomposes user question into sub-queries
-2. **Iterative retrieval** — Agent searches, evaluates results, refines query
-3. **Synthesis** — Agent combines retrieved knowledge into answer
+1. **Query planning** -- Agent decomposes user question into sub-queries
+2. **Iterative retrieval** -- Agent searches, evaluates results, refines query
+3. **Synthesis** -- Agent combines retrieved knowledge into answer
 
 **Example flow:**
 

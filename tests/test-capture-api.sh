@@ -10,58 +10,59 @@ set -euo pipefail
 export LORE_RERANK=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/fixture.sh"
 LORE="$SCRIPT_DIR/../lore.sh"
 
 # --- Test harness ---
 
 PASS=0
 FAIL=0
-TMPDIR=""
+FIXTURE_DIR=""
 
 setup() {
-    TMPDIR=$(mktemp -d)
+    FIXTURE_DIR=$(mktemp -d)
 
     # Mirror the directory structure lore.sh expects
-    mkdir -p "$TMPDIR/journal/data" "$TMPDIR/journal/lib"
-    mkdir -p "$TMPDIR/patterns/data" "$TMPDIR/patterns/lib"
-    mkdir -p "$TMPDIR/failures/data" "$TMPDIR/failures/lib"
-    mkdir -p "$TMPDIR/transfer" "$TMPDIR/inbox/data" "$TMPDIR/inbox/lib"
-    mkdir -p "$TMPDIR/graph" "$TMPDIR/lib"
+    mkdir -p "$FIXTURE_DIR/journal/data" "$FIXTURE_DIR/journal/lib"
+    mkdir -p "$FIXTURE_DIR/patterns/data" "$FIXTURE_DIR/patterns/lib"
+    mkdir -p "$FIXTURE_DIR/failures/data" "$FIXTURE_DIR/failures/lib"
+    mkdir -p "$FIXTURE_DIR/transfer" "$FIXTURE_DIR/inbox/data" "$FIXTURE_DIR/inbox/lib"
+    mkdir -p "$FIXTURE_DIR/graph" "$FIXTURE_DIR/lib"
 
     # Copy component scripts and libraries
-    cp -R "$SCRIPT_DIR/../journal/"* "$TMPDIR/journal/"
-    cp -R "$SCRIPT_DIR/../patterns/"* "$TMPDIR/patterns/"
-    cp -R "$SCRIPT_DIR/../failures/"* "$TMPDIR/failures/"
-    cp -R "$SCRIPT_DIR/../transfer/"* "$TMPDIR/transfer/"
-    cp -R "$SCRIPT_DIR/../inbox/"* "$TMPDIR/inbox/"
-    cp -R "$SCRIPT_DIR/../graph/"* "$TMPDIR/graph/"
-    cp -R "$SCRIPT_DIR/../lib/"* "$TMPDIR/lib/"
+    cp -R "$SCRIPT_DIR/../journal/"* "$FIXTURE_DIR/journal/"
+    cp -R "$SCRIPT_DIR/../patterns/"* "$FIXTURE_DIR/patterns/"
+    cp -R "$SCRIPT_DIR/../failures/"* "$FIXTURE_DIR/failures/"
+    cp -R "$SCRIPT_DIR/../transfer/"* "$FIXTURE_DIR/transfer/"
+    cp -R "$SCRIPT_DIR/../inbox/"* "$FIXTURE_DIR/inbox/"
+    cp -R "$SCRIPT_DIR/../graph/"* "$FIXTURE_DIR/graph/"
+    cp -R "$SCRIPT_DIR/../lib/"* "$FIXTURE_DIR/lib/"
 
     # Copy lore.sh into the temp dir so LORE_DIR self-derives correctly
-    cp "$LORE" "$TMPDIR/lore.sh"
-    chmod +x "$TMPDIR/lore.sh"
+    cp "$LORE" "$FIXTURE_DIR/lore.sh"
+    chmod +x "$FIXTURE_DIR/lore.sh"
 
     # Initialize empty data files
-    echo '[]' > "$TMPDIR/journal/data/decisions.jsonl"
-    cat > "$TMPDIR/patterns/data/patterns.yaml" <<'YAML'
+    echo '[]' > "$FIXTURE_DIR/journal/data/decisions.jsonl"
+    cat > "$FIXTURE_DIR/patterns/data/patterns.yaml" <<'YAML'
 # Pattern Learner Database
 patterns: []
 
 anti_patterns: []
 YAML
-    : > "$TMPDIR/failures/data/failures.jsonl"
-    : > "$TMPDIR/inbox/data/signals.jsonl"
+    : > "$FIXTURE_DIR/failures/data/failures.jsonl"
+    : > "$FIXTURE_DIR/inbox/data/signals.jsonl"
 
     # Reset paths.sh idempotency guard so it re-derives from new LORE_DIR
     unset _LORE_PATHS_LOADED
-    export LORE_DIR="$TMPDIR"
-    export LORE_DATA_DIR="$TMPDIR"
-    export CLAUDE_MEMORY_DB="$TMPDIR/memory.sqlite"
-    export LORE_SEARCH_DB="$TMPDIR/search.db"
+    export LORE_DIR="$FIXTURE_DIR"
+    export LORE_DATA_DIR="$FIXTURE_DIR"
+    export CLAUDE_MEMORY_DB="$FIXTURE_DIR/memory.sqlite"
+    export LORE_SEARCH_DB="$FIXTURE_DIR/search.db"
 }
 
 teardown() {
-    [[ -n "$TMPDIR" && -d "$TMPDIR" ]] && rm -rf "$TMPDIR"
+    remove_fixture "$FIXTURE_DIR"
 }
 
 assert_ok() {
@@ -126,12 +127,12 @@ test_infer_decision_from_rationale() {
     echo "Test: --rationale flag infers decision type"
     setup
     local before
-    before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
+    before=$(file_size "$FIXTURE_DIR/journal/data/decisions.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Test decision via rationale" --rationale "Because tests" --force
+    "$FIXTURE_DIR/lore.sh" capture "Test decision via rationale" --rationale "Because tests" --force
 
-    assert_file_grew "decisions.jsonl grew" "$TMPDIR/journal/data/decisions.jsonl" "$before"
-    assert_contains "decision text recorded" "$TMPDIR/journal/data/decisions.jsonl" "Test decision via rationale"
+    assert_file_grew "decisions.jsonl grew" "$FIXTURE_DIR/journal/data/decisions.jsonl" "$before"
+    assert_contains "decision text recorded" "$FIXTURE_DIR/journal/data/decisions.jsonl" "Test decision via rationale"
     teardown
 }
 
@@ -139,12 +140,12 @@ test_infer_pattern_from_solution() {
     echo "Test: --solution flag infers pattern type"
     setup
     local before
-    before=$(file_size "$TMPDIR/patterns/data/patterns.yaml")
+    before=$(file_size "$FIXTURE_DIR/patterns/data/patterns.yaml")
 
-    "$TMPDIR/lore.sh" capture "Test pattern via solution" --solution "Do the thing" --force
+    "$FIXTURE_DIR/lore.sh" capture "Test pattern via solution" --solution "Do the thing" --force
 
-    assert_file_grew "patterns.yaml grew" "$TMPDIR/patterns/data/patterns.yaml" "$before"
-    assert_contains "pattern text recorded" "$TMPDIR/patterns/data/patterns.yaml" "Test pattern via solution"
+    assert_file_grew "patterns.yaml grew" "$FIXTURE_DIR/patterns/data/patterns.yaml" "$before"
+    assert_contains "pattern text recorded" "$FIXTURE_DIR/patterns/data/patterns.yaml" "Test pattern via solution"
     teardown
 }
 
@@ -152,13 +153,13 @@ test_infer_failure_from_error_type() {
     echo "Test: --error-type flag infers failure type"
     setup
     local before
-    before=$(file_size "$TMPDIR/failures/data/failures.jsonl")
+    before=$(file_size "$FIXTURE_DIR/failures/data/failures.jsonl")
 
     # cmd_fail may return nonzero on empty optional flags (short-circuit eval bug)
-    "$TMPDIR/lore.sh" capture "Test failure via error-type" --error-type ToolError || true
+    "$FIXTURE_DIR/lore.sh" capture "Test failure via error-type" --error-type ToolError || true
 
-    assert_file_grew "failures.jsonl grew" "$TMPDIR/failures/data/failures.jsonl" "$before"
-    assert_contains "failure text recorded" "$TMPDIR/failures/data/failures.jsonl" "Test failure via error-type"
+    assert_file_grew "failures.jsonl grew" "$FIXTURE_DIR/failures/data/failures.jsonl" "$before"
+    assert_contains "failure text recorded" "$FIXTURE_DIR/failures/data/failures.jsonl" "Test failure via error-type"
     teardown
 }
 
@@ -166,17 +167,17 @@ test_explicit_decision_overrides_default() {
     echo "Test: --decision flag routes to journal even without inference flags"
     setup
     local dec_before pat_before
-    dec_before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
-    pat_before=$(file_size "$TMPDIR/patterns/data/patterns.yaml")
+    dec_before=$(file_size "$FIXTURE_DIR/journal/data/decisions.jsonl")
+    pat_before=$(file_size "$FIXTURE_DIR/patterns/data/patterns.yaml")
 
-    "$TMPDIR/lore.sh" capture "Explicit decision" --decision --rationale "Forced" --force
+    "$FIXTURE_DIR/lore.sh" capture "Explicit decision" --decision --rationale "Forced" --force
 
-    assert_file_grew "decisions.jsonl grew" "$TMPDIR/journal/data/decisions.jsonl" "$dec_before"
-    assert_contains "explicit decision recorded" "$TMPDIR/journal/data/decisions.jsonl" "Explicit decision"
+    assert_file_grew "decisions.jsonl grew" "$FIXTURE_DIR/journal/data/decisions.jsonl" "$dec_before"
+    assert_contains "explicit decision recorded" "$FIXTURE_DIR/journal/data/decisions.jsonl" "Explicit decision"
 
     # Patterns file should NOT have grown
     local pat_after
-    pat_after=$(file_size "$TMPDIR/patterns/data/patterns.yaml")
+    pat_after=$(file_size "$FIXTURE_DIR/patterns/data/patterns.yaml")
     if [[ "$pat_after" -eq "$pat_before" ]]; then
         echo "  PASS: patterns.yaml unchanged (explicit decision worked)"
         PASS=$((PASS + 1))
@@ -191,11 +192,11 @@ test_explicit_pattern_overrides_default() {
     echo "Test: --pattern flag overrides default decision inference"
     setup
     local pat_before
-    pat_before=$(file_size "$TMPDIR/patterns/data/patterns.yaml")
+    pat_before=$(file_size "$FIXTURE_DIR/patterns/data/patterns.yaml")
 
-    "$TMPDIR/lore.sh" capture "Override to pattern" --pattern --force
+    "$FIXTURE_DIR/lore.sh" capture "Override to pattern" --pattern --force
 
-    assert_file_grew "patterns.yaml grew" "$TMPDIR/patterns/data/patterns.yaml" "$pat_before"
+    assert_file_grew "patterns.yaml grew" "$FIXTURE_DIR/patterns/data/patterns.yaml" "$pat_before"
     teardown
 }
 
@@ -203,12 +204,12 @@ test_default_creates_signal() {
     echo "Test: no type flags defaults to signal"
     setup
     local before
-    before=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
+    before=$(file_size "$FIXTURE_DIR/inbox/data/signals.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Default signal"
+    "$FIXTURE_DIR/lore.sh" capture "Default signal"
 
-    assert_file_grew "signals.jsonl grew" "$TMPDIR/inbox/data/signals.jsonl" "$before"
-    assert_contains "default signal recorded" "$TMPDIR/inbox/data/signals.jsonl" "Default signal"
+    assert_file_grew "signals.jsonl grew" "$FIXTURE_DIR/inbox/data/signals.jsonl" "$before"
+    assert_contains "default signal recorded" "$FIXTURE_DIR/inbox/data/signals.jsonl" "Default signal"
     teardown
 }
 
@@ -216,12 +217,12 @@ test_backward_compat_remember() {
     echo "Test: lore remember still works"
     setup
     local before
-    before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
+    before=$(file_size "$FIXTURE_DIR/journal/data/decisions.jsonl")
 
-    "$TMPDIR/lore.sh" remember "Backward compat decision" --rationale "Still works" --force
+    "$FIXTURE_DIR/lore.sh" remember "Backward compat decision" --rationale "Still works" --force
 
-    assert_file_grew "decisions.jsonl grew" "$TMPDIR/journal/data/decisions.jsonl" "$before"
-    assert_contains "remember text recorded" "$TMPDIR/journal/data/decisions.jsonl" "Backward compat decision"
+    assert_file_grew "decisions.jsonl grew" "$FIXTURE_DIR/journal/data/decisions.jsonl" "$before"
+    assert_contains "remember text recorded" "$FIXTURE_DIR/journal/data/decisions.jsonl" "Backward compat decision"
     teardown
 }
 
@@ -229,12 +230,12 @@ test_backward_compat_learn() {
     echo "Test: lore learn still works"
     setup
     local pat_before
-    pat_before=$(file_size "$TMPDIR/patterns/data/patterns.yaml")
+    pat_before=$(file_size "$FIXTURE_DIR/patterns/data/patterns.yaml")
 
-    "$TMPDIR/lore.sh" learn "Backward compat pattern" --context "testing" --solution "test it" --force
+    "$FIXTURE_DIR/lore.sh" learn "Backward compat pattern" --context "testing" --solution "test it" --force
 
-    assert_file_grew "patterns.yaml grew" "$TMPDIR/patterns/data/patterns.yaml" "$pat_before"
-    assert_contains "learn text recorded" "$TMPDIR/patterns/data/patterns.yaml" "Backward compat pattern"
+    assert_file_grew "patterns.yaml grew" "$FIXTURE_DIR/patterns/data/patterns.yaml" "$pat_before"
+    assert_contains "learn text recorded" "$FIXTURE_DIR/patterns/data/patterns.yaml" "Backward compat pattern"
     teardown
 }
 
@@ -242,13 +243,13 @@ test_backward_compat_fail() {
     echo "Test: lore fail still works"
     setup
     local before
-    before=$(file_size "$TMPDIR/failures/data/failures.jsonl")
+    before=$(file_size "$FIXTURE_DIR/failures/data/failures.jsonl")
 
     # cmd_fail may return nonzero on empty optional flags (short-circuit eval bug)
-    "$TMPDIR/lore.sh" fail ToolError "Backward compat failure" || true
+    "$FIXTURE_DIR/lore.sh" fail ToolError "Backward compat failure" || true
 
-    assert_file_grew "failures.jsonl grew" "$TMPDIR/failures/data/failures.jsonl" "$before"
-    assert_contains "fail text recorded" "$TMPDIR/failures/data/failures.jsonl" "Backward compat failure"
+    assert_file_grew "failures.jsonl grew" "$FIXTURE_DIR/failures/data/failures.jsonl" "$before"
+    assert_contains "fail text recorded" "$FIXTURE_DIR/failures/data/failures.jsonl" "Backward compat failure"
     teardown
 }
 
@@ -257,7 +258,7 @@ test_capture_help_mentions_capture() {
     setup
 
     local help_output
-    help_output=$("$TMPDIR/lore.sh" help 2>&1)
+    help_output=$("$FIXTURE_DIR/lore.sh" help 2>&1)
 
     if echo "$help_output" | grep -qi "capture"; then
         echo "  PASS: help mentions capture"
@@ -273,17 +274,17 @@ test_explicit_signal_override() {
     echo "Test: --signal flag routes to inbox even with other flags"
     setup
     local sig_before dec_before
-    sig_before=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
-    dec_before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
+    sig_before=$(file_size "$FIXTURE_DIR/inbox/data/signals.jsonl")
+    dec_before=$(file_size "$FIXTURE_DIR/journal/data/decisions.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Explicit signal" --signal
+    "$FIXTURE_DIR/lore.sh" capture "Explicit signal" --signal
 
-    assert_file_grew "signals.jsonl grew" "$TMPDIR/inbox/data/signals.jsonl" "$sig_before"
-    assert_contains "signal text recorded" "$TMPDIR/inbox/data/signals.jsonl" "Explicit signal"
+    assert_file_grew "signals.jsonl grew" "$FIXTURE_DIR/inbox/data/signals.jsonl" "$sig_before"
+    assert_contains "signal text recorded" "$FIXTURE_DIR/inbox/data/signals.jsonl" "Explicit signal"
 
     # Decisions file should NOT have grown
     local dec_after
-    dec_after=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
+    dec_after=$(file_size "$FIXTURE_DIR/journal/data/decisions.jsonl")
     if [[ "$dec_after" -eq "$dec_before" ]]; then
         echo "  PASS: decisions.jsonl unchanged (explicit signal worked)"
         PASS=$((PASS + 1))
@@ -298,13 +299,13 @@ test_capture_signal_with_tags() {
     echo "Test: bare capture with --tags creates tagged signal"
     setup
     local before
-    before=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
+    before=$(file_size "$FIXTURE_DIR/inbox/data/signals.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Tagged signal" --tags "infra,networking"
+    "$FIXTURE_DIR/lore.sh" capture "Tagged signal" --tags "infra,networking"
 
-    assert_file_grew "signals.jsonl grew" "$TMPDIR/inbox/data/signals.jsonl" "$before"
-    assert_contains "tagged signal recorded" "$TMPDIR/inbox/data/signals.jsonl" "Tagged signal"
-    assert_contains "tags preserved" "$TMPDIR/inbox/data/signals.jsonl" "infra"
+    assert_file_grew "signals.jsonl grew" "$FIXTURE_DIR/inbox/data/signals.jsonl" "$before"
+    assert_contains "tagged signal recorded" "$FIXTURE_DIR/inbox/data/signals.jsonl" "Tagged signal"
+    assert_contains "tags preserved" "$FIXTURE_DIR/inbox/data/signals.jsonl" "infra"
     teardown
 }
 
@@ -312,17 +313,17 @@ test_decision_flags_still_route_to_decision() {
     echo "Test: --rationale flag still routes to decision (not observation)"
     setup
     local dec_before obs_before
-    dec_before=$(file_size "$TMPDIR/journal/data/decisions.jsonl")
-    sig_before=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
+    dec_before=$(file_size "$FIXTURE_DIR/journal/data/decisions.jsonl")
+    sig_before=$(file_size "$FIXTURE_DIR/inbox/data/signals.jsonl")
 
-    "$TMPDIR/lore.sh" capture "Decision with rationale" --rationale "Because reasons" --force
+    "$FIXTURE_DIR/lore.sh" capture "Decision with rationale" --rationale "Because reasons" --force
 
-    assert_file_grew "decisions.jsonl grew" "$TMPDIR/journal/data/decisions.jsonl" "$dec_before"
-    assert_contains "decision text recorded" "$TMPDIR/journal/data/decisions.jsonl" "Decision with rationale"
+    assert_file_grew "decisions.jsonl grew" "$FIXTURE_DIR/journal/data/decisions.jsonl" "$dec_before"
+    assert_contains "decision text recorded" "$FIXTURE_DIR/journal/data/decisions.jsonl" "Decision with rationale"
 
     # Signals file should NOT have grown
     local sig_after
-    sig_after=$(file_size "$TMPDIR/inbox/data/signals.jsonl")
+    sig_after=$(file_size "$FIXTURE_DIR/inbox/data/signals.jsonl")
     if [[ "$sig_after" -eq "$sig_before" ]]; then
         echo "  PASS: signals.jsonl unchanged (decision routing worked)"
         PASS=$((PASS + 1))

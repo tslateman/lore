@@ -22,7 +22,7 @@ against lowercase text. Misses semantically related content, no ranking.
 [agentic RAG](https://docs.kanaries.net/articles/agentic-rag)). The LLM decides
 what to retrieve, not grep.
 
-**Evidence:** "In 2026, hybrid search is the default — not optional.
+**Evidence:** "In 2026, hybrid search is the default -- not optional.
 Retrieval-Augmented Generation has evolved from a simple retrieve-and-generate
 pipeline into a sophisticated ecosystem of hybrid search, reranking,
 self-correcting retrieval, and agentic reasoning."
@@ -31,7 +31,7 @@ self-correcting retrieval, and agentic reasoning."
 ### 2. Fixed Budgets Need Prioritization
 
 **Current Problem:** 1,500 character hard cap with first-match wins. No quality
-ranking—old, low-confidence patterns can crowd out recent, high-relevance
+ranking -- old, low-confidence patterns can crowd out recent, high-relevance
 decisions.
 
 **2026 Standard:**
@@ -355,7 +355,7 @@ golden dataset.
 
 ### Hybrid Search (BM25 + Vector)
 
-"In 2026, hybrid search is the default — not optional. Building an effective RAG
+"In 2026, hybrid search is the default -- not optional. Building an effective RAG
 system means use hybrid search to cover both keyword and semantic matches. Add a
 reranker for precision."
 ([RAG in 2026](https://www.techment.com/blogs/rag-in-2026/))
@@ -403,7 +403,7 @@ window utilization while maintaining response quality."
 **Question:** Who decides what context to retrieve?
 
 - **Current hook:** Hook decides (keyword grep match → auto-inject)
-- **2026 best practice:** Agentic RAG—LLM decides ("I need to know about error
+- **2026 best practice:** Agentic RAG -- LLM decides ("I need to know about error
   handling patterns" → calls `lore search "error handling"`)
 
 ## Cost Analysis
