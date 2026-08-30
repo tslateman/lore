@@ -35,7 +35,7 @@ lore resume       Load context from last session
 lore handoff      Snapshot state for next session
 ```
 
-`recall` is available throughout — agents read from Lore when they need context.
+`recall` is available throughout -- agents read from Lore when they need context.
 `review` closes the feedback loop between sessions, resolving pending decisions.
 
 ### The Compounding Loop
@@ -136,7 +136,9 @@ The graph's node types encode a memory taxonomy drawn from cognitive science.
 | **Evidentiary** | evidence                           | evidence/                      | What supports this           |
 
 Infrastructure components (graph/, registry/) provide projection and metadata
-but are not memory stores.
+but are not memory stores. `standards/` is normative rather than a record of
+what happened: it holds the RFC 2119 clauses `lore corpus` judges a spec
+against.
 
 `concept` nodes represent higher-order abstractions that need judgment to
 identify. `lore concepts propose` surfaces candidate clusters; curation
@@ -145,21 +147,22 @@ decides which become concepts via `lore concepts promote`.
 `lesson` nodes are created automatically when decisions have `lesson_learned`
 fields. They are waypoints between episodic events and semantic patterns.
 
-## Nine Components
+## Ten Components
 
 Each component answers one question. Together they form institutional memory.
 
-| Component   | Question                  | Format | Writers                      |
-| ----------- | ------------------------- | ------ | ---------------------------- |
-| `journal/`  | Why did we choose this?   | JSONL  | Any project via CLI          |
-| `graph/`    | What relates to this?     | JSON   | Derived (rebuildable)        |
-| `patterns/` | What did we learn?        | YAML   | Any project via CLI          |
-| `transfer/` | What's next?              | JSON   | Session handoff              |
-| `inbox/`    | What did we notice?       | JSONL  | Observations from any source |
-| `intent/`   | What are we trying to do? | YAML   | Goals, specs                 |
-| `failures/` | What went wrong?          | JSONL  | Any project via CLI          |
-| `registry/` | What exists?              | YAML   | Project metadata             |
-| `evidence/` | What supports this?       | JSONL  | Any project via CLI          |
+| Component    | Question                  | Format | Writers                      |
+| ------------ | ------------------------- | ------ | ---------------------------- |
+| `journal/`   | Why did we choose this?   | JSONL  | Any project via CLI          |
+| `graph/`     | What relates to this?     | JSON   | Derived (rebuildable)        |
+| `patterns/`  | What did we learn?        | YAML   | Any project via CLI          |
+| `transfer/`  | What's next?              | JSON   | Session handoff              |
+| `inbox/`     | What did we notice?       | JSONL  | Observations from any source |
+| `intent/`    | What are we trying to do? | YAML   | Goals, specs                 |
+| `failures/`  | What went wrong?          | JSONL  | Any project via CLI          |
+| `registry/`  | What exists?              | YAML   | Project metadata             |
+| `evidence/`  | What supports this?       | JSONL  | Any project via CLI          |
+| `standards/` | What must a spec do?      | JSONL  | Any project via CLI          |
 
 ### Storage Conventions
 
@@ -242,9 +245,9 @@ the full context of previous work.
 
 ## Engram Bridge
 
-[Engram](https://github.com/jsflax/Engram) provides working memory — semantic recall, graph traversal, and episodic grouping via an MCP server backed by SQLite. Claude Code's advise hook queries Engram before every turn.
+[Engram](https://github.com/jsflax/Engram) provides working memory -- semantic recall, graph traversal, and episodic grouping via an MCP server backed by SQLite. Claude Code's advise hook queries Engram before every turn.
 
-Lore provides the written record — append-only decisions, curated patterns, failure analysis, session handoffs. Two databases, distinct roles.
+Lore provides the written record -- append-only decisions, curated patterns, failure analysis, session handoffs. Two databases, distinct roles.
 
 `lore sync` bridges them by projecting Lore records as shadow memories into Engram. Shadows carry a `[lore:{id}]` prefix for deduplication. Raw writes store a `zeroblob(0)` placeholder embedding; sync then re-embeds new and changed shadows through the Engram MCP server's `update` tool, so shadows participate in vector recall (including the advise hook) like native memories.
 

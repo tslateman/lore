@@ -5,12 +5,35 @@ Explicit context management for multi-agent systems.
 ## Setup
 
 ```bash
-# Requirements: bash 4.0+, jq, yq, sqlite3
-brew install jq yq  # macOS
+# Requirements: bash 4.0+, jq, yq, sqlite3, python3, perl
+brew install jq yq  # macOS; python3 and perl ship with the system
+
+# yq must be mikefarah's Go implementation, not the Python package.
+# Both number themselves v4.x, so read the URL in the output.
+yq --version   # yq (https://github.com/mikefarah/yq/) version v4.x.x
 
 # Verify
 lore --help
 ```
+
+## Runtime Dependencies
+
+`bash`, `jq`, `yq`, and `sqlite3` carry most of the CLI. Two more are load-bearing:
+
+| Tool      | Used by                                                             | Required for                              |
+| --------- | ------------------------------------------------------------------- | ----------------------------------------- |
+| `python3` | `lib/search-index.sh`, `lib/recall-router.sh`, `scripts/hooks/*.sh` | Graph traversal, rerank, handoff hooks    |
+| `perl`    | `lib/librarian.sh`, `lib/rerank.sh`                                 | `lore librarian`; rerank timeout fallback |
+
+`yq` means mikefarah's Go implementation. Lore calls `yq -o=json`
+(`lib/corpus.sh:85`), `yq -i` (`lore.sh:2077`), and `load()` (`lore.sh:2077`).
+The Python package named `yq` is a jq wrapper and answers `yq -o=json` with
+`jq: Unknown option -o`.
+
+`perl` runs one expression, `alarm N; exec @ARGV`, to bound a `claude -p` call.
+`lib/rerank.sh` already prefers `timeout(1)` and falls back to perl only when it
+is absent; `lib/librarian.sh` calls perl unconditionally. Giving librarian the
+same three-branch helper would drop perl to optional.
 
 ## Code Style
 
@@ -63,4 +86,4 @@ make sync-all    # sync external sources
 
 - Don't duplicate data across components -- cross-link instead
 - Don't break the append-only contract on JSONL files
-- Don't add runtime dependencies beyond bash, jq, yq, sqlite3
+- Don't add runtime dependencies beyond bash, jq, yq, sqlite3, python3, perl

@@ -15,16 +15,15 @@ Full map: ~/dev/council/mainstay/ecosystem.md
 
 ## Onboarding
 
-New to the stack? Start with
-[Getting Started](~/dev/council/docs/getting-started.md) -- a 30-minute path
-from zero to productive.
+New to the stack? Start with `~/dev/council/docs/getting-started.md` -- a
+30-minute path from zero to productive.
 
 ## Quick Start
 
 See the [tutorial](docs/tutorial.md) for a hands-on walkthrough. The essentials:
 
 ```bash
-# One verb, four destinations — flags determine type
+# One verb, four destinations -- flags determine type
 lore capture "Users retry after timeout"                                    # → observation (inbox)
 lore capture "Use JSONL for storage" --rationale "Append-only, simple"      # → decision (journal)
 lore capture "Safe bash arithmetic" --solution 'Use x=$((x+1))'            # → pattern (patterns)
@@ -41,7 +40,7 @@ lore handoff "Finished X, next steps: Y, blocked on Z"
 # Resume previous session
 lore resume
 
-# One verb reads from all sources — flags select mode
+# One verb reads from all sources -- flags select mode
 lore recall "authentication"                                               # → search (default)
 lore recall "authentication" --rerank                                      # → model-judged reranking (haiku)
 lore recall --project council                                              # → project context
@@ -57,19 +56,20 @@ in `lib/rerank.sh`).
 
 ## Components
 
-Nine components, one CLI. See `SYSTEM.md` for architecture, data flow, and the component table.
+Ten components, one CLI. See `SYSTEM.md` for architecture, data flow, and the component table.
 
-| Component     | Key Question                     |
-| ------------- | -------------------------------- |
-| **registry/** | "What exists and how connected?" |
-| **transfer/** | "What's next?"                   |
-| **journal/**  | "Why did we choose this?"        |
-| **patterns/** | "What did we learn?"             |
-| **failures/** | "What went wrong?"               |
-| **inbox/**    | "What did we notice?"            |
-| **intent/**   | "What are we trying to achieve?" |
-| **graph/**    | "What relates to this?"          |
-| **evidence/** | "What supports this?"            |
+| Component      | Key Question                     |
+| -------------- | -------------------------------- |
+| **registry/**  | "What exists and how connected?" |
+| **transfer/**  | "What's next?"                   |
+| **journal/**   | "Why did we choose this?"        |
+| **patterns/**  | "What did we learn?"             |
+| **failures/**  | "What went wrong?"               |
+| **inbox/**     | "What did we notice?"            |
+| **intent/**    | "What are we trying to achieve?" |
+| **graph/**     | "What relates to this?"          |
+| **evidence/**  | "What supports this?"            |
+| **standards/** | "What must a spec do?"           |
 
 **Append-only.** Decisions and patterns are never deleted, only marked revised or abandoned.
 
@@ -83,8 +83,8 @@ See `LORE_CONTRACT.md` for how other projects write to and read from Lore. Tags 
 
 Lore consolidated functionality from earlier projects (now deprecated/archived):
 
-- **intent/** — Absorbed from Oracle (goal/task tracking)
-- **transfer/** — Absorbed from prior session system (session handoff, now a Lore component)
+- **intent/** -- Absorbed from Oracle (goal/task tracking)
+- **transfer/** -- Absorbed from prior session system (session handoff, now a Lore component)
 
 These origins appear in component READMEs but are implementation history, not integration points.
 

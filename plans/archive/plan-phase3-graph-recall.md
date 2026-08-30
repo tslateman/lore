@@ -1,4 +1,4 @@
-# Plan: Phase 3 — Graph-Enhanced Recall
+# Plan: Phase 3 -- Graph-Enhanced Recall
 
 Status: Implemented
 Completed: 2026-02-15
@@ -165,10 +165,10 @@ Query: "JWT tokens"
 
 ## Performance Considerations
 
-1. **Cache graph traversals** — Same node traversed multiple times should hit cache
-2. **Limit expansion** — Cap at 50 expanded nodes regardless of depth
-3. **Lazy loading** — Only fetch full node content for top-N results
-4. **Index graph edges** — Add SQLite index on edges for fast traversal
+1. **Cache graph traversals** -- Same node traversed multiple times should hit cache
+2. **Limit expansion** -- Cap at 50 expanded nodes regardless of depth
+3. **Lazy loading** -- Only fetch full node content for top-N results
+4. **Index graph edges** -- Add SQLite index on edges for fast traversal
 
 ```sql
 -- Add to search.db

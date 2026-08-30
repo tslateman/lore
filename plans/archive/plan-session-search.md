@@ -9,7 +9,7 @@ Completed: 2026-02-15
 
 ## Solution
 
-Add `transfer.sh search <query>` that searches session content via the FTS5 index. The retrieval layer already indexes transfers — this exposes that capability through the transfer CLI.
+Add `transfer.sh search <query>` that searches session content via the FTS5 index. The retrieval layer already indexes transfers -- this exposes that capability through the transfer CLI.
 
 ## Implementation
 

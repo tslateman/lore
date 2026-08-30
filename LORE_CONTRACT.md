@@ -299,7 +299,7 @@ Severity is assigned by source, not by the reviewer:
 | --------- | --------------- | ------------------ | ----------------------- |
 | standards | MUST, MUST_NOT  | SHOULD, SHOULD_NOT | MAY                     |
 | journal   | `door: one-way` | `door: two-way`    | superseded, no door set |
-| intent    | non-goals       | —                  | goals                   |
+| intent    | non-goals       | none               | goals                   |
 
 `MAY` clauses and goals are left out of the candidate set. A finding that a
 spec fails to advance a goal would fire on every spec.

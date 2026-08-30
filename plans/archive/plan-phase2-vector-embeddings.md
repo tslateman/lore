@@ -1,4 +1,4 @@
-# Plan: Phase 2 — Vector Embeddings
+# Plan: Phase 2 -- Vector Embeddings
 
 Status: Implemented
 Completed: 2026-02-15

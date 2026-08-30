@@ -34,7 +34,7 @@ The 11 validation checks:
 For each FAIL:
 
 - Read the relevant file to understand the issue
-- Apply the minimal fix — do not refactor surrounding code
+- Apply the minimal fix -- do not refactor surrounding code
 - Re-run the specific check if possible to confirm
 
 Common fixes:

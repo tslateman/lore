@@ -7,7 +7,7 @@ References: [github/spec-kit](https://github.com/github/spec-kit), [SDD methodol
 
 ## Context
 
-GitHub's Spec Kit introduces **Spec-Driven Development (SDD)** — a four-phase
+GitHub's Spec Kit introduces **Spec-Driven Development (SDD)** -- a four-phase
 workflow where specifications become the source of truth:
 
 ```
@@ -31,11 +31,11 @@ Lore captures the durable knowledge that survives after the branch merges.
 
 ### Gaps in Current Implementation
 
-1. **No spec import** — Can't import external spec.md into Lore's intent layer
-2. **No spec → session binding** — Can't track which session works which spec
-3. **No plan decision capture** — Technical decisions in plan.md aren't journaled
-4. **No outcome recording** — Completion/failure isn't written back to Lore
-5. **No task progress tracking** — Session doesn't know current task context
+1. **No spec import** -- Can't import external spec.md into Lore's intent layer
+2. **No spec → session binding** -- Can't track which session works which spec
+3. **No plan decision capture** -- Technical decisions in plan.md aren't journaled
+4. **No outcome recording** -- Completion/failure isn't written back to Lore
+5. **No task progress tracking** -- Session doesn't know current task context
 
 ## Design
 
@@ -261,13 +261,13 @@ When resuming a session with an assigned spec, show related journal entries:
 
 ```bash
 # --- Decisions for This Spec ---
-# - Use WebSocket for real-time (not SSE) — lower latency requirement
-# - PostgreSQL for history (not Redis) — need durability
+# - Use WebSocket for real-time (not SSE) -- lower latency requirement
+# - PostgreSQL for history (not Redis) -- need durability
 ```
 
 ### Phase 3: MCP Integration
 
-#### 3.1 `lore_spec_list` — List specs in various states
+#### 3.1 `lore_spec_list` -- List specs in various states
 
 ```typescript
 {
@@ -283,7 +283,7 @@ When resuming a session with an assigned spec, show related journal entries:
 }
 ```
 
-#### 3.2 `lore_spec_context` — Get full context for assigned spec
+#### 3.2 `lore_spec_context` -- Get full context for assigned spec
 
 ```typescript
 {
@@ -296,7 +296,7 @@ When resuming a session with an assigned spec, show related journal entries:
 // Returns: spec details, related decisions, current phase/task, patterns
 ```
 
-#### 3.3 `lore_spec_assign` — Assign spec to session
+#### 3.3 `lore_spec_assign` -- Assign spec to session
 
 ```typescript
 {
@@ -308,7 +308,7 @@ When resuming a session with an assigned spec, show related journal entries:
 }
 ```
 
-#### 3.4 `lore_spec_progress` — Update progress
+#### 3.4 `lore_spec_progress` -- Update progress
 
 ```typescript
 {
@@ -322,7 +322,7 @@ When resuming a session with an assigned spec, show related journal entries:
 }
 ```
 
-#### 3.5 `lore_spec_complete` — Record outcome
+#### 3.5 `lore_spec_complete` -- Record outcome
 
 ```typescript
 {
@@ -338,12 +338,12 @@ When resuming a session with an assigned spec, show related journal entries:
 
 ## What NOT to Do
 
-- **Don't replace spec-kit** — Lore is memory, not workflow
-- **Don't store full spec.md prose** — Snapshot structured data only
-- **Don't auto-advance phases** — Explicit is better than implicit
-- **Don't enforce SDD** — Support it, but don't require it
-- **Don't modify spec files** — Lore reads, it doesn't write to spec-kit artifacts
-- **Don't rely on path existing** — Branch may be deleted after merge
+- **Don't replace spec-kit** -- Lore is memory, not workflow
+- **Don't store full spec.md prose** -- Snapshot structured data only
+- **Don't auto-advance phases** -- Explicit is better than implicit
+- **Don't enforce SDD** -- Support it, but don't require it
+- **Don't modify spec files** -- Lore reads, it doesn't write to spec-kit artifacts
+- **Don't rely on path existing** -- Branch may be deleted after merge
 
 ## Files to Create/Modify
 
@@ -423,11 +423,11 @@ lore search "goal-xxx"
 
 ## Future Work (Out of Scope)
 
-1. **Webhook integration** — Auto-import on branch creation, outcome on PR merge (goal `goal-1771254688-cc3114e2`)
-2. **Task file parsing** — Parse tasks.md and track individual task completion
-3. **Multi-agent specs** — One spec decomposed across multiple sessions
-4. **Spec templates** — `lore spec init` to create spec-kit structure
-5. **Constitution support** — Store project constitution in Lore, reference in specs
+1. **Webhook integration** -- Auto-import on branch creation, outcome on PR merge (goal `goal-1771254688-cc3114e2`)
+2. **Task file parsing** -- Parse tasks.md and track individual task completion
+3. **Multi-agent specs** -- One spec decomposed across multiple sessions
+4. **Spec templates** -- `lore spec init` to create spec-kit structure
+5. **Constitution support** -- Store project constitution in Lore, reference in specs
 
 ## Outcome
 
