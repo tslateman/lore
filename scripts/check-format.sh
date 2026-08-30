@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # check-format.sh - Fail on unformatted tracked markdown
 #
-# Uses a local prettier when one is installed, otherwise fetches a pinned
-# major through npx. Missing prettier fails the gate; it never skips.
+# Uses a local prettier when one is installed, otherwise fetches the pinned
+# version through npx. Missing prettier fails the gate; it never skips.
 #
 # Usage: scripts/check-format.sh [--write]
 
 set -euo pipefail
 
-PRETTIER_VERSION=3
+PRETTIER_VERSION=3.9.6
 
 LORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$LORE_DIR"
