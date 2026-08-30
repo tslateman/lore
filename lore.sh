@@ -482,7 +482,7 @@ show_help_components() {
     cat << 'EOF'
 COMPONENTS
 
-Lore has eight components. Each answers one question.
+Lore has ten components. Each answers one question.
 
   journal/    "Why did we choose this?"     Decision capture with rationale
   patterns/   "What did we learn?"          Patterns and anti-patterns
@@ -492,6 +492,8 @@ Lore has eight components. Each answers one question.
   intent/     "What are we trying to do?"   Goals and specs
   failures/   "What went wrong?"            Failure reports
   registry/   "What exists?"                Project metadata
+  standards/  "What must hold?"             Normative clauses and enforcement
+  evidence/   "What backs this up?"         Supporting evidence records
 
 DIRECT ACCESS
   lore journal <command>            Decision journal commands
