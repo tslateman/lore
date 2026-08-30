@@ -12,16 +12,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq sqlite3
+          sudo apt-get install -y jq sqlite3 python3 perl shellcheck
           YQ_VERSION=$(curl -s https://api.github.com/repos/mikefarah/yq/releases/latest | jq -r '.tag_name')
           sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
           sudo chmod +x /usr/local/bin/yq
+
+      - name: Verify toolchain
+        run: |
+          missing=0
+          for tool in bash jq sqlite3 yq python3 perl shellcheck node npx; do
+            path=$(command -v "$tool" || true)
+            printf '%-12s %s\n' "$tool" "${path:-MISSING}"
+            [ -n "$path" ] || missing=1
+          done
+          exit $missing
 
       - name: Run tests
         run: make test
 
       - name: Run checks
+        if: ${{ !cancelled() }}
         run: make check
