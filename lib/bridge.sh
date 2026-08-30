@@ -172,18 +172,18 @@ _embed_backfill() {
     local MEM MEM_PID resp line
     coproc MEM { "$memory_bin" 2>/dev/null; }
 
-    printf '%s\n' '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"lore-bridge","version":"0.1.0"}}}' >&"${MEM[1]}" 2>/dev/null \
+    printf '%s\n' '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"lore-bridge","version":"0.1.0"}}}' 1>&"${MEM[1]}" 2>/dev/null \
         || { kill "$MEM_PID" 2>/dev/null || true; return 0; }
     IFS= read -r -t 60 resp <&"${MEM[0]}" \
         || { kill "$MEM_PID" 2>/dev/null || true; return 0; }
-    printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/initialized"}' >&"${MEM[1]}" 2>/dev/null \
+    printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/initialized"}' 1>&"${MEM[1]}" 2>/dev/null \
         || { kill "$MEM_PID" 2>/dev/null || true; return 0; }
 
     local total=0 embedded=0
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         total=$((total + 1))
-        printf '%s\n' "$(printf '%s' "$line" | jq -c '{jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"update",arguments:{id:.globalId,content:.content}}}')" >&"${MEM[1]}" 2>/dev/null || break
+        printf '%s\n' "$(printf '%s' "$line" | jq -c '{jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"update",arguments:{id:.globalId,content:.content}}}')" 1>&"${MEM[1]}" 2>/dev/null || break
         IFS= read -r -t 60 resp <&"${MEM[0]}" || break
         [[ "$resp" != *'"error"'* && "$resp" != *'"isError":true'* ]] && embedded=$((embedded + 1))
     done < <(printf '%s' "$rows" | jq -c '.[]')

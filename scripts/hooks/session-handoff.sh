@@ -18,7 +18,7 @@
 #   --drain        spawn the worker to drain any pending requests
 #   --health       report pipeline health (delegates to worker)
 
-set -u
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LORE_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -53,7 +53,7 @@ case "${1:-}" in
         exec "${WORKER}" --health
         ;;
     --drain)
-        spawn_worker
+        spawn_worker || true
         exit 0
         ;;
 esac
@@ -66,6 +66,7 @@ if [[ -z "${input}" ]]; then
     exit 0
 fi
 
+parse_rc=0
 parsed=$(printf '%s' "${input}" | python3 -c '
 import json, sys
 try:
@@ -75,8 +76,8 @@ except ValueError:
 print(data.get("transcript_path") or "")
 print(data.get("cwd") or "")
 print(data.get("hook_event_name") or "")
-' 2>/dev/null)
-if [[ $? -ne 0 || -z "${parsed}" ]]; then
+' 2>/dev/null) || parse_rc=$?
+if [[ "${parse_rc}" -ne 0 || -z "${parsed}" ]]; then
     log "ERROR unparseable hook JSON on stdin"
     exit 0
 fi
@@ -91,7 +92,7 @@ if [[ -z "${transcript_path}" || ! -f "${transcript_path}" ]]; then
     exit 0
 fi
 
-lines=$(wc -l < "${transcript_path}" 2>/dev/null | tr -d ' ')
+lines=$(wc -l < "${transcript_path}" 2>/dev/null | tr -d ' ') || lines=""
 if [[ -z "${lines}" || "${lines}" -lt "${MIN_TRANSCRIPT_LINES}" ]]; then
     log "SKIP tiny transcript (${lines:-0} lines, likely nested claude -p): $(basename "${transcript_path}")"
     exit 0
