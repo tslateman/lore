@@ -94,14 +94,17 @@ run_with_timeout() {
     shift
     if command -v timeout >/dev/null 2>&1; then timeout "${secs}" "$@"; return $?; fi
     if command -v gtimeout >/dev/null 2>&1; then gtimeout "${secs}" "$@"; return $?; fi
-    "$@" &
+    local out rc=0
+    out=$(mktemp "${TMPDIR:-/tmp}/lore-timeout.XXXXXX")
+    "$@" >"${out}" &
     local pid=$!
-    ( sleep "${secs}"; kill "${pid}" 2>/dev/null ) &
+    ( sleep "${secs}"; kill "${pid}" 2>/dev/null ) >/dev/null 2>&1 &
     local killer=$!
-    local rc=0
     wait "${pid}" 2>/dev/null || rc=$?
     kill "${killer}" 2>/dev/null
     wait "${killer}" 2>/dev/null || true
+    cat "${out}"
+    rm -f "${out}"
     return "${rc}"
 }
 
