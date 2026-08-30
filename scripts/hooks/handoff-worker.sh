@@ -52,7 +52,7 @@ if [[ "${1:-}" == "--health" ]]; then
     echo "  Failed (needs inspection): ${failed}"
     if [[ -f "${SUCCESS_STAMP}" ]]; then
         last=$(cat "${SUCCESS_STAMP}")
-        age_secs=$(( $(date +%s) - $(stat -f %m "${SUCCESS_STAMP}") ))
+        age_secs=$(( $(date +%s) - $(stat -c %Y "${SUCCESS_STAMP}" 2>/dev/null || stat -f %m "${SUCCESS_STAMP}" 2>/dev/null) ))
         age_days=$(( age_secs / 86400 ))
         echo "  Last success: ${last} (${age_days}d ago)"
         [[ "${age_days}" -ge 7 ]] && echo "  WARNING: no successful handoff in ${age_days} days — pipeline may be broken"
@@ -77,7 +77,7 @@ mkdir -p "${QUEUE_DIR}" "${FAILED_DIR}" "${LOG_DIR}"
 
 # Single-worker lock; steal if stale (previous worker died).
 if ! mkdir "${LOCK_DIR}" 2>/dev/null; then
-    lock_age=$(( $(date +%s) - $(stat -f %m "${LOCK_DIR}" 2>/dev/null || echo 0) ))
+    lock_age=$(( $(date +%s) - $(stat -c %Y "${LOCK_DIR}" 2>/dev/null || stat -f %m "${LOCK_DIR}" 2>/dev/null || echo 0) ))
     if [[ "${lock_age}" -lt "${LOCK_STALE_SECS}" ]]; then
         log "SKIP another worker holds the lock (age ${lock_age}s)"
         exit 0

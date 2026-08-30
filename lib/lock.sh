@@ -23,7 +23,7 @@ _lore_lock() {
             # Stale lock check: remove locks older than 10 seconds
             if [[ -d "$lockdir" ]]; then
                 local lock_age
-                lock_age=$(( $(date +%s) - $(stat -f %m "$lockdir" 2>/dev/null || stat -c %Y "$lockdir" 2>/dev/null || echo 0) ))
+                lock_age=$(( $(date +%s) - $(stat -c %Y "$lockdir" 2>/dev/null || stat -f %m "$lockdir" 2>/dev/null || echo 0) ))
                 if [[ $lock_age -gt 10 ]]; then
                     rmdir "$lockdir" 2>/dev/null || true
                     continue
@@ -60,7 +60,7 @@ lore_sync_lock() {
         # Sweep locks abandoned by crashed holders
         if [[ -d "$lockdir" ]]; then
             local age
-            age=$(( $(date +%s) - $(stat -f %m "$lockdir" 2>/dev/null || stat -c %Y "$lockdir" 2>/dev/null || echo 0) ))
+            age=$(( $(date +%s) - $(stat -c %Y "$lockdir" 2>/dev/null || stat -f %m "$lockdir" 2>/dev/null || echo 0) ))
             if [[ $age -gt $_SYNC_LOCK_STALE ]]; then
                 rmdir "$lockdir" 2>/dev/null || true
                 continue

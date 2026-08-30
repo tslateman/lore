@@ -955,7 +955,7 @@ sync_to_claude_memory() {
     if [[ "$dry_run" != true ]]; then
         if ! mkdir "$lock_dir" 2>/dev/null; then
             local lock_age
-            lock_age=$(( $(date +%s) - $(stat -f %m "$lock_dir" 2>/dev/null || stat -c %Y "$lock_dir" 2>/dev/null || echo 0) ))
+            lock_age=$(( $(date +%s) - $(stat -c %Y "$lock_dir" 2>/dev/null || stat -f %m "$lock_dir" 2>/dev/null || echo 0) ))
             if [[ "$lock_age" -gt 120 ]]; then
                 rmdir "$lock_dir" 2>/dev/null || true
             fi

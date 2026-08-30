@@ -49,12 +49,14 @@ subtraction_check() {
             timestamp=$(echo "$line" | jq -r '.timestamp // empty')
             [[ -z "$timestamp" ]] && continue
 
-            # Convert ISO timestamp to epoch (macOS date -j)
+            # Convert ISO timestamp to epoch (BSD date -j, then GNU date -d)
             local record_epoch
             # Strip sub-second precision if present
             local clean_ts="${timestamp%%.*}Z"
             clean_ts="${clean_ts%%Z*}Z"
-            record_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$clean_ts" +%s 2>/dev/null) || continue
+            record_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$clean_ts" +%s 2>/dev/null) \
+                || record_epoch=$(date -d "$clean_ts" +%s 2>/dev/null) \
+                || continue
 
             local age_days=$(( (now_epoch - record_epoch) / 86400 ))
             if [[ "$age_days" -gt 14 ]]; then

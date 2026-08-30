@@ -108,7 +108,7 @@ prune_sessions() {
 
         # Age gate: keep files modified within the window
         local mtime age_days
-        mtime=$(stat -f %m "${session_file}" 2>/dev/null || stat -c %Y "${session_file}" 2>/dev/null) || {
+        mtime=$(stat -c %Y "${session_file}" 2>/dev/null || stat -f %m "${session_file}" 2>/dev/null) || {
             kept_signal=$((kept_signal + 1))
             continue
         }
