@@ -110,7 +110,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS decisions USING fts5(
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS patterns USING fts5(
     id UNINDEXED, name, context, problem, solution,
-    confidence UNINDEXED, timestamp UNINDEXED
+    confidence UNINDEXED, timestamp UNINDEXED, project UNINDEXED
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS transfers USING fts5(
     session_id UNINDEXED, project UNINDEXED, handoff,
@@ -148,8 +148,8 @@ INSERT INTO decisions VALUES ('dec-003', 'State machine for workflow', 'Explicit
 INSERT INTO decisions VALUES ('dec-004', 'Use JSONL for failure logs', 'Consistent with decision storage', 'architecture', '2026-02-10T00:00:00Z', 'lore', 3);
 
 -- Test patterns
-INSERT INTO patterns VALUES ('pat-001', 'Safe bash arithmetic', 'set -e scripts', 'Arithmetic expansion kills script', 'Use x=$((x+1)) instead of let', '0.9', '2026-02-10T00:00:00Z');
-INSERT INTO patterns VALUES ('pat-002', 'Hierarchical agent orchestration', 'Multi-agent systems', 'Coordination overhead', 'Separate registry vs execution vs intent', '0.8', '2026-02-10T00:00:00Z');
+INSERT INTO patterns VALUES ('pat-001', 'Safe bash arithmetic', 'set -e scripts', 'Arithmetic expansion kills script', 'Use x=$((x+1)) instead of let', '0.9', '2026-02-10T00:00:00Z', 'lore');
+INSERT INTO patterns VALUES ('pat-002', 'Hierarchical agent orchestration', 'Multi-agent systems', 'Coordination overhead', 'Separate registry vs execution vs intent', '0.8', '2026-02-10T00:00:00Z', 'alpha');
 
 -- Test transfers
 INSERT INTO transfers VALUES ('sess-001', 'lore', 'Finished FTS5 index, next: conflict detection', '2026-02-14T00:00:00Z');

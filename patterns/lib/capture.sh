@@ -81,10 +81,14 @@ capture_pattern() {
     local origin="$6"
     local example_bad="$7"
     local example_good="$8"
+    local project="${9:-}"
 
-    # Validate and set defaults
-    if ! validate_category "$category" >/dev/null 2>&1; then
+    if [[ -z "$category" ]]; then
         category="general"
+    fi
+
+    if [[ -z "$project" ]]; then
+        project="lore"
     fi
 
     if [[ -z "$origin" ]]; then
@@ -122,6 +126,7 @@ capture_pattern() {
     export LORE_PAT_PROBLEM="$problem"
     export LORE_PAT_SOLUTION="$solution"
     export LORE_PAT_CATEGORY="$category"
+    export LORE_PAT_PROJECT="$project"
     export LORE_PAT_ORIGIN="$origin"
     export LORE_PAT_CREATED="$created_at"
     export LORE_PAT_SPEC_QUALITY="$spec_quality"
@@ -137,6 +142,7 @@ capture_pattern() {
         "problem": strenv(LORE_PAT_PROBLEM),
         "solution": strenv(LORE_PAT_SOLUTION),
         "category": strenv(LORE_PAT_CATEGORY),
+        "project": strenv(LORE_PAT_PROJECT),
         "origin": strenv(LORE_PAT_ORIGIN),
         "confidence": 0.5,
         "validations": 0,
@@ -158,14 +164,14 @@ capture_pattern() {
         echo -e "${RED}Error: Failed to insert pattern.${NC}" >&2
         rm -f "$temp_file"
         unset LORE_PAT_ID LORE_PAT_NAME LORE_PAT_CONTEXT LORE_PAT_PROBLEM LORE_PAT_SOLUTION \
-              LORE_PAT_CATEGORY LORE_PAT_ORIGIN LORE_PAT_CREATED LORE_PAT_SPEC_QUALITY \
+              LORE_PAT_CATEGORY LORE_PAT_PROJECT LORE_PAT_ORIGIN LORE_PAT_CREATED LORE_PAT_SPEC_QUALITY \
               LORE_PAT_EX_BAD LORE_PAT_EX_GOOD
         return 1
     fi
 
     # Cleanup environment variables
     unset LORE_PAT_ID LORE_PAT_NAME LORE_PAT_CONTEXT LORE_PAT_PROBLEM LORE_PAT_SOLUTION \
-          LORE_PAT_CATEGORY LORE_PAT_ORIGIN LORE_PAT_CREATED LORE_PAT_SPEC_QUALITY \
+          LORE_PAT_CATEGORY LORE_PAT_PROJECT LORE_PAT_ORIGIN LORE_PAT_CREATED LORE_PAT_SPEC_QUALITY \
           LORE_PAT_EX_BAD LORE_PAT_EX_GOOD
 
     mv "$temp_file" "$PATTERNS_FILE"
@@ -173,6 +179,7 @@ capture_pattern() {
     echo -e "${GREEN}Captured pattern:${NC} $name"
     echo -e "  ${CYAN}ID:${NC} $id"
     echo -e "  ${CYAN}Category:${NC} $category"
+    echo -e "  ${CYAN}Project:${NC} $project"
     echo -e "  ${CYAN}Origin:${NC} $origin"
 
     if [[ -n "$context" ]]; then

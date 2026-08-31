@@ -294,7 +294,9 @@ PATTERNS (learn)
     --context <when>            When this pattern applies
     --solution <what>           The approach or technique
     --problem <what>            What problem this solves
-    --category <cat>            Category (or "anti-pattern")
+    --category <cat>            Free-form category, stored as given
+    --project <name>            Project this pattern belongs to
+                                (default: derived from the working directory)
     --confidence <0-1>          How confident in this pattern
 
 FAILURES (fail)
@@ -571,6 +573,17 @@ cmd_remember() {
 }
 
 cmd_learn() {
+    local has_project=false
+    for arg in "$@"; do
+        [[ "$arg" == "--project" ]] && { has_project=true; break; }
+    done
+    if [[ "$has_project" == false ]]; then
+        local project
+        project=$(_derive_project)
+        [[ -z "$project" ]] && project="lore"
+        set -- "$@" --project "$project"
+    fi
+
     # Dedup check now lives in patterns/patterns.sh cmd_capture (--force passes through)
     "$LORE_DIR/patterns/patterns.sh" capture "$@"
 
@@ -652,6 +665,7 @@ cmd_capture() {
                 v=$(_jq_str "$_json_raw" "solution"); [[ -n "$v" ]] && args+=(--solution "$v")
                 v=$(_jq_str "$_json_raw" "problem"); [[ -n "$v" ]] && args+=(--problem "$v")
                 v=$(_jq_str "$_json_raw" "category"); [[ -n "$v" ]] && args+=(--category "$v")
+                v=$(_jq_str "$_json_raw" "project"); [[ -n "$v" ]] && args+=(--project "$v")
                 v=$(_jq_str "$_json_raw" "origin"); [[ -n "$v" ]] && args+=(--origin "$v")
                 v=$(_jq_str "$_json_raw" "example_bad"); [[ -n "$v" ]] && args+=(--example-bad "$v")
                 v=$(_jq_str "$_json_raw" "example_good"); [[ -n "$v" ]] && args+=(--example-good "$v")
@@ -721,7 +735,7 @@ cmd_capture() {
                     continue
                 fi
                 case "$arg" in
-                    --rationale|--solution|--error-type|--tags|-t|--source|-s|--confidence|--provenance|--context|--tool|--step|--definition)
+                    --rationale|--solution|--error-type|--tags|-t|--source|-s|--confidence|--provenance|--context|--tool|--step|--definition|--category|--project)
                         skip_next=true ;;
                     -*) ;;
                     *) has_positional=true; break ;;
@@ -1023,7 +1037,7 @@ _search_fts5() {
 
     # Build SQL dynamically based on type filter
     local decision_sql="SELECT 'decision' as type, id, decision as content, project, timestamp, importance, rank * -1 as bm25_score FROM decisions WHERE decisions MATCH '${safe_query}'"
-    local pattern_sql="SELECT 'pattern' as type, id, name || ': ' || solution as content, 'lore' as project, timestamp, CAST(confidence * 5 AS INT) as importance, rank * -1 as bm25_score FROM patterns WHERE patterns MATCH '${safe_query}'"
+    local pattern_sql="SELECT 'pattern' as type, id, name || ': ' || solution as content, project, timestamp, CAST(confidence * 5 AS INT) as importance, rank * -1 as bm25_score FROM patterns WHERE patterns MATCH '${safe_query}'"
     local transfer_sql="SELECT 'transfer' as type, session_id as id, handoff as content, project, timestamp, 3 as importance, rank * -1 as bm25_score FROM transfers WHERE transfers MATCH '${safe_query}'"
     local failure_sql="SELECT 'failure' as type, id, error_type || ': ' || error_message as content, '' as project, timestamp, 3 as importance, rank * -1 as bm25_score FROM failures WHERE failures MATCH '${safe_query}'"
     local signal_sql="SELECT 'signal' as type, id, content as content, '' as project, timestamp, 2 as importance, rank * -1 as bm25_score FROM observations WHERE observations MATCH '${safe_query}'"
@@ -2764,7 +2778,7 @@ cmd_overlay() {
 WITH ranked AS (
     SELECT 'decision' as type, id, decision as content, project, timestamp, importance, rank * -1 as bm25_score FROM decisions WHERE decisions MATCH '${safe_query}'
     UNION ALL
-    SELECT 'pattern' as type, id, name || ': ' || solution as content, 'lore' as project, timestamp, CAST(confidence * 5 AS INT) as importance, rank * -1 as bm25_score FROM patterns WHERE patterns MATCH '${safe_query}'
+    SELECT 'pattern' as type, id, name || ': ' || solution as content, project, timestamp, CAST(confidence * 5 AS INT) as importance, rank * -1 as bm25_score FROM patterns WHERE patterns MATCH '${safe_query}'
     UNION ALL
     SELECT 'transfer' as type, session_id as id, handoff as content, project, timestamp, 3 as importance, rank * -1 as bm25_score FROM transfers WHERE transfers MATCH '${safe_query}'
     UNION ALL

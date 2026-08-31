@@ -34,9 +34,8 @@ Commands:
   capture <pattern>    Record a pattern
     --context "when"   Context when pattern applies
     --solution "how"   How to apply the pattern
-    --category <cat>   Category: bash, git, testing, architecture, naming,
-                       security, docker, api, performance, general (default);
-                       unknown categories fall back to general with a warning
+    --category <cat>   Free-form category, stored as given (default: general)
+    --project <name>   Project the pattern belongs to (default: lore)
     --origin <session> Origin session/decision that taught this
     --example-bad      Bad example code
     --example-good     Good example code
@@ -46,7 +45,8 @@ Commands:
     --fix "how"        How to fix it
     --risk "why"       Why this is risky
     --severity <sev>   Severity: low, medium, high, critical
-    --category <cat>   Category (same as capture)
+    --category <cat>   Category: bash, git, testing, architecture, naming,
+                       security, docker, api, performance, general (default)
 
   check <file|code>    Check if any known patterns/anti-patterns apply
     --verbose          Show detailed explanations
@@ -114,6 +114,7 @@ cmd_capture() {
     local context=""
     local solution=""
     local category="general"
+    local project=""
     local origin=""
     local example_bad=""
     local example_good=""
@@ -137,6 +138,10 @@ cmd_capture() {
                 ;;
             --category)
                 category="$2"
+                shift 2
+                ;;
+            --project)
+                project="$2"
                 shift 2
                 ;;
             --origin)
@@ -188,7 +193,7 @@ cmd_capture() {
         fi
     fi
 
-    capture_pattern "$name" "$context" "$solution" "$problem" "$category" "$origin" "$example_bad" "$example_good"
+    capture_pattern "$name" "$context" "$solution" "$problem" "$category" "$origin" "$example_bad" "$example_good" "$project"
 }
 
 # Command: warn

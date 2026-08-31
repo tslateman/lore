@@ -40,7 +40,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS patterns USING fts5(
     problem,
     solution,
     confidence UNINDEXED,
-    timestamp UNINDEXED
+    timestamp UNINDEXED,
+    project UNINDEXED
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS transfers USING fts5(
@@ -168,7 +169,7 @@ load_patterns() {
     # Use process substitution to avoid subshell count loss
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
-        local id name context problem solution confidence timestamp
+        local id name context problem solution confidence timestamp project
 
         id=$(echo "$line" | jq -r '.id // ""')
         name=$(echo "$line" | jq -r '.name // ""')
@@ -177,11 +178,13 @@ load_patterns() {
         solution=$(echo "$line" | jq -r '.solution // ""')
         confidence=$(echo "$line" | jq -r '.confidence // 0.5')
         timestamp=$(echo "$line" | jq -r '.created_at // ""')
+        project=$(echo "$line" | jq -r '.project // ""')
+        [[ -z "$project" ]] && project="lore"
 
-        sqlite3 "$DB" "INSERT INTO patterns(id, name, context, problem, solution, confidence, timestamp)
+        sqlite3 "$DB" "INSERT INTO patterns(id, name, context, problem, solution, confidence, timestamp, project)
             VALUES ($(sql_quote "$id"), $(sql_quote "$name"), $(sql_quote "$context"),
                     $(sql_quote "$problem"), $(sql_quote "$solution"),
-                    '$confidence', $(sql_quote "$timestamp"));"
+                    '$confidence', $(sql_quote "$timestamp"), $(sql_quote "$project"));"
         count=$((count + 1))
     done < <(yq -o=json '.patterns[]' "$PATTERNS_FILE" 2>/dev/null | jq -c '.')
     echo "  Loaded $count patterns"
@@ -190,7 +193,7 @@ load_patterns() {
     local anti_count=0
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
-        local id name context problem solution timestamp
+        local id name context problem solution timestamp project
 
         id=$(echo "$line" | jq -r '.id // ""')
         name=$(echo "$line" | jq -r '"ANTI: " + (.name // "")')
@@ -198,11 +201,13 @@ load_patterns() {
         problem=$(echo "$line" | jq -r '.risk // ""')
         solution=$(echo "$line" | jq -r '.fix // ""')
         timestamp=$(echo "$line" | jq -r '.created_at // ""')
+        project=$(echo "$line" | jq -r '.project // ""')
+        [[ -z "$project" ]] && project="lore"
 
-        sqlite3 "$DB" "INSERT INTO patterns(id, name, context, problem, solution, confidence, timestamp)
+        sqlite3 "$DB" "INSERT INTO patterns(id, name, context, problem, solution, confidence, timestamp, project)
             VALUES ($(sql_quote "$id"), $(sql_quote "$name"), $(sql_quote "$context"),
                     $(sql_quote "$problem"), $(sql_quote "$solution"),
-                    '0.5', $(sql_quote "$timestamp"));"
+                    '0.5', $(sql_quote "$timestamp"), $(sql_quote "$project"));"
         anti_count=$((anti_count + 1))
     done < <(yq -o=json '.anti_patterns[]' "$PATTERNS_FILE" 2>/dev/null | jq -c '.')
     echo "  Loaded $anti_count anti-patterns"
@@ -325,7 +330,7 @@ WITH ranked AS (
         'pattern' as type,
         id,
         name || ': ' || solution as content,
-        'lore' as project,
+        project,
         timestamp,
         CAST(CAST(confidence AS REAL) * 5 AS REAL) as importance,
         rank * -1 as bm25_score
@@ -1021,7 +1026,7 @@ cmd_index_one() {
                         $importance);"
             ;;
         pattern)
-            local id name context problem solution confidence timestamp
+            local id name context problem solution confidence timestamp project
             id=$(echo "$json" | jq -r '.id // ""')
             [[ -z "$id" ]] && return 1
             local exists
@@ -1034,11 +1039,13 @@ cmd_index_one() {
             solution=$(echo "$json" | jq -r '.solution // ""')
             confidence=$(echo "$json" | jq -r '.confidence // "medium"')
             timestamp=$(echo "$json" | jq -r '.origin // ""')
+            project=$(echo "$json" | jq -r '.project // ""')
+            [[ -z "$project" ]] && project="lore"
 
-            sqlite3 "$DB" "INSERT INTO patterns(id, name, context, problem, solution, confidence, timestamp)
+            sqlite3 "$DB" "INSERT INTO patterns(id, name, context, problem, solution, confidence, timestamp, project)
                 VALUES ($(sql_quote "$id"), $(sql_quote "$name"), $(sql_quote "$context"),
                         $(sql_quote "$problem"), $(sql_quote "$solution"), $(sql_quote "$confidence"),
-                        $(sql_quote "$timestamp"));"
+                        $(sql_quote "$timestamp"), $(sql_quote "$project"));"
             ;;
         failure)
             local id error_type message tool step timestamp

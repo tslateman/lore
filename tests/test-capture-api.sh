@@ -121,6 +121,21 @@ file_size() {
     wc -c < "$1" | tr -d ' '
 }
 
+assert_last_pattern_field() {
+    local desc="$1"
+    local field="$2"
+    local expected="$3"
+    local actual
+    actual=$(yq -r ".patterns[-1].${field}" "$FIXTURE_DIR/patterns/data/patterns.yaml" 2>/dev/null) || actual="<no pattern captured>"
+    if [[ "$actual" == "$expected" ]]; then
+        echo "  PASS: $desc"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL: $desc (expected '$expected', got '$actual')"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
 # --- Tests ---
 
 test_infer_decision_from_rationale() {
@@ -236,6 +251,43 @@ test_backward_compat_learn() {
 
     assert_file_grew "patterns.yaml grew" "$FIXTURE_DIR/patterns/data/patterns.yaml" "$pat_before"
     assert_contains "learn text recorded" "$FIXTURE_DIR/patterns/data/patterns.yaml" "Backward compat pattern"
+    teardown
+}
+
+test_learn_stores_category_and_project() {
+    echo "Test: lore learn stores --category and --project verbatim"
+    setup
+
+    "$FIXTURE_DIR/lore.sh" learn "Taxonomy pattern" \
+        --context "Pinning the taxonomy fields" \
+        --solution "Store what the caller passed" \
+        --category metrics-design \
+        --project spec-trace \
+        --force || true
+
+    assert_last_pattern_field "category stored verbatim" category "metrics-design"
+    assert_last_pattern_field "project stored verbatim" project "spec-trace"
+    teardown
+}
+
+test_learn_defaults_project_when_absent() {
+    echo "Test: lore learn records a project even without --project"
+    setup
+
+    "$FIXTURE_DIR/lore.sh" learn "Defaulted project pattern" \
+        --context "Omitting the project flag" \
+        --solution "Derive the project from the working directory" \
+        --force || true
+
+    local actual
+    actual=$(yq -r '.patterns[-1].project' "$FIXTURE_DIR/patterns/data/patterns.yaml" 2>/dev/null) || actual="<no pattern captured>"
+    if [[ -n "$actual" && "$actual" != "null" ]]; then
+        echo "  PASS: project recorded ($actual)"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL: project recorded (got '$actual')"
+        FAIL=$((FAIL + 1))
+    fi
     teardown
 }
 
@@ -360,6 +412,10 @@ echo ""
 test_backward_compat_remember
 echo ""
 test_backward_compat_learn
+echo ""
+test_learn_stores_category_and_project
+echo ""
+test_learn_defaults_project_when_absent
 echo ""
 test_backward_compat_fail
 echo ""
