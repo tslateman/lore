@@ -1038,7 +1038,7 @@ cmd_index_one() {
             problem=$(echo "$json" | jq -r '.problem // ""')
             solution=$(echo "$json" | jq -r '.solution // ""')
             confidence=$(echo "$json" | jq -r '.confidence // "medium"')
-            timestamp=$(echo "$json" | jq -r '.origin // ""')
+            timestamp=$(echo "$json" | jq -r '.created_at // ""')
             project=$(echo "$json" | jq -r '.project // ""')
             [[ -z "$project" ]] && project="lore"
 
