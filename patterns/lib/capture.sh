@@ -394,74 +394,26 @@ list_patterns_table() {
 
     if [[ "$type" == "all" || "$type" == "patterns" ]]; then
         echo -e "\n${BLUE}=== Patterns ===${NC}"
-        echo -e "${CYAN}ID\t\t\t\tName\t\t\t\tCategory\tConfidence${NC}"
+        echo -e "${CYAN}ID\t\t\t\tName\t\t\t\tCategory\t\tConfidence${NC}"
         echo "--------------------------------------------------------------------------------"
 
-        awk -v cat="$category" '
-            BEGIN { in_patterns = 0; in_entry = 0 }
-            /^patterns:/ { in_patterns = 1; next }
-            /^anti_patterns:/ { in_patterns = 0 }
-            in_patterns && /- id:/ {
-                in_entry = 1
-                gsub(/.*id: "/, "")
-                gsub(/".*/, "")
-                id = $0
-            }
-            in_entry && /name:/ {
-                gsub(/.*name: "/, "")
-                gsub(/".*/, "")
-                name = $0
-            }
-            in_entry && /category:/ {
-                gsub(/.*category: "/, "")
-                gsub(/".*/, "")
-                entry_cat = $0
-            }
-            in_entry && /confidence:/ {
-                gsub(/.*confidence: /, "")
-                conf = $0
-                if (cat == "" || entry_cat == cat) {
-                    printf "%-24s\t%-32s\t%-12s\t%.2f\n", id, substr(name, 1, 32), entry_cat, conf
-                }
-                in_entry = 0
-            }
-        ' "$PATTERNS_FILE"
+        yq '.patterns[] | [.id, .name, .category, .confidence] | @tsv' "$PATTERNS_FILE" |
+            awk -F'\t' -v cat="$category" '
+                cat == "" || $3 == cat {
+                    printf "%-24s\t%-32s\t%-12s\t%.2f\n", $1, substr($2, 1, 32), $3, $4
+                }'
     fi
 
     if [[ "$type" == "all" || "$type" == "anti-patterns" ]]; then
         echo -e "\n${RED}=== Anti-Patterns ===${NC}"
-        echo -e "${CYAN}ID\t\t\t\tName\t\t\t\tCategory\tSeverity${NC}"
+        echo -e "${CYAN}ID\t\t\t\tName\t\t\t\tCategory\t\tSeverity${NC}"
         echo "--------------------------------------------------------------------------------"
 
-        awk -v cat="$category" '
-            BEGIN { in_anti = 0; in_entry = 0 }
-            /^anti_patterns:/ { in_anti = 1; next }
-            in_anti && /- id:/ {
-                in_entry = 1
-                gsub(/.*id: "/, "")
-                gsub(/".*/, "")
-                id = $0
-            }
-            in_entry && /name:/ {
-                gsub(/.*name: "/, "")
-                gsub(/".*/, "")
-                name = $0
-            }
-            in_entry && /category:/ {
-                gsub(/.*category: "/, "")
-                gsub(/".*/, "")
-                entry_cat = $0
-            }
-            in_entry && /severity:/ {
-                gsub(/.*severity: "/, "")
-                gsub(/".*/, "")
-                sev = $0
-                if (cat == "" || entry_cat == cat) {
-                    printf "%-24s\t%-32s\t%-12s\t%s\n", id, substr(name, 1, 32), entry_cat, sev
-                }
-                in_entry = 0
-            }
-        ' "$PATTERNS_FILE"
+        yq '.anti_patterns[] | [.id, .name, .category, .severity] | @tsv' "$PATTERNS_FILE" |
+            awk -F'\t' -v cat="$category" '
+                cat == "" || $3 == cat {
+                    printf "%-24s\t%-32s\t%-12s\t%s\n", $1, substr($2, 1, 32), $3, $4
+                }'
     fi
 
     echo ""
