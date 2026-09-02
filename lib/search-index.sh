@@ -1048,31 +1048,30 @@ cmd_index_one() {
                         $(sql_quote "$timestamp"), $(sql_quote "$project"));"
             ;;
         failure)
-            local id error_type message tool step timestamp
+            local id error_type error_message tool timestamp
             id=$(echo "$json" | jq -r '.id // ""')
             [[ -z "$id" ]] && return 1
 
             error_type=$(echo "$json" | jq -r '.error_type // ""')
-            message=$(echo "$json" | jq -r '.message // ""')
+            error_message=$(echo "$json" | jq -r '.error_message // ""')
             tool=$(echo "$json" | jq -r '.tool // ""')
-            step=$(echo "$json" | jq -r '.step // ""')
             timestamp=$(echo "$json" | jq -r '.timestamp // ""')
 
-            sqlite3 "$DB" "INSERT OR IGNORE INTO failures(id, error_type, message, tool, step, timestamp)
-                VALUES ($(sql_quote "$id"), $(sql_quote "$error_type"), $(sql_quote "$message"),
-                        $(sql_quote "$tool"), $(sql_quote "$step"), $(sql_quote "$timestamp"));"
+            sqlite3 "$DB" "INSERT OR IGNORE INTO failures(id, error_type, error_message, tool, timestamp)
+                VALUES ($(sql_quote "$id"), $(sql_quote "$error_type"), $(sql_quote "$error_message"),
+                        $(sql_quote "$tool"), $(sql_quote "$timestamp"));"
             ;;
         signal)
-            local id content source timestamp
+            local id content tags timestamp
             id=$(echo "$json" | jq -r '.id // ""')
             [[ -z "$id" ]] && return 1
 
             content=$(echo "$json" | jq -r '.content // ""')
-            source=$(echo "$json" | jq -r '.source // ""')
+            tags=$(echo "$json" | jq -r '(.tags // []) | join(", ")')
             timestamp=$(echo "$json" | jq -r '.timestamp // ""')
 
-            sqlite3 "$DB" "INSERT OR IGNORE INTO observations(id, content, source, timestamp)
-                VALUES ($(sql_quote "$id"), $(sql_quote "$content"), $(sql_quote "$source"),
+            sqlite3 "$DB" "INSERT OR IGNORE INTO observations(id, content, tags, timestamp)
+                VALUES ($(sql_quote "$id"), $(sql_quote "$content"), $(sql_quote "$tags"),
                         $(sql_quote "$timestamp"));"
             ;;
         concept)
