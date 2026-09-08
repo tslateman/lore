@@ -1,0 +1,284 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Delegated Task Loop",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "lead",
+      "label": "Team Lead"
+    },
+    {
+      "id": "agent",
+      "label": "Delegated Agent"
+    },
+    {
+      "id": "oversight",
+      "label": "Correction Paths",
+      "variant": "exception"
+    },
+    {
+      "id": "record",
+      "label": "Written Record"
+    }
+  ],
+  "phases": [
+    {
+      "id": "dispatch",
+      "label": "Dispatch",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "flight",
+      "label": "In flight",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "close",
+      "label": "Return and close out",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "seed",
+    "spawn",
+    "work",
+    "report",
+    "accept",
+    "closeout"
+  ],
+  "nodes": [
+    {
+      "id": "seed",
+      "lane": "lead",
+      "col": 0,
+      "type": "backend",
+      "label": "Seed Context",
+      "sublabel": "lore resume + queries",
+      "tag": "\u00a71\u20132",
+      "width": 138
+    },
+    {
+      "id": "spawn",
+      "lane": "lead",
+      "col": 1,
+      "type": "security",
+      "label": "Task Carries proof:",
+      "sublabel": "artifact named before spawn",
+      "tag": "\u00a73",
+      "width": 138
+    },
+    {
+      "id": "work",
+      "lane": "agent",
+      "col": 2,
+      "type": "backend",
+      "label": "Agent Runs",
+      "sublabel": "edits, commands, tests",
+      "width": 138
+    },
+    {
+      "id": "report",
+      "lane": "agent",
+      "col": 3,
+      "type": "messagebus",
+      "label": "Returns Artifact",
+      "sublabel": "output, not intent",
+      "width": 138
+    },
+    {
+      "id": "direction",
+      "lane": "oversight",
+      "col": 2,
+      "type": "security",
+      "label": "Direction Check",
+      "sublabel": "TaskGet, one read",
+      "tag": "\u00a74",
+      "width": 138
+    },
+    {
+      "id": "steer",
+      "lane": "oversight",
+      "col": 3,
+      "type": "messagebus",
+      "label": "SendMessage Steer",
+      "sublabel": "costs a message, not a run",
+      "width": 138
+    },
+    {
+      "id": "accept",
+      "lane": "lead",
+      "col": 4,
+      "type": "security",
+      "label": "Accept Gate",
+      "sublabel": "artifact, or incomplete",
+      "width": 138
+    },
+    {
+      "id": "closeout",
+      "lane": "lead",
+      "col": 5,
+      "type": "backend",
+      "label": "Close Out",
+      "sublabel": "scribe, diff, shutdown",
+      "tag": "\u00a75",
+      "width": 138
+    },
+    {
+      "id": "lore",
+      "lane": "record",
+      "col": 4,
+      "type": "database",
+      "label": "Lore",
+      "sublabel": "decisions and patterns",
+      "width": 138
+    },
+    {
+      "id": "playbook",
+      "lane": "record",
+      "col": 5,
+      "type": "database",
+      "label": "Playbook Diff",
+      "sublabel": "second correction lands",
+      "width": 138
+    },
+    {
+      "id": "rules",
+      "lane": "record",
+      "col": 0,
+      "type": "database",
+      "label": "~/.claude/rules/",
+      "sublabel": "loads on every invocation",
+      "width": 138
+    }
+  ],
+  "edges": [
+    {
+      "id": "seed-spawn",
+      "from": "seed",
+      "to": "spawn",
+      "variant": "default",
+      "role": "main"
+    },
+    {
+      "id": "spawn-work",
+      "from": "spawn",
+      "to": "work",
+      "label": "proof named up front",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "work-report",
+      "from": "work",
+      "to": "report",
+      "variant": "default",
+      "role": "main"
+    },
+    {
+      "id": "report-accept",
+      "from": "report",
+      "to": "accept",
+      "variant": "default",
+      "role": "main"
+    },
+    {
+      "id": "accept-closeout",
+      "from": "accept",
+      "to": "closeout",
+      "label": "artifact shows the change",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "accept-back",
+      "from": "accept",
+      "to": "work",
+      "label": "no artifact: send it back",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "work-direction",
+      "from": "work",
+      "to": "direction",
+      "label": "mid-run read",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "direction-steer",
+      "from": "direction",
+      "to": "steer",
+      "label": "wrong direction",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "steer-work",
+      "from": "steer",
+      "to": "work",
+      "label": "correction now",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "closeout-lore",
+      "from": "closeout",
+      "to": "lore",
+      "label": "lore-scribe",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "closeout-playbook",
+      "from": "closeout",
+      "to": "playbook",
+      "label": "diff the playbook",
+      "variant": "emphasis",
+      "role": "branch"
+    },
+    {
+      "id": "playbook-rules",
+      "from": "playbook",
+      "to": "rules",
+      "label": "commit the line",
+      "variant": "default",
+      "role": "return"
+    },
+    {
+      "id": "rules-spawn",
+      "from": "rules",
+      "to": "spawn",
+      "label": "enforced next run",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Where each hook sits",
+      "items": [
+        "\u00a73 names the proof artifact before the agent spawns",
+        "\u00a74 reads direction once, while the run can still change",
+        "\u00a75 commits the second correction where every session reads it"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Unproven",
+      "items": [
+        "No team has spawned under the proof contract yet",
+        "The direction signals are guesses until one hand-run pass",
+        "Nothing tracks the first occurrence behind the twice-trigger"
+      ]
+    }
+  ]
+}
