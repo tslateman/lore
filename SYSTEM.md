@@ -69,10 +69,9 @@ Actions flow through the same verbs a human would use -- inbox
 promote/discard, `review --resolve`, `graph connect` -- never raw file
 edits. Every action's target id is validated first; invalid actions are
 skipped and reported. Without the `claude` CLI, `run` degrades to printing
-the manifest for a manual pass. The `lore-librarian` agent
-(`agents/lore-librarian.md`) wraps this loop with triage rules; unlike
-`lore-resolver` and `lore-cartographer` (post-hoc audits), the librarian is
-the scheduled writer. After a pass, `lore index build` refreshes FTS5.
+the manifest for a manual pass. `curate` is Lore's scheduled writer: every
+other command waits to be called. After a pass, `lore index build` refreshes
+FTS5.
 
 ### Type-Level Graph
 

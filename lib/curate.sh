@@ -8,9 +8,6 @@
 # judgment and executes the returned actions through existing CLI verbs --
 # inbox promote/discard, review resolution, graph edge add. Default is
 # dry-run; --apply writes.
-#
-# Unlike agents/lore-resolver.md and agents/lore-cartographer.md (post-hoc
-# audits), this loop drives curation on a schedule.
 
 set -euo pipefail
 
