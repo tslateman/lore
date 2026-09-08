@@ -55,14 +55,14 @@ gets recorded. Future sessions receive that pattern at resume. The system learns
 
 Capture is cheap; judgment is the bottleneck. Four stores accumulate items
 awaiting a decision: raw inbox entries, pending decision outcomes, untyped
-failures, and edgeless graph nodes. The librarian (`lib/librarian.sh`) drives
+failures, and edgeless graph nodes. The curate loop (`lib/curate.sh`) drives
 that judgment on a schedule:
 
 ```text
-lore librarian manifest   # JSON worklist: inbox, stale decisions,
-                          # untyped failures, orphans (+ FTS candidates)
-lore librarian run        # pipe manifest to claude -p, print proposed actions
-lore librarian run --apply  # execute actions via existing CLI verbs
+lore curate manifest     # JSON worklist: inbox, stale decisions,
+                         # untyped failures, orphans (+ FTS candidates)
+lore curate run          # pipe manifest to claude -p, print proposed actions
+lore curate run --apply  # execute actions via existing CLI verbs
 ```
 
 Actions flow through the same verbs a human would use -- inbox

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# librarian.sh - Curation loop driver
+# curate.sh - Curation loop driver
 #
-# The librarian turns Lore's manual judgment tasks into a scheduled loop.
-# `librarian manifest` emits a deterministic JSON worklist of pending
+# Curation turns Lore's manual judgment tasks into a scheduled loop.
+# `curate manifest` emits a deterministic JSON worklist of pending
 # curation (raw inbox entries, stale pending decisions, untyped failures,
-# graph orphans). `librarian run` pipes that manifest to `claude -p` for
+# graph orphans). `curate run` pipes that manifest to `claude -p` for
 # judgment and executes the returned actions through existing CLI verbs --
 # inbox promote/discard, review resolution, graph edge add. Default is
 # dry-run; --apply writes.
 #
 # Unlike agents/lore-resolver.md and agents/lore-cartographer.md (post-hoc
-# audits), the librarian drives curation on a schedule.
+# audits), this loop drives curation on a schedule.
 
 set -euo pipefail
 
@@ -135,8 +135,8 @@ _orphan_candidates() {
 }
 
 # Emit the full manifest as JSON.
-# Usage: librarian_manifest [--days N] [--limit N]
-librarian_manifest() {
+# Usage: curate_manifest [--days N] [--limit N]
+curate_manifest() {
     local days=30 limit=25 with_candidates=true
 
     while [[ $# -gt 0 ]]; do
@@ -198,7 +198,7 @@ librarian_manifest() {
 # --- Target validation ---
 
 # Latest version of an inbox record (obs- or sig-), empty if absent.
-_librarian_inbox_record() {
+_curate_inbox_record() {
     local id="$1" file=""
     case "$id" in
         obs-*) file="$LIBRARIAN_OBSERVATIONS_FILE" ;;
@@ -209,14 +209,14 @@ _librarian_inbox_record() {
     jq -c --arg id "$id" 'select(.id == $id)' "$file" 2>/dev/null | tail -1 || true
 }
 
-_librarian_decision_exists() {
+_curate_decision_exists() {
     local id="$1"
     [[ -s "$LORE_DECISIONS_FILE" ]] || return 1
     jq -e --arg id "$id" -s 'map(select(.id == $id)) | length > 0' \
         "$LORE_DECISIONS_FILE" >/dev/null 2>&1
 }
 
-_librarian_failure_record() {
+_curate_failure_record() {
     local id="$1"
     local failures_file="${LORE_FAILURES_DATA}/failures.jsonl"
     [[ -f "$failures_file" ]] || return 0
@@ -224,7 +224,7 @@ _librarian_failure_record() {
 }
 
 # Node exists by id or name.
-_librarian_node_exists() {
+_curate_node_exists() {
     local ref="$1"
     [[ -s "$LORE_GRAPH_FILE" ]] || return 1
     jq -e --arg ref "$ref" \
@@ -237,9 +237,9 @@ _librarian_node_exists() {
 # Mark an inbox record promoted or discarded. Generalizes
 # inbox/lib/inbox.sh signal_promote/signal_discard to both inbox files
 # and pattern targets. Same record shape, same locked append.
-# Usage: _librarian_inbox_mark <id> promoted <target> <target_type>
-#        _librarian_inbox_mark <id> discarded "" "" <reason>
-_librarian_inbox_mark() {
+# Usage: _curate_inbox_mark <id> promoted <target> <target_type>
+#        _curate_inbox_mark <id> discarded "" "" <reason>
+_curate_inbox_mark() {
     local id="$1" status="$2" target="${3:-}" target_type="${4:-}" reason="${5:-}"
     local file
     case "$id" in
@@ -249,7 +249,7 @@ _librarian_inbox_mark() {
     esac
 
     local existing
-    existing=$(_librarian_inbox_record "$id")
+    existing=$(_curate_inbox_record "$id")
     [[ -z "$existing" ]] && { echo "Error: $id not found" >&2; return 1; }
 
     local current
@@ -272,7 +272,7 @@ _librarian_inbox_mark() {
 }
 
 # Retype a failure: append a new version with the corrected error_type.
-_librarian_retype_failure() {
+_curate_retype_failure() {
     local id="$1" new_type="$2" reason="${3:-}"
     local failures_file="${LORE_FAILURES_DATA}/failures.jsonl"
 
@@ -280,7 +280,7 @@ _librarian_retype_failure() {
     validate_error_type "$new_type" || return 1
 
     local existing
-    existing=$(_librarian_failure_record "$id")
+    existing=$(_curate_failure_record "$id")
     [[ -z "$existing" ]] && { echo "Error: $id not found" >&2; return 1; }
 
     local ts updated
@@ -295,7 +295,7 @@ _librarian_retype_failure() {
 # Create the promotion target via JSON I/O, then mark the inbox record.
 # On duplicate, marks the record promoted to the existing entry.
 # Args: action JSON. Prints the target id.
-_librarian_apply_promote() {
+_curate_apply_promote() {
     local action="$1"
     local id target_type
     id=$(echo "$action" | jq -r '.id')
@@ -306,7 +306,7 @@ _librarian_apply_promote() {
         decision)
             payload=$(echo "$action" | jq -c \
                 '{decision: (.text // .title // ""), rationale: (.rationale // .reason // ""),
-                  tags: (.tags // "librarian")}')
+                  tags: (.tags // "curate")}')
             ;;
         pattern)
             payload=$(echo "$action" | jq -c \
@@ -338,7 +338,7 @@ _librarian_apply_promote() {
         fi
     fi
 
-    _librarian_inbox_mark "$id" promoted "$target_id" "$target_type"
+    _curate_inbox_mark "$id" promoted "$target_id" "$target_type"
     echo "$target_id"
 }
 
@@ -346,7 +346,7 @@ _librarian_apply_promote() {
 
 # Validate and (dry-run print | apply) a single action.
 # Returns 0 = handled, 1 = skipped as invalid.
-_librarian_handle_action() {
+_curate_handle_action() {
     local action="$1" apply="$2"
     local act id reason
     act=$(echo "$action" | jq -r '.action // ""')
@@ -356,7 +356,7 @@ _librarian_handle_action() {
     case "$act" in
         promote_observation)
             local rec
-            rec=$(_librarian_inbox_record "$id")
+            rec=$(_curate_inbox_record "$id")
             if [[ -z "$rec" || "$(echo "$rec" | jq -r '.status')" != "raw" ]]; then
                 echo -e "  ${YELLOW}skip${NC} promote_observation ${id}: not found or not raw"
                 return 1
@@ -365,7 +365,7 @@ _librarian_handle_action() {
             tt=$(echo "$action" | jq -r '.target_type // "decision"')
             if [[ "$apply" == true ]]; then
                 local target_id
-                if target_id=$(_librarian_apply_promote "$action"); then
+                if target_id=$(_curate_apply_promote "$action"); then
                     echo -e "  ${GREEN}promoted${NC} ${id} -> ${tt} ${target_id} ${DIM}(${reason})${NC}"
                 else
                     echo -e "  ${YELLOW}skip${NC} promote_observation ${id}: capture failed"
@@ -377,13 +377,13 @@ _librarian_handle_action() {
             ;;
         discard_observation)
             local rec
-            rec=$(_librarian_inbox_record "$id")
+            rec=$(_curate_inbox_record "$id")
             if [[ -z "$rec" || "$(echo "$rec" | jq -r '.status')" != "raw" ]]; then
                 echo -e "  ${YELLOW}skip${NC} discard_observation ${id}: not found or not raw"
                 return 1
             fi
             if [[ "$apply" == true ]]; then
-                _librarian_inbox_mark "$id" discarded "" "" "$reason" >/dev/null
+                _curate_inbox_mark "$id" discarded "" "" "$reason" >/dev/null
                 echo -e "  ${GREEN}discarded${NC} ${id} ${DIM}(${reason})${NC}"
             else
                 echo -e "  ${CYAN}would discard${NC} ${id} ${DIM}(${reason})${NC}"
@@ -392,13 +392,13 @@ _librarian_handle_action() {
         set_failure_type)
             local new_type rec
             new_type=$(echo "$action" | jq -r '.error_type // ""')
-            rec=$(_librarian_failure_record "$id")
+            rec=$(_curate_failure_record "$id")
             if [[ -z "$rec" ]]; then
                 echo -e "  ${YELLOW}skip${NC} set_failure_type ${id}: not found"
                 return 1
             fi
             if [[ "$apply" == true ]]; then
-                if _librarian_retype_failure "$id" "$new_type" "$reason" 2>/dev/null; then
+                if _curate_retype_failure "$id" "$new_type" "$reason" 2>/dev/null; then
                     echo -e "  ${GREEN}retyped${NC} ${id} -> ${new_type} ${DIM}(${reason})${NC}"
                 else
                     echo -e "  ${YELLOW}skip${NC} set_failure_type ${id}: invalid type '${new_type}'"
@@ -412,7 +412,7 @@ _librarian_handle_action() {
             local outcome lesson
             outcome=$(echo "$action" | jq -r '.outcome // ""')
             lesson=$(echo "$action" | jq -r '.lesson // ""')
-            if ! _librarian_decision_exists "$id"; then
+            if ! _curate_decision_exists "$id"; then
                 echo -e "  ${YELLOW}skip${NC} resolve_decision ${id}: not found"
                 return 1
             fi
@@ -441,11 +441,11 @@ _librarian_handle_action() {
             from=$(echo "$action" | jq -r '.from // ""')
             to=$(echo "$action" | jq -r '.to // ""')
             relation=$(echo "$action" | jq -r '.relation // .type // "relates_to"')
-            if ! _librarian_node_exists "$from"; then
+            if ! _curate_node_exists "$from"; then
                 echo -e "  ${YELLOW}skip${NC} add_edge: node not found '${from}'"
                 return 1
             fi
-            if ! _librarian_node_exists "$to"; then
+            if ! _curate_node_exists "$to"; then
                 echo -e "  ${YELLOW}skip${NC} add_edge: node not found '${to}'"
                 return 1
             fi
@@ -470,7 +470,7 @@ _librarian_handle_action() {
 
 # Process a JSON array of actions.
 # Args: actions-json apply(true|false)
-_librarian_process_actions() {
+_curate_process_actions() {
     local actions="$1" apply="$2"
     local total handled=0 skipped=0
 
@@ -486,7 +486,7 @@ _librarian_process_actions() {
 
     while IFS= read -r action; do
         [[ -z "$action" ]] && continue
-        if _librarian_handle_action "$action" "$apply"; then
+        if _curate_handle_action "$action" "$apply"; then
             handled=$((handled + 1))
         else
             skipped=$((skipped + 1))
@@ -504,9 +504,9 @@ _librarian_process_actions() {
 }
 
 # The strict prompt sent to the model along with the manifest.
-_librarian_prompt() {
+_curate_prompt() {
     cat <<'PROMPT'
-You are the Lore librarian. Below is a JSON manifest of pending curation
+You are the Lore curator. Below is a JSON manifest of pending curation
 work. Respond with ONLY a JSON array of actions -- no prose, no markdown
 fences. Each element must be one of:
 
@@ -530,16 +530,16 @@ PROMPT
 }
 
 # Ask claude for actions, with a hard timeout. Prints raw model output.
-_librarian_ask_claude() {
+_curate_ask_claude() {
     local manifest="$1"
-    printf '%s\n%s\n' "$(_librarian_prompt)" "$manifest" \
+    printf '%s\n%s\n' "$(_curate_prompt)" "$manifest" \
         | perl -e "alarm ${LIBRARIAN_TIMEOUT}; exec @ARGV" \
             claude -p --model "$LIBRARIAN_MODEL" \
             "${LORE_CLAUDE_ISOLATION[@]}" 2>/dev/null
 }
 
 # Extract a JSON array from model output (tolerates markdown fences).
-_librarian_extract_actions() {
+_curate_extract_actions() {
     local raw="$1"
     local stripped
     stripped=$(printf '%s\n' "$raw" | sed '/^```/d')
@@ -551,8 +551,8 @@ _librarian_extract_actions() {
 }
 
 # Run one curation cycle: manifest -> claude -> actions.
-# Usage: librarian_run [--apply] [--days N] [--limit N]
-librarian_run() {
+# Usage: curate_run [--apply] [--days N] [--limit N]
+curate_run() {
     local apply=false days=30 limit=25
 
     while [[ $# -gt 0 ]]; do
@@ -565,7 +565,7 @@ librarian_run() {
     done
 
     local manifest
-    manifest=$(librarian_manifest --days "$days" --limit "$limit")
+    manifest=$(curate_manifest --days "$days" --limit "$limit")
 
     local pending
     pending=$(echo "$manifest" | jq \
@@ -583,25 +583,25 @@ librarian_run() {
     fi
 
     local raw
-    if ! raw=$(_librarian_ask_claude "$manifest"); then
+    if ! raw=$(_curate_ask_claude "$manifest"); then
         echo -e "${YELLOW}claude call failed or timed out -- printing manifest for a manual pass.${NC}" >&2
         echo "$manifest"
         return 0
     fi
 
     local actions
-    if ! actions=$(_librarian_extract_actions "$raw"); then
+    if ! actions=$(_curate_extract_actions "$raw"); then
         echo -e "${YELLOW}Model returned no parseable action list -- printing manifest.${NC}" >&2
         echo "$manifest"
         return 0
     fi
 
-    _librarian_process_actions "$actions" "$apply"
+    _curate_process_actions "$actions" "$apply"
 }
 
-librarian_usage() {
+curate_usage() {
     cat <<'EOF'
-Usage: lore librarian <command> [options]
+Usage: lore curate <command> [options]
 
 Commands:
   manifest [--days N] [--limit N]   Emit JSON worklist of pending curation
@@ -619,16 +619,16 @@ Environment:
 EOF
 }
 
-librarian_main() {
+curate_main() {
     local sub="${1:-manifest}"
     shift 2>/dev/null || true
     case "$sub" in
-        manifest)      librarian_manifest "$@" ;;
-        run)           librarian_run "$@" ;;
-        help|-h|--help) librarian_usage ;;
+        manifest)      curate_manifest "$@" ;;
+        run)           curate_run "$@" ;;
+        help|-h|--help) curate_usage ;;
         *)
-            echo -e "${RED}Unknown librarian command: ${sub}${NC}" >&2
-            librarian_usage >&2
+            echo -e "${RED}Unknown curate command: ${sub}${NC}" >&2
+            curate_usage >&2
             return 1
             ;;
     esac

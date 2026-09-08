@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # model.sh - Shared isolation flags for one-shot `claude -p` helper calls
 #
-# Helper spawns (rerank, librarian, validate, handoff) need none of the
+# Helper spawns (rerank, curate, validate, handoff) need none of the
 # interactive session's machinery. A bare `claude -p` boots every
 # configured MCP server — remote connectors, browser automation — before
 # answering a one-shot prompt: tens of seconds when cold, then the

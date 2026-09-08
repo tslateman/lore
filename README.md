@@ -16,7 +16,7 @@ Explicit context management for multi-agent systems.
 - **python3** - Graph traversal (`lib/search-index.sh`), rerank scoring
   (`lib/recall-router.sh`), and the session-handoff hooks under
   `scripts/hooks/`
-- **perl** - `lore librarian` (`lib/librarian.sh`), and the timeout fallback
+- **perl** - `lore curate` (`lib/curate.sh`), and the timeout fallback
   for rerank on systems without `timeout(1)`. Ships with macOS and most Linux
   distributions.
 

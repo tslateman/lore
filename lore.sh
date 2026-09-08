@@ -137,7 +137,6 @@ Query:
   review                Review pending decisions
   corpus <spec-file>    Assemble the clauses a spec must be judged against
   standards             Normative clauses (new | add | enforce | list | lint)
-  librarian             Curate pending work (manifest | run [--apply])
   brief <topic>         Assemble topic-specific context
 
 Run 'lore help' for all commands.
@@ -227,6 +226,8 @@ MAINTENANCE
   index                   Build/rebuild search index
   validate                Run comprehensive checks
   ingest <p> <t> <file>   Bulk import from external formats
+  curate                  Work the pending-judgment queue (manifest | run)
+    run --apply           Execute proposed actions (default: dry-run)
   consolidate             Group similar decisions and create summaries
     --write               Actually create summaries (default: dry-run)
     --promote             Also create concepts from clusters
@@ -2863,7 +2864,7 @@ main() {
         triggers)   shift; cmd_triggers "$@" ;;
         promote-failure) shift; cmd_promote_failure "$@" ;;
         review)     shift; cmd_review "$@" ;;
-        librarian)  shift; source "$LORE_DIR/lib/librarian.sh"; librarian_main "$@" ;;
+        curate)     shift; source "$LORE_DIR/lib/curate.sh"; curate_main "$@" ;;
         brief)      shift; source "$LORE_DIR/lib/brief.sh"; cmd_brief "$@" ;;
 
         # Top-level commands

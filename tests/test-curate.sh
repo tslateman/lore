@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for the librarian curation loop (lib/librarian.sh)
+# Tests for the curation loop (lib/curate.sh)
 #
 # Covers manifest generation against a temp LORE_DATA_DIR fixture and
 # dry-run/apply action handling with a fake `claude` PATH shim.
@@ -126,7 +126,7 @@ test_manifest() {
     echo "Test: manifest generation"
 
     local manifest
-    manifest=$("$LORE" librarian manifest --days 30 --limit 25)
+    manifest=$("$LORE" curate manifest --days 30 --limit 25)
 
     assert_eq "inbox lists 2 raw entries (obs + sig, discarded excluded)" \
         "2" "$(echo "$manifest" | jq '.inbox.total')"
@@ -153,7 +153,7 @@ test_manifest() {
         "0" "$(echo "$manifest" | jq '.orphans.items[0].candidates | length')"
 
     local limited
-    limited=$("$LORE" librarian manifest --limit 1)
+    limited=$("$LORE" curate manifest --limit 1)
     assert_eq "limit caps inbox items" \
         "1" "$(echo "$limited" | jq '.inbox.included')"
     assert_eq "limit preserves totals" \
@@ -164,7 +164,7 @@ test_dry_run() {
     echo "Test: run (dry-run) proposes without writing"
 
     local output
-    output=$("$LORE" librarian run 2>/dev/null)
+    output=$("$LORE" curate run 2>/dev/null)
 
     assert_contains "proposes discard" "$output" "would discard obs-aaaa0001"
     assert_contains "proposes resolve" "$output" "would resolve dec-cccc0001 -> successful"
@@ -184,7 +184,7 @@ test_apply() {
     echo "Test: run --apply executes valid actions and skips invalid"
 
     local output
-    output=$("$LORE" librarian run --apply 2>/dev/null)
+    output=$("$LORE" curate run --apply 2>/dev/null)
 
     assert_contains "reports discard" "$output" "discarded obs-aaaa0001"
     assert_contains "reports skip of invalid id" "$output" "skip discard_observation obs-nonexistent"
@@ -211,7 +211,7 @@ test_apply() {
 
     # Applied items drain from the next manifest
     local manifest
-    manifest=$("$LORE" librarian manifest)
+    manifest=$("$LORE" curate manifest)
     assert_eq "inbox drained" "0" "$(echo "$manifest" | jq '.inbox.total')"
     assert_eq "untyped failures drained" "0" "$(echo "$manifest" | jq '.untyped_failures.total')"
     assert_eq "stale decisions drained" "0" "$(echo "$manifest" | jq '.stale_decisions.total')"
@@ -234,7 +234,7 @@ SHIM
     export PATH="$FIXTURE_DIR/bin:$PATH"
 
     local output
-    output=$("$LORE" librarian run 2>/dev/null) || true
+    output=$("$LORE" curate run 2>/dev/null) || true
     assert_contains "falls back to manifest JSON" "$output" '"generated_at"'
 }
 

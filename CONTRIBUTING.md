@@ -20,10 +20,10 @@ lore --help
 
 `bash`, `jq`, `yq`, and `sqlite3` carry most of the CLI. Two more are load-bearing:
 
-| Tool      | Used by                                                             | Required for                              |
-| --------- | ------------------------------------------------------------------- | ----------------------------------------- |
-| `python3` | `lib/search-index.sh`, `lib/recall-router.sh`, `scripts/hooks/*.sh` | Graph traversal, rerank, handoff hooks    |
-| `perl`    | `lib/librarian.sh`, `lib/rerank.sh`                                 | `lore librarian`; rerank timeout fallback |
+| Tool      | Used by                                                             | Required for                           |
+| --------- | ------------------------------------------------------------------- | -------------------------------------- |
+| `python3` | `lib/search-index.sh`, `lib/recall-router.sh`, `scripts/hooks/*.sh` | Graph traversal, rerank, handoff hooks |
+| `perl`    | `lib/curate.sh`, `lib/rerank.sh`                                    | `lore curate`; rerank timeout fallback |
 
 `yq` means mikefarah's Go implementation. Lore calls `yq -o=json`
 (`lib/corpus.sh:85`), `yq -i` (`lore.sh:2077`), and `load()` (`lore.sh:2077`).
@@ -32,7 +32,7 @@ The Python package named `yq` is a jq wrapper and answers `yq -o=json` with
 
 `perl` runs one expression, `alarm N; exec @ARGV`, to bound a `claude -p` call.
 `lib/rerank.sh` already prefers `timeout(1)` and falls back to perl only when it
-is absent; `lib/librarian.sh` calls perl unconditionally. Giving librarian the
+is absent; `lib/curate.sh` calls perl unconditionally. Giving curate the
 same three-branch helper would drop perl to optional.
 
 ## Code Style
