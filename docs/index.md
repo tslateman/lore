@@ -19,4 +19,5 @@ architecture.
 Diagram pages render from the `.workflow.json` beside them. Regenerate one with
 `archify deliver workflow docs/<name>.workflow.json docs/<name>.html`.
 
-Superseded notes live in [archive/](archive/).
+Superseded notes live in the repository under
+[docs/archive/](https://github.com/tslateman/lore/tree/main/docs/archive).
