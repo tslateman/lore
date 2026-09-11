@@ -657,8 +657,9 @@ cmd_import() {
     init_graph
 
     # Merge nodes and edges
+    local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
     jq -s '.[0] * .[1] | .nodes = (.[0].nodes + .[1].nodes) | .edges = (.[0].edges + .[1].edges)' \
-        "$GRAPH_FILE" "$import_file" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+        "$GRAPH_FILE" "$import_file" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
 
     echo -e "${GREEN}Imported from: $import_file${NC}"
     cmd_stats

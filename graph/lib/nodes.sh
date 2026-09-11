@@ -70,12 +70,13 @@ add_node() {
            "$GRAPH_FILE")
 
         if [[ "$changed" == '"yes"' ]]; then
+            local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
             jq --arg id "$id" \
                --arg name "$name" \
                --argjson new_data "$data" \
                --arg updated "$timestamp" \
                '.nodes[$id].data = (.nodes[$id].data * $new_data) | .nodes[$id].name = $name | .nodes[$id].updated_at = $updated' \
-               "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+               "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
 
             echo "Merged node: $id"
         else
@@ -83,13 +84,14 @@ add_node() {
         fi
     else
         # Create new node
+        local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
         jq --arg id "$id" \
            --arg name "$name" \
            --arg type "$type" \
            --argjson data "$data" \
            --arg created "$timestamp" \
            '.nodes[$id] = {type: $type, name: $name, data: $data, created_at: $created, updated_at: $created}' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
 
         echo "Created node: $id"
     fi
@@ -128,9 +130,10 @@ delete_node() {
     init_graph
 
     # Remove node and all edges referencing it
+    local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
     jq --arg id "$id" \
        'del(.nodes[$id]) | .edges = [.edges[] | select(.from != $id and .to != $id)]' \
-       "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+       "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
 
     echo "Deleted node: $id"
 }
@@ -166,11 +169,12 @@ update_node() {
        "$GRAPH_FILE")
 
     if [[ "$changed" == '"yes"' ]]; then
+        local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
         jq --arg id "$id" \
            --argjson data "$data" \
            --arg updated "$timestamp" \
            'if .nodes[$id] then .nodes[$id].data = (.nodes[$id].data * $data) | .nodes[$id].updated_at = $updated else . end' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
 
         echo "Updated node: $id"
     else

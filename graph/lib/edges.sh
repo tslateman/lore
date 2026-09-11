@@ -66,18 +66,20 @@ add_edge() {
 
     if [[ -n "$existing" ]]; then
         # Update weight of existing edge
+        local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
         jq --arg from "$from" --arg to "$to" --arg rel "$relation" \
            --argjson weight "$weight" --arg updated "$timestamp" \
            '.edges = [.edges[] | if (.from == $from and .to == $to and .relation == $rel) then .weight = $weight | .updated_at = $updated else . end]' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
         echo "Updated edge: $from -> $to ($relation)"
     else
         # Add new edge
+        local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
         jq --arg from "$from" --arg to "$to" --arg rel "$relation" \
            --argjson weight "$weight" --arg created "$timestamp" \
            --argjson bidir "$bidirectional" \
            '.edges += [{from: $from, to: $to, relation: $rel, weight: $weight, bidirectional: $bidir, status: "active", created_at: $created}]' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
         echo "Created edge: $from -> $to ($relation)"
     fi
 
@@ -89,10 +91,11 @@ add_edge() {
             "$GRAPH_FILE")
 
         if [[ -z "$reverse_existing" ]]; then
+            local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
             jq --arg from "$to" --arg to "$from" --arg rel "$relation" \
                --argjson weight "$weight" --arg created "$timestamp" \
                '.edges += [{from: $from, to: $to, relation: $rel, weight: $weight, bidirectional: true, status: "active", created_at: $created}]' \
-               "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+               "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
         fi
     fi
 
@@ -133,13 +136,15 @@ delete_edge() {
     init_graph
 
     if [[ -n "$relation" ]]; then
+        local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
         jq --arg from "$from" --arg to "$to" --arg rel "$relation" \
            '.edges = [.edges[] | select(.from != $from or .to != $to or .relation != $rel)]' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
     else
+        local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
         jq --arg from "$from" --arg to "$to" \
            '.edges = [.edges[] | select(.from != $from or .to != $to)]' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
     fi
 
     echo "Deleted edge: $from -> $to"
@@ -157,13 +162,15 @@ deprecate_edge() {
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     if [[ -n "$relation" ]]; then
+        local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
         jq --arg from "$from" --arg to "$to" --arg rel "$relation" --arg updated "$timestamp" \
            '.edges = [.edges[] | if (.from == $from and .to == $to and .relation == $rel) then .status = "deprecated" | .updated_at = $updated else . end]' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
     else
+        local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
         jq --arg from "$from" --arg to "$to" --arg updated "$timestamp" \
            '.edges = [.edges[] | if (.from == $from and .to == $to) then .status = "deprecated" | .updated_at = $updated else . end]' \
-           "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+           "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
     fi
 
     echo "Deprecated edge: $from -> $to${relation:+ ($relation)}"
@@ -216,10 +223,11 @@ update_edge_weight() {
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+    local graph_tmp; graph_tmp=$(mktemp "${GRAPH_FILE}.XXXXXX")
     jq --arg from "$from" --arg to "$to" --arg rel "$relation" \
        --argjson weight "$new_weight" --arg updated "$timestamp" \
        '.edges = [.edges[] | if (.from == $from and .to == $to and .relation == $rel) then .weight = $weight | .updated_at = $updated else . end]' \
-       "$GRAPH_FILE" > "${GRAPH_FILE}.tmp" && mv "${GRAPH_FILE}.tmp" "$GRAPH_FILE"
+       "$GRAPH_FILE" > "$graph_tmp" && mv "$graph_tmp" "$GRAPH_FILE"
 
     echo "Updated weight: $from -> $to ($relation) = $new_weight"
 }

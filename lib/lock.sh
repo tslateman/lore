@@ -58,9 +58,9 @@ lore_sync_lock() {
 
     while ! mkdir "$lockdir" 2>/dev/null; do
         # Sweep locks abandoned by crashed holders
-        if [[ -d "$lockdir" ]]; then
-            local age
-            age=$(( $(date +%s) - $(stat -c %Y "$lockdir" 2>/dev/null || stat -f %m "$lockdir" 2>/dev/null || echo 0) ))
+        local mtime
+        if mtime=$(stat -f %m "$lockdir" 2>/dev/null || stat -c %Y "$lockdir" 2>/dev/null); then
+            local age=$(( $(date +%s) - mtime ))
             if [[ $age -gt $_SYNC_LOCK_STALE ]]; then
                 rmdir "$lockdir" 2>/dev/null || true
                 continue
