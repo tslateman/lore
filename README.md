@@ -168,7 +168,7 @@ User data lives at `$LORE_DATA_DIR` (default: `~/.local/share/lore`):
 ├── transfer/data/     # sessions/*.json
 ├── graph/data/        # graph.json
 ├── intent/data/       # goals/
-├── inbox/data/        # observations.jsonl
+├── inbox/data/        # signals.jsonl
 ├── failures/data/     # failures.jsonl
 ├── evidence/data/     # evidence.jsonl
 ├── standards/data/    # standards.jsonl, clauses.jsonl

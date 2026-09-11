@@ -6,17 +6,17 @@ Lore is the shared memory backbone for the orchestration stack. It accepts struc
 
 ## Components
 
-| Component | Accepts                   | Returns                              | Storage                         |
-| --------- | ------------------------- | ------------------------------------ | ------------------------------- |
-| journal   | decisions with rationale  | decision records, related decisions  | `journal/data/decisions.jsonl`  |
-| graph     | nodes and edges           | subgraphs, traversals                | `graph/data/graph.json`         |
-| patterns  | lessons and anti-patterns | matched patterns, suggestions        | `patterns/data/patterns.yaml`   |
-| transfer  | session snapshots         | session state, handoff notes         | `transfer/data/sessions/`       |
-| inbox     | raw observations          | observation records                  | `inbox/data/observations.jsonl` |
-| intent    | goals with criteria       | goal records                         | `intent/data/goals/`            |
-| registry  | project metadata          | project details, context bundles     | `registry/data/*.yaml`          |
-| failures  | failure reports (JSONL)   | failure records, triggers, timelines | `failures/data/failures.jsonl`  |
-| standards | normative clauses         | active clauses filtered by tag       | `standards/data/clauses.jsonl`  |
+| Component | Accepts                   | Returns                              | Storage                        |
+| --------- | ------------------------- | ------------------------------------ | ------------------------------ |
+| journal   | decisions with rationale  | decision records, related decisions  | `journal/data/decisions.jsonl` |
+| graph     | nodes and edges           | subgraphs, traversals                | `graph/data/graph.json`        |
+| patterns  | lessons and anti-patterns | matched patterns, suggestions        | `patterns/data/patterns.yaml`  |
+| transfer  | session snapshots         | session state, handoff notes         | `transfer/data/sessions/`      |
+| inbox     | raw signals               | signal records                       | `inbox/data/signals.jsonl`     |
+| intent    | goals with criteria       | goal records                         | `intent/data/goals/`           |
+| registry  | project metadata          | project details, context bundles     | `registry/data/*.yaml`         |
+| failures  | failure reports (JSONL)   | failure records, triggers, timelines | `failures/data/failures.jsonl` |
+| standards | normative clauses         | active clauses filtered by tag       | `standards/data/clauses.jsonl` |
 
 ## Write Interface
 
@@ -29,7 +29,7 @@ One verb, four destinations. Flags determine type:
 | `lore capture "X" --solution "how"`       | patterns   | `lore learn "X"`     |
 | `lore capture "X" --error-type ToolError` | failures   | `lore fail Type "X"` |
 
-Bare `capture` creates an observation. Add flags to signal importance.
+Bare `capture` creates a signal. Add flags to signal importance.
 
 ### Record a Standard Clause (standards)
 
@@ -135,21 +135,21 @@ lore graph add-edge "<from-id>" "<to-id>" \
 **Node types**: concept, file, decision, lesson, session
 **Edge relations**: relates_to, implements, learned_from, affects, depends_on
 
-### Capture an Observation (inbox)
+### Capture a Signal (inbox)
 
 ```bash
-lore observe "<raw observation>" \
+lore observe "<raw signal>" \
   --source "<filename, agent-id, or 'manual'>" \
   --tags "<tag1>,<tag2>"
 ```
 
-Observations land as raw entries in the inbox staging area. They require no classification or rationale -- use `observe` when you notice something but don't yet know what it means. Promote observations to formal entries via `lore remember` or `lore learn` after triage.
+Signals land as raw entries in the inbox staging area. They require no classification or rationale -- use `observe` when you notice something but don't yet know what it means. Promote signals to formal entries via `lore remember` or `lore learn` after triage.
 
-**Observation schema** (JSON):
+**Signal schema** (JSON):
 
 ```json
 {
-  "id": "obs-<8 hex chars>",
+  "id": "sig-<8 hex chars>",
   "timestamp": "ISO8601",
   "source": "string (filename, agent-id, or 'manual')",
   "content": "string (raw text)",
@@ -238,12 +238,12 @@ lore graph query "<concept>"
 lore graph neighbors "<node-id>"
 ```
 
-#### List Observations (inbox)
+#### List Signals (inbox)
 
 ```bash
-lore inbox                    # all observations (default: raw)
+lore inbox                    # all signals (default: raw)
 lore inbox --status raw       # filter by status
-lore inbox --status promoted  # show promoted observations
+lore inbox --status promoted  # show promoted signals
 ```
 
 #### Resume Session
@@ -386,7 +386,7 @@ $LORE_DATA_DIR/
   graph/data/graph.json             # Knowledge graph (nodes + edges)
   patterns/data/patterns.yaml       # Pattern and anti-pattern library
   transfer/data/sessions/           # Session snapshots (one JSON per session)
-  inbox/data/observations.jsonl     # Raw observation staging area
+  inbox/data/signals.jsonl          # Raw signal staging area
   intent/data/goals/                # Goal YAML files (one per goal)
   failures/data/failures.jsonl      # Failure reports
   search.db                         # FTS5 search index
