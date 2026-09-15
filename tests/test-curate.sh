@@ -238,6 +238,37 @@ SHIM
     assert_contains "falls back to manifest JSON" "$output" '"generated_at"'
 }
 
+test_consensus() {
+    echo "Test: run --consensus pipes manifest, librarian actions, and history to the panel binary"
+    cat > "$FIXTURE_DIR/bin/consensus-shim" <<'SHIM'
+#!/usr/bin/env bash
+echo "args: $*"
+jq -c '{keys: keys, inbox: (.manifest.inbox.total), actions: (.librarian_actions | length), history: (.history | map(.label))}'
+SHIM
+    chmod +x "$FIXTURE_DIR/bin/consensus-shim"
+
+    local output
+    output=$(LORE_CONSENSUS_BIN="$FIXTURE_DIR/bin/consensus-shim" LORE_CONSENSUS_MODELS="a,b,c,d" \
+        "$LORE" curate run --consensus 2>/dev/null)
+    assert_contains "panel receives lore-inbox subcommand" "$output" "args: lore-inbox --models a,b,c,d"
+    assert_contains "payload carries all three sections" "$output" '"keys":["history","librarian_actions","manifest"]'
+    assert_contains "payload carries librarian actions" "$output" '"actions":6'
+
+    echo "Test: run --consensus rejects --apply"
+    if LORE_CONSENSUS_BIN="$FIXTURE_DIR/bin/consensus-shim" "$LORE" curate run --consensus --apply >/dev/null 2>&1; then
+        echo "  FAIL: --consensus --apply should exit non-zero"
+        FAIL=$((FAIL + 1))
+    else
+        echo "  PASS: --consensus --apply exits non-zero"
+        PASS=$((PASS + 1))
+    fi
+
+    echo "Test: run --consensus fails loud without the panel binary"
+    local err
+    err=$(LORE_CONSENSUS_BIN="$FIXTURE_DIR/bin/does-not-exist" "$LORE" curate run --consensus 2>&1 >/dev/null) || true
+    assert_contains "missing binary is reported" "$err" "consensus binary not found"
+}
+
 main() {
     trap teardown EXIT
 
@@ -247,6 +278,7 @@ main() {
     install_claude_shim
     test_dry_run
     test_apply
+    test_consensus
 
     echo ""
     echo "Results: $PASS passed, $FAIL failed"

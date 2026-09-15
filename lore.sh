@@ -228,6 +228,7 @@ MAINTENANCE
   ingest <p> <t> <file>   Bulk import from external formats
   curate                  Work the pending-judgment queue (manifest | run)
     run --apply           Execute proposed actions (default: dry-run)
+    run --consensus       Four-judge panel over inbox signals, dry-run report
   consolidate             Group similar decisions and create summaries
     --write               Actually create summaries (default: dry-run)
     --promote             Also create concepts from clusters

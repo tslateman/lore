@@ -30,6 +30,9 @@ fi
 
 LIBRARIAN_MODEL="${LORE_LIBRARIAN_MODEL:-claude-sonnet-5}"
 LIBRARIAN_TIMEOUT="${LORE_LIBRARIAN_TIMEOUT:-120}"
+CONSENSUS_BIN="${LORE_CONSENSUS_BIN:-$HOME/dev/consensus-curation/.venv/bin/consensus-curation}"
+CONSENSUS_MODELS="${LORE_CONSENSUS_MODELS:-qwen3:14b,qwen2.5-coder:14b,deepseek-r1:7b,llama3.2:latest}"
+CONSENSUS_ALIGNER="${LORE_CONSENSUS_ALIGNER:-verifier}"
 LIBRARIAN_OBSERVATIONS_FILE="${LORE_INBOX_DATA}/observations.jsonl"
 
 # jq expression: dedup append-only JSONL by id, latest version wins
@@ -547,22 +550,74 @@ _curate_extract_actions() {
     return 1
 }
 
+# Inbox records a human already promoted or discarded, as ground truth for
+# the consensus panel. Emits a JSON array of {id, text, label}.
+_curate_inbox_history() {
+    local files=()
+    [[ -s "$LIBRARIAN_OBSERVATIONS_FILE" ]] && files+=("$LIBRARIAN_OBSERVATIONS_FILE")
+    [[ -s "$LORE_SIGNALS_FILE" ]] && files+=("$LORE_SIGNALS_FILE")
+    [[ ${#files[@]} -eq 0 ]] && { echo "[]"; return 0; }
+    cat "${files[@]}" | jq -s "
+        ${_JQ_LATEST}
+        | map(select(.status == \"promoted\" or .status == \"discarded\"))
+        | map({id, text: .content,
+               label: (if .status == \"discarded\" then \"discard\"
+                       else \"promote_\" + (.promoted_to // \"decision\") end)})
+    "
+}
+
+# Consensus mode: the single librarian still proposes, but a four-judge panel
+# labels every inbox signal and only 4/4 agreement counts. Dry-run only; the
+# panel report is the artifact. Fails loud when the panel binary is missing.
+_curate_run_consensus() {
+    local manifest="$1"
+    if [[ ! -x "$CONSENSUS_BIN" ]]; then
+        echo -e "${RED}consensus binary not found at ${CONSENSUS_BIN}${NC}" >&2
+        echo "Set LORE_CONSENSUS_BIN or install ~/dev/consensus-curation." >&2
+        return 1
+    fi
+    local actions="[]"
+    if command -v claude >/dev/null 2>&1; then
+        local raw
+        if raw=$(_curate_ask_claude "$manifest"); then
+            actions=$(_curate_extract_actions "$raw") || actions="[]"
+        else
+            echo -e "${YELLOW}librarian call failed -- panel runs without a librarian column.${NC}" >&2
+        fi
+    fi
+    jq -n --argjson m "$manifest" --argjson a "$actions" --argjson h "$(_curate_inbox_history)" \
+        '{manifest: $m, librarian_actions: $a, history: $h}' \
+        | "$CONSENSUS_BIN" lore-inbox --models "$CONSENSUS_MODELS" --aligner "$CONSENSUS_ALIGNER" \
+            --schedule judge_major --concurrency 1
+}
+
 # Run one curation cycle: manifest -> claude -> actions.
-# Usage: curate_run [--apply] [--days N] [--limit N]
+# Usage: curate_run [--apply] [--consensus] [--days N] [--limit N]
 curate_run() {
-    local apply=false days=30 limit=25
+    local apply=false consensus=false days=30 limit=25
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --apply) apply=true; shift ;;
+            --consensus) consensus=true; shift ;;
             --days)  days="$2"; shift 2 ;;
             --limit) limit="$2"; shift 2 ;;
             *) echo "Unknown option: $1" >&2; return 1 ;;
         esac
     done
 
+    if [[ "$consensus" == true && "$apply" == true ]]; then
+        echo "--consensus is dry-run only; drop --apply." >&2
+        return 1
+    fi
+
     local manifest
     manifest=$(curate_manifest --days "$days" --limit "$limit")
+
+    if [[ "$consensus" == true ]]; then
+        _curate_run_consensus "$manifest"
+        return $?
+    fi
 
     local pending
     pending=$(echo "$manifest" | jq \
@@ -602,17 +657,23 @@ Usage: lore curate <command> [options]
 
 Commands:
   manifest [--days N] [--limit N]   Emit JSON worklist of pending curation
-  run [--apply] [--days N] [--limit N]
+  run [--apply] [--consensus] [--days N] [--limit N]
                                     Triage via claude -p (dry-run by default)
 
 Options:
   --days N    Stale-decision age threshold in days (default 30)
   --limit N   Max items per manifest section (default 25)
   --apply     Execute proposed actions (run only)
+  --consensus Label inbox signals with a four-judge panel and report where
+              the panel, the librarian, and past human curation agree.
+              Dry-run only; cannot be combined with --apply.
 
 Environment:
   LORE_LIBRARIAN_MODEL    Model for `run` (default claude-sonnet-5)
   LORE_LIBRARIAN_TIMEOUT  Seconds before the claude call is killed (default 120)
+  LORE_CONSENSUS_BIN      Panel binary (default ~/dev/consensus-curation/.venv/bin/consensus-curation)
+  LORE_CONSENSUS_MODELS   Four comma-separated Ollama models for the panel
+  LORE_CONSENSUS_ALIGNER  verifier | lexical (default verifier)
 EOF
 }
 
