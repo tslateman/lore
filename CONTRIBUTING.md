@@ -70,7 +70,7 @@ Active voice. Omit needless words. No `Co-Authored-By` signatures.
 ## Testing
 
 ```bash
-make check       # format + lint + prose + links
+make check       # format + lint + prose + links + corpus + standards
 make sync-all    # sync external sources
 ```
 
